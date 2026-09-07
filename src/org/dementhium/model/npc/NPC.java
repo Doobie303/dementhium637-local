@@ -10,6 +10,7 @@ import org.dementhium.cache.format.CacheNPCDefinition;
 import org.dementhium.content.activity.impl.BarrowsActivity;
 import org.dementhium.content.activity.impl.CastleWarsActivity;
 import org.dementhium.content.activity.impl.barrows.BarrowsConstants;
+import org.dementhium.content.minigames.FightCaves;
 import org.dementhium.content.clans.Clan;
 import org.dementhium.content.misc.Burying.Bone;
 import org.dementhium.content.skills.Prayer;
@@ -312,6 +313,7 @@ public class NPC extends Mob {
         if (killer != null && killer.isFamiliar())
         	killer = killer.getFamiliar().getOwner();
         setDead(true);
+        FightCaves.onCaveNpcDeath(this);
         resetTurnTo();
         animate(getDeathAnimation());
         int npcId = getId();
@@ -359,6 +361,7 @@ public class NPC extends Mob {
 			break;
 	}
         if (killer != null && killer.isPlayer()) {
+            FightCaves.onCaveNpcDeath(this, killer.getPlayer());
             if (BarrowsConstants.isInBarrowsZone(killer.getPlayer()) 
             		&& killer.getPlayer().getActivity() instanceof BarrowsActivity) {
             	int cryptId = killer.getPlayer().getSettings().getTunnelEntranceId();

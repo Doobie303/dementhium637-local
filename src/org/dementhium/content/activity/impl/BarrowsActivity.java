@@ -15,6 +15,8 @@ import org.dementhium.content.dialogue.OptionAction;
 import org.dementhium.content.misc.Following;
 import org.dementhium.event.EventListener.ClickOption;
 import org.dementhium.event.impl.object.BarrowsTunnelListener;
+import org.dementhium.content.activity.impl.barrows.BarrowsReward;
+import org.dementhium.model.Container;
 import org.dementhium.model.Item;
 import org.dementhium.model.Location;
 import org.dementhium.model.Mob;
@@ -284,11 +286,12 @@ public class BarrowsActivity extends Activity<BarrowsCrypt> {
             		|| canOpenChest) {
                 player.removeAttribute("canLootBarrowsChest");
         		player.removeAttribute("newBarrowsRun");
+                Container rewards = new Container(28, false);
                 for (int[] data : BarrowsTunnelListener.COMMON_REWARDS) {
                     if (player.getRandom().nextDouble() > 0.40) {
                         int itemId = data[0];
                         int amount = Misc.random(data[1], data[2]);
-                        player.getInventory().addDropable(new Item(itemId, amount));
+                        rewards.add(new Item(itemId, amount));
                     }
                 }
                 int chance = 2;
@@ -303,8 +306,9 @@ public class BarrowsActivity extends Activity<BarrowsCrypt> {
                 if (random <= (chance > 40 ? 40 : chance)
                 		|| (Misc.random(4) == 4 && random <= chance)) {
                     int item = BarrowsTunnelListener.BARROW_REWARDS[player.getRandom().nextInt(BarrowsTunnelListener.BARROW_REWARDS.length)];
-                    player.getInventory().addDropable(new Item(item, 1));
+                    rewards.add(new Item(item, 1));
                 }
+                BarrowsReward.open(player, rewards);
                 ActionSender.sendObject(player, 10284, 3551, 9695, 0, 10, 0);
                 player.setAttribute("looted_barrows_request_shake", Boolean.TRUE);
                 

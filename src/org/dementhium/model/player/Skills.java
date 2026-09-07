@@ -69,6 +69,9 @@ public class Skills {
 	}
 
 	public void hit(int hitDiff) {
+		if (Boolean.TRUE.equals(player.getAttribute("godmode"))) {
+			return;
+		}
 		if (hitDiff > hitPoints)
 			hitDiff = hitPoints;
 		hitPoints -= hitDiff;
@@ -127,6 +130,9 @@ public class Skills {
 	}
 	
 	public void decreaseLifePointsTick(int hitDiff) {
+		if (Boolean.TRUE.equals(player.getAttribute("godmode"))) {
+			return;
+		}
 		if (isDead()) {
 			sendDead();
 			return;
@@ -304,6 +310,9 @@ public class Skills {
 	}
 
 	public void drainPray(double drain) {
+		if (Boolean.TRUE.equals(player.getAttribute("godmode"))) {
+			return;
+		}
 		setPrayerPoints(prayerPoints - drain, true);
 		if (prayerPoints <= 0) {
 			prayerPoints = 0;

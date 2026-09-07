@@ -300,7 +300,7 @@ public final class Player extends Mob {
 		ActionSender.sendConfig(this, 1438, this.getSettings().getClanChatTextColor()); //Wow finally! The reason this config wasn't working was because it had to be send after clanToJoin
 		ActionSender.sendConfig(this, 427, settings.getAcceptAidOn() ? 1 : 0);
 		if (getEquipment().getSlot(Equipment.SLOT_SHIELD) == 8856
-				&& !getAttribute("disabledTabs", false)) {
+				&& !Boolean.TRUE.equals(getAttribute("disabledTabs", Boolean.FALSE))) {
 			for (int i : Constants.W_GUILD_CATAPULT_TABS)
 				InterfaceSettings.disableTab(this, i);
 			ActionSender.sendInterface(this, 1, getConnection()
@@ -1058,14 +1058,14 @@ public final class Player extends Mob {
 		buffer.writeByte((byte) (prayer.isAncientCurses() ? 1 : 0));
 		buffer.writeByte(getWalkingQueue().isRunningBoth() ? 1 : 0);
 		buffer.writeInt(lastBankTab);
-		buffer.writeByte(getAttribute("sortLevel", true) ? 1 : 0);
-		buffer.writeByte(getAttribute("sortCombat", false) ? 1 : 0);
-		buffer.writeByte(getAttribute("sortTeleport", false) ? 1 : 0);
-		buffer.writeByte(getAttribute("showSkill", true) ? 1 : 0);
-		buffer.writeByte(getAttribute("showCombat", true) ? 1 : 0);
-		buffer.writeByte(getAttribute("showTeleport", true) ? 1 : 0);
-		buffer.writeByte(getAttribute("showMisc", true) ? 1 : 0);
-		buffer.writeByte(getAttribute("defensiveCast", false) ? 1 : 0);
+		buffer.writeByte(Boolean.TRUE.equals(getAttribute("sortLevel", Boolean.TRUE)) ? 1 : 0);
+		buffer.writeByte(Boolean.TRUE.equals(getAttribute("sortCombat", Boolean.FALSE)) ? 1 : 0);
+		buffer.writeByte(Boolean.TRUE.equals(getAttribute("sortTeleport", Boolean.FALSE)) ? 1 : 0);
+		buffer.writeByte(Boolean.TRUE.equals(getAttribute("showSkill", Boolean.TRUE)) ? 1 : 0);
+		buffer.writeByte(Boolean.TRUE.equals(getAttribute("showCombat", Boolean.TRUE)) ? 1 : 0);
+		buffer.writeByte(Boolean.TRUE.equals(getAttribute("showTeleport", Boolean.TRUE)) ? 1 : 0);
+		buffer.writeByte(Boolean.TRUE.equals(getAttribute("showMisc", Boolean.TRUE)) ? 1 : 0);
+		buffer.writeByte(Boolean.TRUE.equals(getAttribute("defensiveCast", Boolean.FALSE)) ? 1 : 0);
 		buffer.writeInt(getMagicAutocast());
 
 		//HITPOINTS & PRAYER:
@@ -1127,9 +1127,9 @@ public final class Player extends Mob {
 		}
 
 		//BARROWS:
-		buffer.writeByte(getAttribute("newBarrowsRun", false) ? 1 : 0);
-		buffer.writeByte(getAttribute("canLootBarrowsChest", Boolean.FALSE) ? 1 : 0);
-		buffer.writeByte(getAttribute("looted_barrows_request_shake", Boolean.FALSE) ? 1 : 0);
+		buffer.writeByte(Boolean.TRUE.equals(getAttribute("newBarrowsRun", Boolean.FALSE)) ? 1 : 0);
+		buffer.writeByte(Boolean.TRUE.equals(getAttribute("canLootBarrowsChest", Boolean.FALSE)) ? 1 : 0);
+		buffer.writeByte(Boolean.TRUE.equals(getAttribute("looted_barrows_request_shake", Boolean.FALSE)) ? 1 : 0);
 		buffer.writeByte(getSettings().getBarrowsKilled().size());
 		for (int i : getSettings().getBarrowsKilled()) {
 			buffer.writeInt(i);
@@ -1962,6 +1962,9 @@ public final class Player extends Mob {
 
 	@Override
 	public Damage updateHit(Mob source, int hit, CombatType type) {
+		if (Boolean.TRUE.equals(getAttribute("godmode"))) {
+			return new Damage(0);
+		}
 		if (source.isPlayer() && type == CombatType.MELEE
 				&& getAttribute("spearWall", -1) > World.getTicks()) {
 			ActionSender.sendMessage(this,

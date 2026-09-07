@@ -2,6 +2,7 @@ package org.dementhium.model.player;
 
 import org.dementhium.model.Container;
 import org.dementhium.model.Item;
+import org.dementhium.model.definition.ItemDefinition;
 import org.dementhium.net.ActionSender;
 import org.dementhium.util.Constants;
 
@@ -176,6 +177,36 @@ public class Bank {
 		sendTabConfig();
 	}
 
+	public void commandAdd(int id, int amount, int tab) {
+		if (amount <= 0 || id < 0 || id >= ItemDefinition.MAX_SIZE) {
+			return;
+		}
+		Item item = new Item(id, amount);
+		int index = bank.indexOf(item);
+		if (index > -1) {
+			Item existing = bank.get(index);
+			if (existing != null && existing.getId() == id) {
+				long total = (long) existing.getAmount() + amount;
+				if (total > Integer.MAX_VALUE) {
+					total = Integer.MAX_VALUE;
+				}
+				bank.set(index, new Item(id, (int) total));
+				return;
+			}
+		}
+		int dest;
+		if (tab <= 0 || tab >= 10) {
+			dest = bank.getFreeSlot();
+		} else {
+			dest = tabStartSlot[tab] + getItemsInTab(tab);
+			insert(bank.getFreeSlot(), dest);
+			increaseTabStartSlots(tab);
+		}
+		if (dest < 0) {
+			return;
+		}
+		bank.set(dest, item);
+	}
 
 	public void removeItem(int slot, int amount) {
 		if (checkingBank) {

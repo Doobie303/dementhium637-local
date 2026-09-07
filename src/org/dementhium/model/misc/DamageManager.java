@@ -12,6 +12,7 @@ import org.dementhium.model.npc.NPC;
 import org.dementhium.model.npc.impl.Nex;
 import org.dementhium.model.npc.impl.Nex.NexAreaEvent;
 import org.dementhium.model.npc.impl.Nex.NexPhase;
+import org.dementhium.model.player.DegradingHandler;
 
 
 /**
@@ -96,6 +97,40 @@ public class DamageManager {
 		this.mob = mob;
 	}
 
+	private boolean nexIsShielded(NPC npc) {
+		if (npc == null) {
+			return false;
+		}
+		int id = npc.getId();
+		if (npc instanceof Nex && ((Nex) npc).isProtectingMinion()) {
+			return true;
+		}
+		if (id >= 13447 && id <= 13450) {
+			Nex areaNex = NexAreaEvent.getNexAreaEvent().getNex();
+			if (areaNex != null && areaNex.isProtectingMinion()) {
+				return true;
+			}
+		}
+		if (id >= 13451 && id <= 13454
+				&& !Boolean.TRUE.equals(npc.getAttribute("nex_vulnerable"))) {
+			return true;
+		}
+		return false;
+	}
+
+	private int applyGodHits(Mob attacker, int damage, DamageType type) {
+		if (attacker != null && attacker.isPlayer()
+				&& Boolean.TRUE.equals(attacker.getAttribute("godmode"))
+				&& type != DamageType.HEAL && type != DamageType.MISS) {
+			if (mob.isNPC() && nexIsShielded(mob.getNPC())) {
+				return 0;
+			}
+			return 500;
+		}
+		return damage;
+	}
+
+
 	public LinkedList<DamageHit> getHits() {
 		return hits;
 	}
@@ -110,6 +145,10 @@ public class DamageManager {
 				return;
 			if (mob.isNPC()) {
 				NPC npc = mob.getNPC();
+				if (npc.getId() >= 13451 && npc.getId() <= 13454
+						&& !Boolean.TRUE.equals(npc.getAttribute("nex_vulnerable"))) {
+					damage = 0;
+				}
 				if (npc.isNex()) {
 					Nex nex = NexAreaEvent.getNexAreaEvent().getNex();
 					if (nex != null) {
@@ -166,6 +205,7 @@ public class DamageManager {
 				}*/
 			}
 		}
+		damage = applyGodHits(attacker, damage, type);
 		if (damage > mob.getHitPoints()) {
 			damage = mob.getHitPoints();
 		}
@@ -190,6 +230,10 @@ public class DamageManager {
 				return;
 			if (mob.isNPC()) {
 				NPC npc = mob.getNPC();
+				if (npc.getId() >= 13451 && npc.getId() <= 13454
+						&& !Boolean.TRUE.equals(npc.getAttribute("nex_vulnerable"))) {
+					damage = 0;
+				}
 				if (npc.isNex()) {
 					Nex nex = NexAreaEvent.getNexAreaEvent().getNex();
 					if (nex != null) {
@@ -245,6 +289,7 @@ public class DamageManager {
 				}
 			}
 		}
+		damage = applyGodHits(attacker, damage, type);
 		if (damage > mob.getHitPoints()) {
 			damage = mob.getHitPoints();
 		}
@@ -310,6 +355,11 @@ public class DamageManager {
 	public void damage(Mob source, Damage damage, DamageType type, int delay) {
 		if (mob.isPlayer() && mob.getAttribute("hitImmunity", -1) > World.getTicks())
 			return;
+		if (source != null && source.isPlayer()
+				&& Boolean.TRUE.equals(source.getAttribute("godmode"))) {
+			int boosted = applyGodHits(source, 500, type);
+			damage.setHit(boosted);
+		}
 		if (damage.getHit() > mob.getHitPoints()) {
 			damage.setHit(mob.getHitPoints());
 		}
@@ -367,6 +417,10 @@ public class DamageManager {
 	public void updateDamageAttributes(DamageHit hit, DamageType type, int damage) {
 		if (mob.isPlayer() && mob.getAttribute("hitImmunity", -1) > World.getTicks())
 			return;
+		if (mob.isNPC() && nexIsShielded(mob.getNPC())) {
+			damage = 0;
+			type = DamageType.MISS;
+		}
 		hit.type = type;
 		if (damage < 1) {
 			type = DamageType.MISS;
@@ -389,6 +443,14 @@ public class DamageManager {
 			currentHitpoints = maximumHitpoints;
 		}
 		hit.currentHealth = currentHitpoints * 255 / maximumHitpoints;
+		if (damage > 0) {
+			if (hit.attacker != null && hit.attacker.isPlayer()) {
+				DegradingHandler.process(hit.attacker.getPlayer());
+			}
+			if (mob.isPlayer()) {
+				DegradingHandler.process(mob.getPlayer());
+			}
+		}
 	}
 
 	public void addEnemyHit(Mob enemy, int damage) {

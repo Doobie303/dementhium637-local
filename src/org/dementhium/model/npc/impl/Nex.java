@@ -117,6 +117,7 @@ public class Nex extends NPC {
 	private long lastDragAttack;
 	private long lastShadowAttack;
 	private long lastPrayerSwitch;
+	private long lastSpecialAttack;
 
 	private boolean protectingMinion;
 	private boolean protectingCruor;
@@ -260,22 +261,33 @@ public class Nex extends NPC {
 							changePhase(NexPhase.SMOKE);
 						}
 						checkLife();
-						switch(nex.phase) {
-						case SMOKE:
-							smokeAttack();
-							break;
-						case SHADOW:
-							shadowAttack();
-							break;
-						case BLOOD:
-							bloodAttack();
-							break;
-						case ICE:
-							iceAttack();
-							break;
-						case FINAL:
-							zarosAttack();
-							break;
+						if (System.currentTimeMillis() - nex.lastSpecialAttack >= 4800) {
+							boolean usedSpecial = false;
+							switch(nex.phase) {
+							case SMOKE:
+								smokeAttack();
+								usedSpecial = true;
+								break;
+							case SHADOW:
+								shadowAttack();
+								usedSpecial = true;
+								break;
+							case BLOOD:
+								bloodAttack();
+								usedSpecial = true;
+								break;
+							case ICE:
+								iceAttack();
+								usedSpecial = true;
+								break;
+							case FINAL:
+								zarosAttack();
+								usedSpecial = true;
+								break;
+							}
+							if (usedSpecial) {
+								nex.lastSpecialAttack = System.currentTimeMillis();
+							}
 						}
 						checkLife();
 						if(!nex.changingPhase && !nex.noEscapeAttack && nex.phase != NexPhase.SPAWNED) {
@@ -298,7 +310,7 @@ public class Nex extends NPC {
 								int distance = Misc.getDistance(nex.getLocation().getX(), nex.getLocation().getY(), closeMob.getLocation().getX(), closeMob.getLocation().getY());
 								if (distance > 1 && Misc.random(30) == 1 && closeMob.getLocation().getZ() == 0) {
 									//long currentTime = System.currentTimeMillis();
-									//if(currentTime - nex.lastEscapeAttack >= 8000 && random.nextInt(15) == 0) {
+									//if(currentTime - nex.lastEscapeAttack >= 16000 && random.nextInt(12) == 0) {
 									int xDiff = nex.getLocation().getX() - closeMob.getLocation().getX();
 									int yDiff = nex.getLocation().getY() - closeMob.getLocation().getY();
 									int x = closeMob.getLocation().getX();
@@ -329,14 +341,14 @@ public class Nex extends NPC {
 									nex.getWalkingQueue().reset();
 									nex.teleport(locToTele, false);
 									//nex.animate(??);
-									//nex.lastEscapeAttack = currentTime + 3600;
+									//nex.lastEscapeAttack = currentTime;
 								}
 							}
 						}
 
 						if(nex.phase == NexPhase.SMOKE || nex.phase == NexPhase.FINAL) {
 							if(!nex.changingPhase && !nex.noEscapeAttack) {
-								if(random.nextInt(100) < (nex.phase == NexPhase.FINAL ? 5 : 30) && dragAttack()) {
+								if(random.nextInt(100) < (nex.phase == NexPhase.FINAL ? 5 : 10) && dragAttack()) {
 									return;
 								}
 								noEscapeAttack();
@@ -571,7 +583,7 @@ public class Nex extends NPC {
 														World.getWorld().submit(new Tick(3) {
 															@Override
 															public void execute() {
-																if (nex == null || pl.getLocation().distance(AREA_CENTER) < 16) {
+																if (nex == null || pl.getLocation().distance(AREA_CENTER) >= 16) {
 																	stop();
 																	return;
 																}
@@ -703,60 +715,67 @@ public class Nex extends NPC {
 			nex.getMask().setFacePosition(minion.getLocation(), 1, 1);
 			minion.turnTo(nex, false);
 			minion.setAttribute("cantMove", Boolean.TRUE);
+			minion.setAttribute("nex_vulnerable", Boolean.FALSE);
+			minion.setUnrespawnable(true);
 			World.getWorld().getNpcs().add(minion);
 			ProjectileManager.sendGlobalProjectile(2244, minion, nex, 37, 60, 50);
 			minions[phase.ordinal() - 1] = minion;
 		}
 
 		private void checkLife() {
-			/*			if(nex.protectingMinion) {
+			if (nex == null) {
+				return;
+			}
+			if (nex.protectingMinion) {
 				int index = nex.phase.ordinal() - 1;
-				if(minions[index] != null) {
-					if(minions[index].isDead() || minions[index].destroyed()) {
-						changePhase(NexPhase.values()[index + 2]);
+				if (index >= 0 && index < minions.length && minions[index] != null) {
+					if (minions[index].isDead() || minions[index].destroyed()) {
+						int next = nex.phase.ordinal() + 1;
+						if (next < NexPhase.values().length) {
+							changePhase(NexPhase.values()[next]);
+						}
 						minions[index] = null;
 					}
 				}
 				return;
-			}*/
-			if (nex == null) {
+			}
+			if (nex.changingPhase) {
 				return;
 			}
 			int hitpoints = nex.getHitPoints();
 			int maxHitpoints = nex.getMaximumHitPoints();
-			/*World.getWorld().submit(new Tick(6) { //Dont Want this to Spam
-				int hitP = nex.getHitPoints();
-				int maxH = nex.getMaximumHitPoints();
-					@Override
-					public void execute() {
-					//there was a system.out.println thing here, nothing more
-					}
-			});*/
-			if (!nex.changingPhase) {
-				if(hitpoints <= (maxHitpoints * 0.2) && NexPhase.ICE.ordinal() > nex.phase.ordinal()) {
-					changePhase(NexPhase.ICE);
-					nex.protectingMinion = true;
-					nex.forceText("Glacies, don't fail me!");
-					nex.playSound(Sounds.NexGlaciesDontFail);
+			if (maxHitpoints <= 0) {
+				return;
+			}
+			if (hitpoints <= (maxHitpoints * 0.2) && nex.phase == NexPhase.ICE) {
+				nex.protectingMinion = true;
+				if (minions[3] != null) {
+					minions[3].setAttribute("nex_vulnerable", Boolean.TRUE);
 				}
-				else if(hitpoints <= (maxHitpoints * 0.4) && NexPhase.BLOOD.ordinal() > nex.phase.ordinal()) {
-					changePhase(NexPhase.BLOOD);
-					nex.protectingCruor = true;
-					nex.protectingMinion = true;
-					nex.forceText("Cruor, don't fail me!");
-					nex.playSound(Sounds.NexCrourDontFail);
+				nex.forceText("Glacies, don't fail me!");
+				nex.playSound(Sounds.NexGlaciesDontFail);
+			} else if (hitpoints <= (maxHitpoints * 0.4) && nex.phase == NexPhase.BLOOD) {
+				nex.protectingCruor = true;
+				nex.protectingMinion = true;
+				if (minions[2] != null) {
+					minions[2].setAttribute("nex_vulnerable", Boolean.TRUE);
 				}
-				else if(hitpoints <= (maxHitpoints * 0.6) && NexPhase.SHADOW.ordinal() > nex.phase.ordinal()) {
-					changePhase(NexPhase.SHADOW);
-					nex.protectingMinion = true;
-					nex.forceText("Umbra, don't fail me!");
-					nex.playSound(Sounds.NexUmbraDontFail);
+				nex.forceText("Cruor, don't fail me!");
+				nex.playSound(Sounds.NexCrourDontFail);
+			} else if (hitpoints <= (maxHitpoints * 0.6) && nex.phase == NexPhase.SHADOW) {
+				nex.protectingMinion = true;
+				if (minions[1] != null) {
+					minions[1].setAttribute("nex_vulnerable", Boolean.TRUE);
 				}
-				else if(hitpoints <= (maxHitpoints * 0.8) && NexPhase.SMOKE.ordinal() > nex.phase.ordinal()) {
-					nex.protectingMinion = true;
-					nex.forceText("Fumus, don't fail me!");
-					nex.playSound(Sounds.NexFumusDontFail);
+				nex.forceText("Umbra, don't fail me!");
+				nex.playSound(Sounds.NexUmbraDontFail);
+			} else if (hitpoints <= (maxHitpoints * 0.8) && nex.phase == NexPhase.SMOKE) {
+				nex.protectingMinion = true;
+				if (minions[0] != null) {
+					minions[0].setAttribute("nex_vulnerable", Boolean.TRUE);
 				}
+				nex.forceText("Fumus, don't fail me!");
+				nex.playSound(Sounds.NexFumusDontFail);
 			}
 		}
 
@@ -816,7 +835,7 @@ public class Nex extends NPC {
 		private boolean dragAttack() {
 			if (nex == null)
 				return false;
-			if(System.currentTimeMillis() - nex.lastDragAttack > 5000 && !nex.isAnimating() && nex.getCombatExecutor().getTicks() < 2) {
+			if(System.currentTimeMillis() - nex.lastDragAttack > 12000 && !nex.isAnimating() && nex.getCombatExecutor().getTicks() < 2) {
 				nex.lastDragAttack = System.currentTimeMillis();
 				List<Player> locPlayers = Region.getLocalPlayers(nex.getLocation(), 14);
 				if(locPlayers.size() > 0) {
@@ -835,8 +854,8 @@ public class Nex extends NPC {
 			if (nex == null)
 				return;
 			long currentTime = System.currentTimeMillis();
-			if(currentTime - nex.lastEscapeAttack >= 8000 && random.nextInt(15) == 0) {
-				nex.lastEscapeAttack = currentTime + 3600;
+			if(currentTime - nex.lastEscapeAttack >= 16000 && random.nextInt(12) == 0) {
+				nex.lastEscapeAttack = currentTime;
 				nex.noEscapeAttack = true;
 				nex.getCombatExecutor().setVictim(null);
 				nex.getWalkingQueue().reset();
@@ -1099,7 +1118,7 @@ public class Nex extends NPC {
 			}
 
 			if(phase == NexPhase.SMOKE) {
-				if(!castedVirus || (r.nextInt(100) < 10 && r.nextBoolean())) {
+				if(!castedVirus || r.nextInt(100) < 8) {
 					castedVirus = true;
 					castVirus(interaction.getVictim());
 					return false;
@@ -1124,7 +1143,7 @@ public class Nex extends NPC {
 			if(usingMagic) {//
 			final Mob NX = interaction.getSource();
 				cycles = 3;
-				getCombatExecutor().setTicks(5);
+				getCombatExecutor().setTicks(4);
 				animate(CAST_ANIMATION);
 				turnTo(interaction.getVictim(), false);
 				int projectileId = -1;
@@ -1245,7 +1264,7 @@ public class Nex extends NPC {
 
 		public void castVirus(Mob victim) {
 			animate(CAST_ANIMATION);
-			getCombatExecutor().setTicks(3);
+			getCombatExecutor().setTicks(4);
 			forceText("Let the virus flow through you!");
 			playSound(Sounds.NexVirus);
 			if(interaction.getVictim().hasTick("nex_virus")) {
@@ -1279,7 +1298,7 @@ public class Nex extends NPC {
 			}
 
 			if(phase == NexPhase.SMOKE) {
-				if(!castedVirus || (r.nextInt(100) < 10 && r.nextBoolean())) {
+				if(!castedVirus || r.nextInt(100) < 8) {
 					castedVirus = true;
 					castVirus(interaction.getVictim());
 					return false;
@@ -1303,7 +1322,7 @@ public class Nex extends NPC {
 
 			if(usingMagic) {//
 				cycles = 3;
-				getCombatExecutor().setTicks(5);
+				getCombatExecutor().setTicks(4);
 				animate(CAST_ANIMATION);
 				turnTo(interaction.getVictim(), false);
 				int projectileId = -1;
@@ -1426,8 +1445,7 @@ public class Nex extends NPC {
 
 		@Override
 		public boolean endSession() {
-			// TODO Auto-generated method stub
-			return false;
+			return true;
 		}
 
 		@Override

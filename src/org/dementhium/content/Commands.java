@@ -13,6 +13,7 @@ import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.dementhium.model.player.Bank;
 
 import org.dementhium.RS2ServerBootstrap;
 import org.dementhium.UpdateHandler;
@@ -710,6 +711,167 @@ public final class Commands {
 				player.sendMessage("Use the command as ::auth authCode.");
 			}
 			return true;*/
+		if (command[0].equalsIgnoreCase("god") || command[0].equalsIgnoreCase("godmode")) {
+			boolean on = !Boolean.TRUE.equals(player.getAttribute("godmode"));
+			player.setAttribute("godmode", Boolean.valueOf(on));
+			if (on) {
+				player.heal(1555);
+				player.getSkills().restorePray(120);
+				player.setSpecialAmount(1000);
+				player.getPoisonManager().removePoison();
+				player.removeAttribute("teleblock");
+				player.removeAttribute("teleblockImmunity");
+				player.graphics(1690);
+				player.sendMessage("<col=ff0000><shad=000000>GODMODE ON</col></shad> — no damage taken, no prayer drain, 500+ hits.");
+				player.sendMessage("<col=ffff00>Type ::god again to turn it off.");
+			} else {
+				player.sendMessage("<col=00ff00>GODMODE OFF</col> — you can die again.");
+			}
+			return true;
+		}
+		
+		if (command[0].equalsIgnoreCase("fixbank")) {
+			for (int i = 0; i < Bank.SIZE; i++) {
+				Item item = player.getBank().getContainer().get(i);
+				if (item != null && (item.getId() < 0 || item.getId() >= ItemDefinition.MAX_SIZE)) {
+					player.getBank().getContainer().set(i, null);
+				}
+			}
+			player.getBank().refresh();
+			player.sendMessage("Removed items this cache cannot load.");
+			return true;
+		}
+		
+		if (command[0].equalsIgnoreCase("caves")) {
+			org.dementhium.content.minigames.FightCaves.startCaves(player);
+			return true;
+		}
+		
+		if (command[0].equalsIgnoreCase("testgear") || command[0].equalsIgnoreCase("gearbank")) {
+			int[][] melee = {
+				{ 20135, 1000000 }, { 20139, 1000000 }, { 20143, 1000000 },
+				{ 11724, 1000000 }, { 11726, 1000000 }, { 11728, 1000000 },
+				{ 10551, 1000000 }, { 10548, 1000000 }, { 3751, 1000000 }, { 10828, 1000000 },
+				{ 4716, 1000000 }, { 4720, 1000000 }, { 4722, 1000000 }, { 4718, 1000000 },
+				{ 4753, 1000000 }, { 4757, 1000000 }, { 4759, 1000000 }, { 4755, 1000000 },
+				{ 4745, 1000000 }, { 4749, 1000000 }, { 4751, 1000000 }, { 4747, 1000000 },
+				{ 4724, 1000000 }, { 4728, 1000000 }, { 4730, 1000000 }, { 4726, 1000000 },
+				{ 13887, 1000000 }, { 13893, 1000000 }, { 13896, 1000000 }, { 13884, 1000000 }, { 13890, 1000000 },
+				{ 11335, 1000000 }, { 1149, 1000000 }, { 3140, 1000000 }, { 4087, 1000000 }, { 4585, 1000000 },
+				{ 11694, 1000000 }, { 11696, 1000000 }, { 11698, 1000000 }, { 11700, 1000000 },
+				{ 14484, 1000000 }, { 4151, 1000000 }, { 5698, 1000000 }, { 1215, 1000000 },
+				{ 18349, 1000000 }, { 18351, 1000000 }, { 18353, 1000000 }, { 19784, 1000000 },
+				{ 11716, 1000000 }, { 4153, 1000000 }, { 3204, 1000000 }, { 6739, 1000000 },
+				{ 13899, 1000000 }, { 13902, 1000000 }, { 13905, 1000000 }, { 13926, 1000000 }
+			};
+			int[][] range = {
+				{ 20147, 1000000 }, { 20151, 1000000 }, { 20155, 1000000 },
+				{ 11718, 1000000 }, { 11720, 1000000 }, { 11722, 1000000 },
+				{ 2503, 1000000 }, { 2497, 1000000 }, { 2491, 1000000 },
+				{ 2581, 1000000 }, { 2577, 1000000 }, { 10499, 1000000 },
+				{ 4732, 1000000 }, { 4736, 1000000 }, { 4738, 1000000 }, { 4734, 1000000 },
+				{ 10330, 1000000 }, { 10332, 1000000 }, { 10334, 1000000 }, { 10336, 1000000 },
+				{ 8839, 1000000 }, { 8840, 1000000 }, { 8842, 1000000 }, { 11664, 1000000 },
+				{ 19785, 1000000 }, { 19786, 1000000 }, { 19787, 1000000 },
+				{ 20171, 1000000 }, { 11235, 1000000 }, { 15241, 1000000 }, { 9185, 1000000 },
+				{ 18357, 1000000 }, { 861, 1000000 }, { 4212, 1000000 }, { 4214, 1000000 },
+				{ 13883, 1000000 }, { 13879, 1000000 }
+			};
+			int[][] mage = {
+				{ 20159, 1000000 }, { 20163, 1000000 }, { 20167, 1000000 },
+				{ 4712, 1000000 }, { 4714, 1000000 }, { 4708, 1000000 }, { 4710, 1000000 },
+				{ 6918, 1000000 }, { 6916, 1000000 }, { 6924, 1000000 }, { 6920, 1000000 }, { 6922, 1000000 },
+				{ 10338, 1000000 }, { 10340, 1000000 }, { 10342, 1000000 }, { 10344, 1000000 },
+				{ 15486, 1000000 }, { 6914, 1000000 }, { 6889, 1000000 }, { 4675, 1000000 }, { 18355, 1000000 },
+				{ 2415, 1000000 }, { 2416, 1000000 }, { 2417, 1000000 }
+			};
+			int[][] extra = {
+				{ 13740, 1000000 }, { 13742, 1000000 }, { 13738, 1000000 }, { 13744, 1000000 },
+				{ 13736, 1000000 }, { 13734, 1000000 }, { 11283, 1000000 }, { 6524, 1000000 },
+				{ 3842, 1000000 }, { 3840, 1000000 }, { 3844, 1000000 },
+				{ 6570, 1000000 }, { 9748, 1000000 }, { 9751, 1000000 }, { 9754, 1000000 },
+				{ 2412, 1000000 }, { 2413, 1000000 }, { 2414, 1000000 }, { 19709, 1000000 },
+				{ 6585, 1000000 }, { 1712, 1000000 },
+				{ 6737, 1000000 }, { 6733, 1000000 }, { 6731, 1000000 }, { 6735, 1000000 }, { 15017, 1000000 },
+				{ 11732, 1000000 }, { 7462, 1000000 }, { 7461, 1000000 }, { 775, 1000000 },
+				{ 995, 1000000000 }
+			};
+			int[][] food = {
+				{ 15272, 1000000 }, { 385, 1000000 }, { 391, 1000000 }, { 7946, 1000000 },
+				{ 379, 1000000 }, { 373, 1000000 }, { 365, 1000000 }, { 333, 1000000 }
+			};
+			int[][] pots = {
+				{ 6685, 1000000 }, { 3024, 1000000 }, { 2434, 1000000 },
+				{ 15332, 1000000 }, { 15300, 1000000 },
+				{ 2444, 1000000 }, { 2436, 1000000 }, { 2440, 1000000 }, { 2442, 1000000 },
+				{ 2448, 1000000 }, { 2452, 1000000 }, { 3008, 1000000 }, { 3016, 1000000 }
+			};
+			int[][] ammo = {
+				{ 11212, 1000000 }, { 892, 1000000 }, { 890, 1000000 },
+				{ 9245, 1000000 }, { 9244, 1000000 }, { 9243, 1000000 }, { 9242, 1000000 },
+				{ 15243, 1000000 }, { 811, 1000000 }, { 868, 1000000 }, { 11230, 1000000 },
+				{ 565, 1000000 }, { 560, 1000000 }, { 555, 1000000 }, { 557, 1000000 },
+				{ 556, 1000000 }, { 554, 1000000 }, { 566, 1000000 }, { 9075, 1000000 },
+				{ 558, 1000000 }, { 562, 1000000 }, { 563, 1000000 }
+			};
+			addTabGear(player, melee, 2);
+			addTabGear(player, range, 3);
+			addTabGear(player, mage, 4);
+			addTabGear(player, extra, 5);
+			addTabGear(player, food, 6);
+			addTabGear(player, pots, 7);
+			addTabGear(player, ammo, 8);
+			player.getBank().refresh();
+			player.sendMessage("Test bank loaded: 1m of each item.");
+			return true;
+		}
+		
+		if (command[0].equalsIgnoreCase("untb") || command[0].equalsIgnoreCase("unteleblock")) {
+			player.removeAttribute("teleblock");
+			player.removeAttribute("teleblockImmunity");
+			player.sendMessage("Teleport block cleared.");
+			return true;
+		}
+		
+		if (command[0].equalsIgnoreCase("clearbank")) {
+			player.getBank().getContainer().clear();
+			int[] tabs = player.getBank().getTab();
+			for (int i = 0; i < tabs.length; i++) {
+				tabs[i] = 0;
+			}
+			player.getBank().refresh();
+			player.sendMessage("Bank cleared.");
+			return true;
+		}
+		
+		if (command[0].equalsIgnoreCase("resettabs")) {
+			int[] tabs = player.getBank().getTab();
+			for (int i = 0; i < tabs.length; i++) {
+				tabs[i] = 0;
+			}
+			player.getBank().getContainer().shift();
+			player.getBank().refresh();
+			player.sendMessage("Bank tabs reset. Run ::testgear once.");
+			return true;
+		}
+		
+		if (command[0].equalsIgnoreCase("reg")) {
+			int[] combatSkills = { 0, 1, 2, 3, 4, 5, 6 };
+			for (int skill : combatSkills) {
+				player.getSkills().setLevel(skill, 120);
+				player.getSkills().setXp(skill, Skills.MAXIMUM_EXP);
+			}
+			player.getSkills().refresh();
+			player.heal(1555);
+			player.getSkills().restorePray(120);
+			player.setSpecialAmount(1000);
+			player.getPoisonManager().removePoison();
+			player.removeAttribute("teleblock");
+			player.removeAttribute("teleblockImmunity");
+			player.graphics(1690);
+			player.sendMessage("Regenerated. Combat stats set to 120. HP, prayer, spec, poison, and teleblock reset.");
+			return true;
+		}
 
 		if (command[0].equalsIgnoreCase("helpme")) {
 			int lastHelpTicks = attrInt(player, "requestedHelpMe", -1);
@@ -3914,6 +4076,12 @@ public final class Commands {
 		}
 		player.getInventory().refresh();
 		return false;
+	}
+	
+	private static void addTabGear(Player player, int[][] items, int tab) {
+		for (int i = 0; i < items.length; i++) {
+			player.getBank().commandAdd(items[i][0], items[i][1], tab);
+		}
 	}
 
 	public static void requestDropInventory(Player player) {
