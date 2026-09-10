@@ -85,10 +85,10 @@ public class HomeHubRegression extends GamblerRegression {
         for(Portal portal:Portal.values())check(portal.location().getGameObjectType(10)!=null
                 &&portal.location().getGameObjectType(10).getId()==portal.id,"home object exists "+portal);
         check(Location.locate(2340,3687,0).getGameObjectType(10).getId()==36972,"existing prayer restore retained");
-        NPC rewards=seedExisting(Service.REWARDS),slayer=seedExisting(Service.SLAYER),skilling=seedExisting(Service.SKILLING);
+        NPC rewards=seedExisting(Service.REWARDS);
         HomeHub.spawnServices();int count=World.getWorld().getNpcs().size();HomeHub.spawnServices();
         check(count==World.getWorld().getNpcs().size(),"idempotent services");
-        check(find(Service.REWARDS)==rewards&&find(Service.SLAYER)==slayer&&find(Service.SKILLING)==skilling,"existing Piscatoris services reused");
+        check(find(Service.REWARDS)==rewards,"nearby Piscatoris rewards trader reused");
         for(Location old:OLD_SERVICES)for(NPC n:World.getWorld().getNpcs())check(n==null||!old.equals(n.getOriginalLocation()),"old Neitiznot service absent "+old);
         for(Location old:OLD_OBJECTS)check(old.getGameObjectType(10)==null,"old Neitiznot object absent "+old);
         Player p=at(Mob.DEFAULT);check(!p.isInWilderness()&&!p.inPVPZone()&&!p.inSafePk(),"home is outside PvP areas");

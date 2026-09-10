@@ -15,9 +15,9 @@ public final class HomeHub {
         GUIDE(8863,2343,3691,6),
         MELEE(549,2330,3686,6), RANGED(550,2330,3687,6),
         MAGIC(553,2330,3688,6), SUPPLIES(520,2330,3689,6),
-        REWARDS(9711,2333,3691,0), SLAYER(1597,2329,3668,0),
-        SKILLING(1513,2318,3670,0), GAMBLER(2998,2334,3695,4),
-        TOOLS(519,2336,3695,4);
+        REWARDS(9711,2333,3691,0), SLAYER(1597,2332,3697,4),
+        SKILLING(1513,2335,3697,4), GAMBLER(2998,2338,3697,4),
+        TOOLS(519,2341,3697,4);
         public final int id,x,y,faceDir;
         Service(int id,int x,int y,int faceDir){this.id=id;this.x=x;this.y=y;this.faceDir=faceDir;}
         public Location location(){return Location.locate(x,y,0);}
