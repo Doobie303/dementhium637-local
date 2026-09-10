@@ -1,5 +1,9 @@
 # Task handoff: NPC/boss repairs — next three steps
 
+Continuation now uses [NPC_PRESENTATION_PURSUIT_HANDOFF_2026-09-09.md](NPC_PRESENTATION_PURSUIT_HANDOFF_2026-09-09.md): step 1 is implemented/verified/staged, loading/live acceptance remains pending, and step 2 encounter work is next. The earlier movement releases and plan snapshot below are retained as historical evidence.
+
+## Earlier handoff
+
 Current owner request: reorganize the remaining repairs into three steps. Authoritative scope, expected behavior and acceptance are in the current three-step plan at the top of NPC_COMBAT_LIVE_REVIEW_2026-09-09.md. All three are pending; earlier implementation/staging evidence remains limited to the completed contracts below. Enough live examples exist; one common cause is not yet proven.
 
 1. **Shared animation, pursuit and actor visibility:** establish loaded identity; reproduce/fix interrupted attacks and follower/player overlap through task/queue/update order; repair Nex's target-aware movement and arena leash. Preserve safespots, independent hits and instance boundaries. Prove affected production paths and client playback.
