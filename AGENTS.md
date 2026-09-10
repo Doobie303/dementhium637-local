@@ -1,3 +1,37 @@
+## Documentation control (owner rule)
+
+Do not create new markdown files unless the owner explicitly says:
+"Create a file named ..."
+
+Allowed documentation edits:
+
+- Update the matching row in docs/project/CONTEXT\_INDEX.md
+- Update docs/project/STATUS.md
+- Update an existing report only if a decision changed
+
+Forbidden:
+
+- New \*FIXES.md, \*REVIEW\.md, \*HANDOFF.md, or dated notes
+- Rewriting AGENTS.md, EFFICIENCY\_WORKFLOW\.md, or old audits
+- Copying test results into a new report
+
+Memory lives in:
+
+- source and tests
+- docs/project/STATUS.md
+- the current CONTEXT\_INDEX row
+
+After a task, write the result in chat and add 5-15 lines to STATUS.md.
+Do not create a handoff file.
+
+Reviews:
+
+- A review is read-only unless the owner asks for a patch
+- A system review may read the code, CONTEXT\_INDEX, STATUS.md,
+  and at most one existing report for that system
+- Do not write a new document
+- Return findings in chat, then put accepted conclusions in STATUS.md
+
 # Project instructions
 
 ## Always preserve

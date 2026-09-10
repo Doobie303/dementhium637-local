@@ -1,3 +1,5 @@
+Current short status: docs/project/STATUS.md. Do not create new reports; update STATUS.md and the relevant index row.
+
 # Context index
 
 Paths in this index are relative to the repository root. Read the row matching the work before planning changes; include shared dependencies only when affected. Reports are cumulative: use their current status and later follow-ups, not an early snapshot alone. Historical pass counts are not test requirements.
