@@ -22,27 +22,31 @@ import org.dementhium.model.player.Skills;
  *
  */
 public class Soulshot extends SpecialAttack {
-	
+
 	/**
 	 * The graphics.
 	 */
 	private static final Graphic GRAPHICS = Graphic.create(472, 96 << 16);
-	
+
 	/**
 	 * The end graphics.
 	 */
 	private static final short END_GRAPHICS = 474;
-	
+
 	/**
 	 * The special attack projectile GFX id.
 	 */
 	private static final short PROJECTILE_ID = 473;
-	
+
 	@Override
 	public boolean commenceSpecialAttack(Interaction interaction) {
 		RangeData data = new RangeData(true);
 		data.setWeapon(RangeWeapon.get(interaction.getSource().getPlayer().getEquipment().getSlot(3)));
 		data.setAmmo(Ammunition.get(interaction.getSource().getPlayer().getEquipment().getSlot(13)));
+        if (data.getWeapon() == null || data.getAmmo() == null) return false;
+        int ammoSlot = data.getWeapon().getAmmunitionSlot();
+        if (ammoSlot >= 0 && (interaction.getSource().getPlayer().getEquipment().get(ammoSlot) == null
+                || interaction.getSource().getPlayer().getEquipment().get(ammoSlot).getAmount() < 1)) return false;
 		if (data.getAmmo() == null || !data.getWeapon().getAmmunition().contains(data.getAmmo().getItemId())) {
 			interaction.getSource().getPlayer().sendMessage("You do not have enough ammo left.");
 			interaction.getSource().getCombatExecutor().reset();
@@ -60,25 +64,11 @@ public class Soulshot extends SpecialAttack {
 		interaction.getSource().animate(data.getWeapon().getAnimationId());
 		interaction.getSource().graphics(GRAPHICS);
 		interaction.getVictim().graphics(END_GRAPHICS);
-		CombatUtils.dropArrows(interaction.getSource().getPlayer(), interaction.getVictim(), interaction.getRangeData());
-		interaction.setRangeData(data);
-		if (interaction.getSource().isPlayer()) {
-			if ((interaction.getRangeData().getDamage() != null
-					&& interaction.getRangeData().getDamage().getHit() > 0)
-					|| (interaction.getRangeData().getDamage2() != null
-							&& interaction.getRangeData().getDamage2().getHit() > 0)) {
-				if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-						&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()
-						&& interaction.getRangeData().getWeapon().getItemId() == interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getId())
-					interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-							interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-				else if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS) != null
-						&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-						&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS).getDefinition().doesPoison())
-					interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-							interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS).getDefinition().getPoisonAmount());
-			}
-		}
+
+		data.setDropAmmo(data.getAmmo().getItemId() != 4740 && data.getAmmo().getItemId() != 15243);
+        interaction.setRangeData(data);
+        CombatUtils.dropArrows(interaction.getSource().getPlayer(), interaction.getVictim(), data);
+
 		return true;
 	}
 
@@ -102,24 +92,11 @@ public class Soulshot extends SpecialAttack {
 				interaction.getSource(), interaction.getRangeData().getDamage(), 
 				DamageType.RANGE);
 		if (interaction.getVictim().isPlayer()) {
-			interaction.getVictim().getPlayer().getSkills().set(Skills.MAGIC, interaction.getVictim().getPlayer().getSkills().getLevel(Skills.MAGIC) - (int) (interaction.getDamage().getHit() * 0.1));
+			interaction.getVictim().getPlayer().getSkills().set(Skills.MAGIC, interaction.getVictim().getPlayer().getSkills().getLevel(Skills.MAGIC) - (int) (interaction.getRangeData().getDamage().getHit() * 0.1));
 		}
-		if (interaction.getRangeData().getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(
-					interaction.getSource(), interaction.getRangeData().getDamage().getVenged());
-		}
-		if (interaction.getRangeData().getDamage().getDeflected() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getRangeData().getDamage().getDeflected(), 
-					//interaction.getRangeData().getDamage().getDeflected(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getRangeData().getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getRangeData().getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getRangeData().getDamage().getRecoiled(), 
-					//interaction.getRangeData().getDamage().getRecoiled(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getRangeData().getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
+
+
+
 		interaction.getVictim().retaliate(interaction.getSource());
 		return true;
 	}

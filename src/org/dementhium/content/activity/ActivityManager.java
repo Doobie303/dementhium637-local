@@ -1,127 +1,80 @@
 package org.dementhium.content.activity;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import org.dementhium.model.World;
 
-import java.util.ArrayList;
-import java.util.List;
-
-/**
- * The activity managing class.
- *
- * @author Emperor
- */
+/** Stable registration IDs. ID 0 remains the first (Castle Wars) registration. */
 public class ActivityManager {
-
-    /**
-     * The {@code ActivityManager} instance.
-     */
     private static final ActivityManager SINGLETON = new ActivityManager();
+    private final Map<Integer, Activity<?>> activities = new LinkedHashMap<Integer, Activity<?>>();
+    private final Map<Activity<?>, Integer> ids = new IdentityHashMap<Activity<?>, Integer>();
+    private int nextId;
 
-    /**
-     * A {@link List} holding all the currently occuring player activities.
-     */
-    private List<Activity<?>> activities = new ArrayList<Activity<?>>();
-
-    /**
-     * The constructor.
-     */
-    public ActivityManager() {
-        /*
-           * empty.
-           */
-    }
-
-    /**
-     * Registers a new activity.
-     *
-     * @param activity The activity.
-     */
-    public boolean register(Activity<?> activity) {
-        if (activity == null) {
+    public synchronized boolean register(Activity<?> activity) {
+        if (activity == null || !activity.isRunning() || ids.containsKey(activity) || activity.registrationManager() != null)
             return false;
-        }
-        activities.add(activity);
-        activity.setActivityId(activities.indexOf(activity));
-        World.getWorld().submit(activity);
+        if (nextId == Integer.MAX_VALUE) throw new IllegalStateException("Activity ID capacity exhausted");
+        int id = nextId++;
+        activity.attachRegistration(this, id);
+        activities.put(id, activity);
+        ids.put(activity, id);
+        World.getWorld().submit(new org.dementhium.tickable.Tick(1) {
+            public void execute() {
+                synchronized (ActivityManager.this) {
+                    if (activities.get(id) != activity || !activity.run()) stop();
+                }
+            }
+        });
         return true;
     }
 
-    /**
-     * Unregisters an activity.
-     *
-     * @param key        The activity's key to remove.
-     * @param endSession If the session should be ended as well.
-     */
-    public boolean unregister(int key, boolean endSession) {
-        if (key >= activities.size()) {
-            return false;
-        }
-        Activity<?> a = activities.get(key);
-        if (a != null) {
-            if (endSession) {
-                a.endSession();
-            }
-            activities.remove(key);
-            return true;
-        }
-        return false;
-    }
-
-    /**
-     * Unregisters an activity.
-     *
-     * @param activity The activity to remove.
-     */
-    public boolean unregister(Activity<?> activity) {
-        return unregister(activity.getActivityId(), true);
-    }
-
-    /**
-     * Unregisters an activity.
-     *
-     * @param activity   The activity to remove.
-     * @param endSession If the session should also be ended.
-     */
-    public boolean unregister(Activity<?> activity, boolean endSession) {
-        return unregister(activity.getActivityId(), endSession);
-    }
-
-    /**
-     * Resets all activities.
-     *
-     * @return {@code True} if all activities were succesfully removed, <br>
-     *         {@code false} if one or more activities couldn't be removed.
-     */
-    public boolean reset() {
-        for (Activity<?> a : activities) {
-            if (a != null && !unregister(a)) {
-                return false;
-            }
-        }
+    public synchronized boolean unregister(int id, boolean endSession) {
+        Activity<?> activity = activities.remove(id);
+        if (activity == null) return false;
+        ids.remove(activity);
+        // Detach and stop BEFORE invoking user code: recursive stop cannot end twice.
+        activity.detachRegistration();
+        if (endSession) activity.finishSession();
         return true;
     }
-
-    /**
-     * @param playerActivities the playerActivities to set
-     */
-    public void setActivities(List<Activity<?>> activities) {
-        this.activities = activities;
+    public synchronized boolean unregister(Activity<?> activity, boolean endSession) {
+        Integer id = ids.get(activity);
+        return id != null && unregister(id, endSession);
     }
+    public boolean unregister(Activity<?> activity) { return unregister(activity, true); }
 
-    /**
-     * @return the playerActivities
-     */
-    public List<Activity<?>> getActivities() {
-        return activities;
+    public synchronized boolean reset() {
+        RuntimeException failure = null;
+        for (Activity<?> activity : new ArrayList<Activity<?>>(activities.values())) {
+            try { unregister(activity, true); }
+            catch (RuntimeException e) {
+                if (failure == null) failure = e; else failure.addSuppressed(e);
+            }
+        }
+        if (failure != null) throw failure;
+        return activities.isEmpty();
     }
-
-    /**
-     * Gets the {@code ActivityManager} instance.
-     *
-     * @return The instance
-     */
-    public static ActivityManager getSingleton() {
-        return SINGLETON;
+    /** Compatibility setter performs lifecycle operations, never installs a caller-owned list. */
+    public synchronized void setActivities(List<Activity<?>> replacements) {
+        if (replacements == null) throw new IllegalArgumentException("Missing activities");
+        List<Activity<?>> copy = new ArrayList<Activity<?>>(replacements);
+        java.util.Set<Activity<?>> unique = Collections.newSetFromMap(new IdentityHashMap<Activity<?>, Boolean>());
+        for (Activity<?> activity : copy)
+            if (activity == null || !unique.add(activity) || !activity.isRunning()
+                    || (activity.registrationManager() != null && activity.registrationManager() != this))
+                throw new IllegalArgumentException("Invalid, duplicate or foreign activity");
+        for (Activity<?> activity : new ArrayList<Activity<?>>(activities.values()))
+            if (!unique.contains(activity)) unregister(activity, true);
+        for (Activity<?> activity : copy) if (!ids.containsKey(activity)) register(activity);
     }
-
+    public synchronized List<Activity<?>> getActivities() {
+        return Collections.unmodifiableList(new ArrayList<Activity<?>>(activities.values()));
+    }
+    public synchronized Activity<?> getActivity(int id) { return activities.get(id); }
+    public static ActivityManager getSingleton() { return SINGLETON; }
 }

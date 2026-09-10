@@ -67,7 +67,7 @@ public class PlayerUpdate {
         if (!player.isOnline() || player.destroyed()) {
             return;
         }
-        if (player.getRegion().isDidMapRegionChange()) {
+        if (player.getRegion().isDidMapRegionChange() || player.getRegion().isSceneChanged()) {
         	player.updateMap();
         }
 
@@ -435,7 +435,7 @@ public class PlayerUpdate {
                 if (item == null)
                     appearanceData.writeByte(0);
                 else
-                    appearanceData.writeShort(32768 + item.getDefinition().getEquipId());
+                    appearanceData.writeShort(32768 + org.dementhium.content.InfernalCape.appearanceId(player,item.getId(),item.getDefinition().getEquipId()));
             }
             if (p.getEquipment().get(Equipment.SLOT_CHEST) != null) {
                 appearanceData.writeShort(32768 + p.getEquipment().get(Equipment.SLOT_CHEST).getDefinition().getEquipId());

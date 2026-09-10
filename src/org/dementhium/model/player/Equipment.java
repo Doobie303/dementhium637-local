@@ -63,6 +63,7 @@ public class Equipment {
 
     public void calculateType() {
         int itemId = get(SLOT_WEAPON) == null ? -1 : get(SLOT_WEAPON).getId();
+		itemId = DegradingHandler.getCombatItemId(itemId);
         int groupId = itemId == -1 ? 0 : CacheItemDefinition.getItemDefinition(itemId).getGroupId();
         int select = player.getSettings().getLastSelection();
         int type = WeaponInterface.getType(groupId, select);
@@ -82,6 +83,7 @@ public class Equipment {
     }
 
     public void refresh() {
+        if (getSlot(SLOT_WEAPON) != 15486) player.removeAttribute("staffOfLightEffect");
         player.getMask().setAppearanceUpdate(true);
         ActionSender.sendItems(player, 94, equipment, false);
         player.getBonuses().calculate();
@@ -113,7 +115,7 @@ public class Equipment {
         if (wearId == -1) {
             return -1;
         }
-        ItemDefinition def = ItemDefinition.forId(wearId);
+		ItemDefinition def = ItemDefinition.forId(DegradingHandler.getCombatItemId(wearId));
         if (def.getEquipmentSlot() == -1) {
         	/*
         	 * Be very careful that ONLY wearable items have the following parts in their name:
@@ -222,7 +224,8 @@ public class Equipment {
 
     public int getRenderAnim() {
         if (get(3) != null) {
-            int renderEmote = get(3).getDefinition().getRenderId();
+			int combatId = DegradingHandler.getCombatItemId(get(3).getId());
+			int renderEmote = ItemDefinition.forId(combatId).getRenderId();
             if (renderEmote != 0) {
                 return renderEmote;
             }
@@ -279,13 +282,17 @@ public class Equipment {
         int equipedItemId = p.getEquipment().get(slot).getId();
         int equipedAmount2 = p.getEquipment().get(slot).getAmount();
         if (slot <= 15 && p.getEquipment().get(slot) != null) {
-            if (p.getInventory().getContainer().add(new Item(equipedItemId, equipedAmount))) {
-            	if (restoreItem) {
-            		p.getEquipment().set(slot, new Item(equipedItemId, equipedAmount2 - equipedAmount));
-            	}
-            	else {
-            		p.getEquipment().set(slot, null);
-            	}
+            Item inventoryItem = new Item(p.getEquipment().get(slot));
+            inventoryItem.setAmount(equipedAmount);
+            if (p.getInventory().getContainer().add(inventoryItem)) {
+                if (restoreItem) {
+                    Item remainingItem = new Item(p.getEquipment().get(slot));
+                    remainingItem.setAmount(equipedAmount2 - equipedAmount);
+                    p.getEquipment().set(slot, remainingItem);
+                }
+                else {
+                    p.getEquipment().set(slot, null);
+                }
                 p.getInventory().refresh();
             }
         }
@@ -312,6 +319,7 @@ public class Equipment {
     return;
     }
     
+        if(item.getId()==org.dementhium.content.InfernalCape.ID&&!org.dementhium.content.InfernalCape.supported(p)){p.sendMessage("Use the updated development client to equip the Infernal cape.");return;}
         buttonId3 = getDegradedItem(item, false).getId();
         Item oldInvItem = item;
         item = getDegradedItem(item, true);
@@ -346,6 +354,8 @@ public class Equipment {
         	System.out.println("Could not equip item " + item.getId() + ", equipment slot: " + targetSlot);
             return;
         }
+        if (targetSlot==SLOT_WEAPON && player.getActivity() instanceof DuelActivity
+                && !((DuelActivity)player.getActivity()).getDuelConfigurations().weaponAllowed(player,item.getId())) return;
         if (!allowed(targetSlot, Equipment.isTwoHanded(item.getDefinition()))) {
             return;
         }
@@ -472,7 +482,7 @@ public class Equipment {
         	item2 = new Item(buttonId3, inventoryAmount);
         p.getEquipment().set(targetSlot, item2);
         if (oldItem != null && oldItem.getId() == 15486) {
-            player.removeAttribute("meleeImmunity");
+            player.removeAttribute("staffOfLightEffect");
         }
         if (player.getEquipment().getSlot(Equipment.SLOT_SHIELD) == 8856 && !player.getAttribute("disabledTabs", false)) {
             for (int i : Constants.W_GUILD_CATAPULT_TABS)
@@ -534,16 +544,7 @@ public class Equipment {
      * @return
      */
     public Item getDegradedItem(Item item, boolean sendMessage) {
-    	Item degradedItem = new Item(item.getId() + 2, item.getAmount());
-    	if (degradedItem.getDefinition().getName().contains(item.getDefinition().getName())
-    			&& degradedItem.getDefinition().getName().endsWith(" (deg)")) {
-    		if (sendMessage)
-        		player.sendMessage("Your "+item.getDefinition().getName().toLowerCase()+" "
-        				+(item.getDefinition().getName().contains("legs") ? "have" : "has")
-        				+" degraded and is untradeable in this state.");
-        	return degradedItem;
-    	}
-    	return item;
+		return DegradingHandler.activateOnEquip(player, item, sendMessage);
     }
      
     public boolean degrades(ItemDefinition item) {
@@ -593,36 +594,33 @@ public class Equipment {
         Item hat = get(0), body = get(4), bottoms = get(7), weaponSlot = get(3);
         if (hat == null || body == null || bottoms == null || weaponSlot == null)
             return false;
-        String helmet = hat.getDefinition().getName();
-        String platebody = body.getDefinition().getName();
-        String weapon = weaponSlot.getDefinition().getName();
-        String platelegs = bottoms.getDefinition().getName();
-        String set = "";
+		int[] set;
         switch (setID) {
             case 1:    //Ahrim's
-                set = "Ahrim";
+				set = new int[] { 4708, 4712, 4714, 4710 };
                 break;
             case 2: //Dharok's
-                set = "Dharok";
+				set = new int[] { 4716, 4720, 4722, 4718 };
                 break;
             case 3: //Guthan's
-                set = "Guthan";
+				set = new int[] { 4724, 4728, 4730, 4726 };
                 break;
             case 4: //Karil's
-                set = "Karil";
+				set = new int[] { 4732, 4736, 4738, 4734 };
                 break;
             case 5: //Torag's
-                set = "Torag";
+				set = new int[] { 4745, 4749, 4751, 4747 };
                 break;
             case 6: //Verac's
-                set = "Verac";
+				set = new int[] { 4753, 4757, 4759, 4755 };
                 break;
+			default:
+				return false;
         }
-        boolean hasHelmet = helmet.contains(set);
-        boolean hasPlatebody = platebody.contains(set);
-        boolean hasWeapon = weapon.contains(set);
-        boolean hasPlatelegs = platelegs.contains(set);
-        return hasHelmet && hasPlatebody && hasWeapon && hasPlatelegs;
+		return DegradingHandler.getCombatItemId(hat.getId()) == set[0]
+				&& DegradingHandler.getCombatItemId(body.getId()) == set[1]
+				&& DegradingHandler.getCombatItemId(bottoms.getId()) == set[2]
+				&& DegradingHandler.getCombatItemId(weaponSlot.getId()) == set[3];
     }
 
     public int getSlot(int i) {
@@ -636,36 +634,14 @@ public class Equipment {
     }
 
     public boolean voidSet(int setID) {
-        String helmet = get(0) == null ? "" : get(0).getDefinition().getName();
-        String set = "";
-        switch (setID) {
-            case 1: //Melee
-                set = "Void melee";
-                break;
-            case 2: //Range
-                set = "Void ranger";
-                break;
-            case 3: //Mage
-                set = "Void mage";
-                break;
-        }
-        boolean hasHelmet = helmet.contains(set);
-        boolean hasTop = contains(8839) || contains(19785) || contains(19787) || contains(19789);
-        boolean hasGloves = contains(8842);
-        boolean hasBottom = contains(8840) || contains(19788) || contains(19788) || contains(19790);
-        boolean[] hasSetParts = {hasTop, hasGloves, hasBottom};
-        int amt = 0;
-        for (boolean b : hasSetParts) {
-            if (b) {
-                amt++;
-            }
-        }
-        if (amt == 2) {
-            if (contains(19711)) {
-                amt++;
-            }
-        }
-        return hasHelmet && amt == 3;
+        int helmet = setID == 1 ? 11665 : setID == 2 ? 11664 : setID == 3 ? 11663 : -1;
+        if (helmet == -1 || getSlot(SLOT_HAT) != helmet) return false;
+        int top = getSlot(SLOT_CHEST), legs = getSlot(SLOT_LEGS);
+        int parts = top == 8839 || top == 19785 || top == 19787 || top == 19789 ? 1 : 0;
+        if (legs == 8840 || legs == 19786 || legs == 19788 || legs == 19790) parts++;
+        if (getSlot(SLOT_HANDS) == 8842) parts++;
+        if (getSlot(SLOT_SHIELD) == 19711) parts++;
+        return parts >= 3;
     }
 
     public void removeSlot(int slot) {
@@ -679,3 +655,4 @@ public class Equipment {
         set(slot, null);
     }
 }
+

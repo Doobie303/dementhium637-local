@@ -21,7 +21,8 @@
 
 
    public class CorporealBeastAction extends CombatAction {
-   
+    @Override public CombatAction newSession(){return new CorporealBeastAction();}
+
       private static enum Style {
          PRIMARY(Graphic.create(556, 96 << 16), 
          	Projectile.create(null, null, 557, 30, 32, 52, 75, 3, 11), 
@@ -45,7 +46,7 @@
                   if (Misc.random(1) == 1) {
 						int playerCount = 0;
 						for(Player player : World.getWorld().getPlayers()) {
-							if (player.equals(preVictim)
+							if (!org.dementhium.model.combat.NPCCombatContext.validPair(corp,player) || player.isInvisible() || !player.isAttackable(corp) || player.equals(preVictim)
 									|| (corp.getLocation().distance(player.getLocation()) > 7 && (player.getCombatExecutor().getVictim() == null ||
 										(player.getCombatExecutor().getVictim() != null && !player.getCombatExecutor().getVictim().equals(corp))))) {
 								continue;
@@ -56,7 +57,7 @@
 							int random = Misc.random(1, playerCount);
 							playerCount = 0;
 							for(Player player : World.getWorld().getPlayers()) {
-								if (player.equals(preVictim)
+								if (!org.dementhium.model.combat.NPCCombatContext.validPair(corp,player) || player.isInvisible() || !player.isAttackable(corp) || player.equals(preVictim)
 										|| (corp.getLocation().distance(player.getLocation()) > 7 && (player.getCombatExecutor().getVictim() == null ||
 											(player.getCombatExecutor().getVictim() != null && !player.getCombatExecutor().getVictim().equals(corp))))) {
 									continue;
@@ -66,11 +67,13 @@
 									preVictim = player;
 									corp.getCombatExecutor().setVictim(player);
 								}
-								
+
 							}
 						}
                   }
                   final Mob victim = preVictim;
+                  final org.dementhium.model.combat.NPCCombatContext context = new org.dementhium.model.combat.NPCCombatContext(corp,victim);
+                  if(!context.isCurrent() || !victim.isPlayer())return false;
                   corp.animate(10058);
                   victim.getPlayer().getSkills().decreaseLevelToZero(Skills.DEFENCE, 25);
                   victim.getPlayer().sendMessage("The beast drains your defence level!");
@@ -79,6 +82,7 @@
                         new Tick(4) {
                            @Override
                            public void execute() {
+                              if(!context.isCurrent()){stop();return;}
                               corp.animate(10058);
                               int magicDamage = Misc.random(500);
                               if (victim.getPlayer().getPrayer().usingPrayer(1, 7) || victim.getPlayer().getPrayer().usingPrayer(0, 17)) {
@@ -124,7 +128,7 @@
       public CorporealBeastAction() {
          super(false);
       }
-   
+
       @Override
       public boolean commenceSession() {
          style = Style.PRIMARY;
@@ -159,7 +163,7 @@
          interaction.setTicks(ticks);
          return true;
       }
-   
+
       @Override
       public boolean executeSession() {
          if (interaction.getTicks() < 2) {
@@ -171,7 +175,7 @@
          interaction.setTicks(interaction.getTicks() - 1);
          return interaction.getTicks() < 1;
       }
-   
+
       @Override
       public boolean endSession() {
          interaction.getVictim().graphics(style.end);
@@ -183,27 +187,17 @@
             else {
                interaction.getVictim().graphics(85, 96 << 16);
             }
-            if (interaction.getDamage().getVenged() > 0) {
-               interaction.getVictim().submitVengeance(interaction.getSource(), interaction.getDamage().getVenged());
-            }
-            if (interaction.getDamage().getDeflected() > 0) {
-               interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-                  interaction.getDamage().getDeflected(), 
-                  interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-            }
-            if (interaction.getDamage().getRecoiled() > 0) {
-               interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-                  interaction.getDamage().getRecoiled(), 
-                  interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-            }
+
+
+
             interaction.getVictim().retaliate(interaction.getSource());
          }
          return true;
       }
-   
+
       @Override
       public CombatType getCombatType() {
          return CombatType.MAGIC;
       }
-   
+
    }

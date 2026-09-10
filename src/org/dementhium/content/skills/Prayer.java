@@ -57,6 +57,7 @@ public class Prayer {
 	 * or you're using a leech curse/turmoil.
 	 */
 	private int attackModifier, strengthModifier, defenceModifier, rangeModifier, magicModifier;
+    private int turmoilAttack, turmoilStrength, turmoilDefence;
 
 	/**
 	 * The bonuses gained from activated prayers/curses.
@@ -78,11 +79,20 @@ public class Prayer {
 		return (staticDefence + defenceModifier) / 100D;
 	}
 
-	public double getRangeModifier() {
+	public int getTurmoilAttack() { return usingPrayer(1, TURMOIL) ? turmoilAttack : 0; }
+    public int getTurmoilStrength() { return usingPrayer(1, TURMOIL) ? turmoilStrength : 0; }
+    public int getTurmoilDefence() { return usingPrayer(1, TURMOIL) ? turmoilDefence : 0; }
+    // Separate contracts: do not silently import modern OSRS Rigour's 23% into 637.
+    public double getRangeStrengthModifier() { return getRangeModifier(); }
+    public double getRangeAccuracyModifier() { return getRangeModifier(); }
+    public double getRangeModifier() {
 		return (staticRange + rangeModifier) / 100D;
 	}
 
-	public double getMagicModifier() {
+	public double getMagicDefenceModifier() {
+        return (magicModifier + (usingPrayer(1, LEECH_MAGIC) ? 5 : 0)) / 100D;
+    }
+    public double getMagicModifier() {
 		return (staticMagic + magicModifier) / 100D;
 	}
 
@@ -367,6 +377,12 @@ public class Prayer {
 		if (prayerId < 0 || prayerId >= PRAYER_REQS[this.getPrayerBook()].length) {
 			return false;
 		}
+        if(!isOnQuickPrayerSelectScreen && !onPrayers[getPrayerBook()][prayerId]
+                && player.getAttribute("protectionDisabledUntil",-1)>World.getTicks()
+                && (getPrayerBook()==0 && prayerId>=16 && prayerId<=19 || getPrayerBook()==1 && prayerId>=6 && prayerId<=9)) {
+            player.sendMessage("Your protection prayers are temporarily disabled.");return false;
+        }
+
 		if (player.getActivity() instanceof DuelActivity) {
 			if (((DuelActivity) player.getActivity()).getDuelConfigurations().getRule(Rules.PRAYER)) {
 				player.sendMessage("You aren't allowed to use prayer during this duel!");
@@ -616,10 +632,12 @@ public class Prayer {
 			case Prayer.CHIVALRY:
 				staticAttack += on ? 15 : -15;
 				staticStrength += on ? 18 : -18;
+				staticDefence += on ? 20 : -20;
 				break;
 			case Prayer.PIETY:
 				staticAttack += on ? 20 : -20;
 				staticStrength += on ? 23 : -23;
+				staticDefence += on ? 25 : -25;
 				break;
 			case Prayer.CLARITY_OF_THOUGHT:
 				staticAttack += on ? 5 : -5;
@@ -779,7 +797,7 @@ public class Prayer {
 		for (int i = 0; i < onPrayers[book].length; i++) {
 			if (usingPrayer(book, i)) {
 				double drain = drainRate(i);
-				double bonus = 0.0035 * player.getBonuses().getBonus(Skills.PRAYER);
+				double bonus = Math.max(0, player.getBonuses().getBonus(org.dementhium.model.player.Bonuses.PRAYER)) / 30.0;
 				drain = drain * (1 + bonus);
 				drain = 0.6 / drain;
 				amountDrain += drain;
@@ -789,6 +807,7 @@ public class Prayer {
 			player.getSkills().drainPray(amountDrain);
             checkPrayer();
 		}
+		for (Curse curse : curses) curse.prune();
 		if (curses.size() > 0) {
 			Mob victim = player.getCombatExecutor().getVictim();
 			if (victim != null) {
@@ -819,6 +838,12 @@ public class Prayer {
 		private int maximumDrain;
 		private int maximumBoost;
 		private Map<Mob, Integer> cursedMobs = new HashMap<Mob, Integer>();
+        private Map<Mob, Long> victimRevisions = new HashMap<Mob, Long>();
+        private Map<Mob, Long> victimCombatRevisions = new HashMap<Mob, Long>();
+        private Map<Mob, Runnable> resetListeners = new HashMap<Mob, Runnable>();
+        private int ownedBoost;
+        private long sourceRevision = player.getInstanceRevision();
+        private long sourceCombatRevision = player.getCombatRevision();
 
 		private Curse(int id) {
 			this.id = id;
@@ -831,7 +856,9 @@ public class Prayer {
 		}
 
 		public void curse(Mob victim) {
-			int[] skills = getSkills();
+            prune();
+            if (!valid(victim)) return;
+            int[] skills = getSkills();
 			if (skills == null) {
 				if (RANDOM.nextDouble() > 0.30) {
 					return;
@@ -840,14 +867,15 @@ public class Prayer {
 					Player playerVictim = victim.getPlayer();
 					int projectileId = -1;
 					switch (id) {
-					case Prayer.LEECH_SPECIAL_ATTACK:
+					case Prayer.SAP_SPIRIT:
+                    case Prayer.LEECH_SPECIAL_ATTACK:
 						int drain = playerVictim.getSpecialAmount() < 100 ? playerVictim.getSpecialAmount() : 100;
 						if (drain > 0) {
 							int newAmount = player.getSpecialAmount() + drain;
 							if (newAmount > 1000) {
 								newAmount = 1000;
 							}
-							player.setSpecialAmount(newAmount);
+							if (id == Prayer.LEECH_SPECIAL_ATTACK) player.setSpecialAmount(newAmount);
 							player.sendMessage("You leech some special attack energy from your enemy.");
 							player.graphics(2223);
 							player.animate(12575);
@@ -879,95 +907,27 @@ public class Prayer {
 						}
 						break;
 					}
-					ProjectileManager.sendGlobalProjectile(projectileId, player, victim, 30, 35, 30, 10, 20);
+					if (projectileId >= 0) ProjectileManager.sendGlobalProjectile(projectileId, player, victim, 30, 35, 30, 10, 20);
 				}
 				return;
 			}
-			int drain = Misc.random(1) + 1;
-			boolean b = false;
-			if (!cursedMobs.containsKey(victim)) {
-				cursedMobs.put(victim, drain);
-				b = true;
-			}
-			double drained = cursedMobs.get(victim);
-			if (drained >= maximumDrain) {
-				return;
-			}
-			for (int i : skills) {
-				player.sendMessage("Your curse drains " + Skills.SKILL_NAME[i] + " from the enemy, boosting your " + Skills.SKILL_NAME[i] + ".");
-				switch (i) {
-				case Skills.ATTACK:
-					attackModifier += drain;
-					if (attackModifier > maximumDrain + maximumBoost) {
-						attackModifier = maximumDrain + maximumBoost;
-					}
-					break;
-				case Skills.DEFENCE:
-					defenceModifier += drain;
-					if (defenceModifier > maximumDrain + maximumBoost) {
-						defenceModifier = maximumDrain + maximumBoost;
-					}
-					break;
-				case Skills.STRENGTH:
-					strengthModifier += drain;
-					if (strengthModifier > maximumDrain + maximumBoost) {
-						strengthModifier = maximumDrain + maximumBoost;
-					}
-					break;
-				case Skills.RANGED:
-					rangeModifier += drain;
-					if (rangeModifier > maximumDrain + maximumBoost) {
-						rangeModifier = maximumDrain + maximumBoost;
-					}
-					break;
-				case Skills.MAGIC:
-					magicModifier += drain;
-					if (magicModifier > maximumDrain + maximumBoost) {
-						magicModifier = maximumDrain + maximumBoost;
-					}
-					break;
-				}
-				Player playerVictim = victim.getPlayer();
-				if (playerVictim != null) {
-					playerVictim.sendMessage("Your " + Skills.SKILL_NAME[i] + " has been drained by an enemy curse.");
-					switch (i) {
-					case Skills.ATTACK:
-						playerVictim.getPrayer().attackModifier -= drain;
-						break;
-					case Skills.DEFENCE:
-						playerVictim.getPrayer().defenceModifier -= drain;
-						break;
-					case Skills.STRENGTH:
-						playerVictim.getPrayer().strengthModifier -= drain;
-						break;
-					case Skills.RANGED:
-						playerVictim.getPrayer().rangeModifier -= drain;
-						break;
-					case Skills.MAGIC:
-						playerVictim.getPrayer().magicModifier -= drain;
-						break;
-					}
-					playerVictim.getPrayer().update();
-				} else {
-					switch (i) {
-					case Skills.ATTACK:
-						victim.getNPC().decreaseAttackModifier(drain);
-						break;
-					case Skills.DEFENCE:
-						victim.getNPC().decreaseDefenceModifier(drain);
-						break;
-					case Skills.STRENGTH:
-						victim.getNPC().decreaseStrengthModifier(drain);
-						break;
-					case Skills.RANGED:
-						victim.getNPC().decreaseRangeModifier(drain);
-						break;
-					case Skills.MAGIC:
-						victim.getNPC().decreaseMagicModifier(drain);
-						break;
-					}
-				}
-			}
+            int previous = cursedMobs.containsKey(victim) ? cursedMobs.get(victim) : 0;
+            int drain = Math.min(maximumDrain - previous, previous == 0 ? 10 : Misc.random(1) + 1);
+            if (drain <= 0) return;
+            cursedMobs.put(victim, previous + drain);
+            victimRevisions.put(victim, victim.getInstanceRevision());
+            victimCombatRevisions.put(victim, victim.getCombatRevision());
+            if(victim.isNPC()&&!victim.isFamiliar()&&!resetListeners.containsKey(victim)){
+                Runnable listener=()->{release(victim);update();};
+                resetListeners.put(victim,listener);victim.getNPC().addCombatResetListener(listener);
+            }
+            int boost = maximumBoost == 0 ? 0 : Math.min(maximumBoost - ownedBoost, previous == 0 ? 0 : drain);
+            ownedBoost += boost;
+            for (int skill : skills) {
+                adjust(victim, skill, -drain);
+                if (boost > 0) adjust(player, skill, boost);
+            }
+
 			if (skills.length > 1) {
 				player.animate(12569);
 				player.graphics(2211 + id * 3);
@@ -984,83 +944,65 @@ public class Prayer {
 				}
 				player.animate(12575);
 			}
-			if (!b) {
-				cursedMobs.put(victim, cursedMobs.get(victim) + drain);
-			}
 			update();
 		}
 
-		public void deactivate() {
-			for (Map.Entry<Mob, Integer> entry : cursedMobs.entrySet()) {
-				int[] skills = getSkills();
-				if (skills == null) {
-					return;
-				}
-				Mob victim = entry.getKey();
-				if (victim.destroyed()) {
-					continue;
-				}
-				int drained = entry.getValue();
-				for (int i : skills) {
-					if (victim.isPlayer()) {
-						victim.getPlayer().sendMessage("Your " + Skills.SKILL_NAME[i] + " is now unaffected by sap and leech curses.");
-						switch (i) {
-						case Skills.ATTACK:
-							victim.getPlayer().getPrayer().attackModifier += drained;
-							break;
-						case Skills.DEFENCE:
-							victim.getPlayer().getPrayer().defenceModifier += drained;
-							break;
-						case Skills.STRENGTH:
-							victim.getPlayer().getPrayer().strengthModifier += drained;
-							break;
-						case Skills.RANGED:
-							victim.getPlayer().getPrayer().rangeModifier += drained;
-							break;
-						case Skills.MAGIC:
-							victim.getPlayer().getPrayer().magicModifier += drained;
-							break;
-						}
-					} else {
-						switch (i) {
-						case Skills.ATTACK:
-							victim.getNPC().decreaseAttackModifier(-drained);
-							break;
-						case Skills.DEFENCE:
-							victim.getNPC().decreaseDefenceModifier(-drained);
-							break;
-						case Skills.STRENGTH:
-							victim.getNPC().decreaseStrengthModifier(-drained);
-							break;
-						case Skills.RANGED:
-							victim.getNPC().decreaseRangeModifier(-drained);
-							break;
-						case Skills.MAGIC:
-							victim.getNPC().decreaseMagicModifier(-drained);
-							break;
-						}
-					}
-					switch (i) {
-					case Skills.ATTACK:
-						attackModifier -= drained;
-						break;
-					case Skills.DEFENCE:
-						defenceModifier -= drained;
-						break;
-					case Skills.STRENGTH:
-						strengthModifier -= drained;
-						break;
-					case Skills.RANGED:
-						rangeModifier -= drained;
-						break;
-					case Skills.MAGIC:
-						magicModifier -= drained;
-						break;
-					}
-				}
-
-			}
-		}
+        private boolean valid(Mob victim) {
+            return victim != null && victim != player && !victim.isFamiliar()
+                    && sourceRevision == player.getInstanceRevision()
+                    && sourceCombatRevision == player.getCombatRevision()
+                    && player.getHitPoints() > 0 && victim.getHitPoints() > 0 && !victim.destroyed()
+                    && (!victim.isPlayer() || victim.getPlayer().isOnline())
+                    && org.dementhium.model.combat.CombatStatus.statusAllowed(victim)
+                    && player.getLocation().getZ() == victim.getLocation().getZ()
+                    && player.getLocation().distance(victim.getLocation()) <= 17
+                    && org.dementhium.model.instance.InstanceAccess.canInteract(player,victim);
+        }
+        private void prune() {
+            if(sourceRevision != player.getInstanceRevision() || sourceCombatRevision != player.getCombatRevision()) {
+                deactivate(); sourceRevision=player.getInstanceRevision();sourceCombatRevision=player.getCombatRevision();
+            }
+            for (Mob victim : new ArrayList<Mob>(cursedMobs.keySet())) {
+                if (!valid(victim) || victimRevisions.get(victim) != victim.getInstanceRevision()
+                        || victimCombatRevisions.get(victim) != victim.getCombatRevision()) release(victim);
+            }
+        }
+        private void release(Mob victim) {
+            Integer drained = cursedMobs.remove(victim);
+            victimRevisions.remove(victim);
+            victimCombatRevisions.remove(victim);
+            Runnable listener=resetListeners.remove(victim);
+            if(listener!=null)victim.getNPC().removeCombatResetListener(listener);
+            if (drained != null) for (int skill : getSkills()) adjust(victim,skill,drained);
+            if(cursedMobs.isEmpty()&&ownedBoost>0){for(int skill:getSkills())adjust(player,skill,-ownedBoost);ownedBoost=0;}
+        }
+        public void deactivate() {
+            for (Mob victim : new ArrayList<Mob>(cursedMobs.keySet())) release(victim);
+            if (ownedBoost > 0) for (int skill : getSkills()) adjust(player,skill,-ownedBoost);
+            ownedBoost=0;
+            update();
+        }
+        private void adjust(Mob target,int skill,int amount) {
+            if (target.isPlayer()) {
+                Prayer prayer=target.getPlayer().getPrayer();
+                switch(skill) {
+                    case Skills.ATTACK: prayer.attackModifier+=amount;break;
+                    case Skills.STRENGTH: prayer.strengthModifier+=amount;break;
+                    case Skills.DEFENCE: prayer.defenceModifier+=amount;break;
+                    case Skills.RANGED: prayer.rangeModifier+=amount;break;
+                    case Skills.MAGIC: prayer.magicModifier+=amount;break;
+                }
+                prayer.update();
+            } else {
+                switch(skill) {
+                    case Skills.ATTACK: target.getNPC().decreaseAttackModifier(-amount);break;
+                    case Skills.STRENGTH: target.getNPC().decreaseStrengthModifier(-amount);break;
+                    case Skills.DEFENCE: target.getNPC().decreaseDefenceModifier(-amount);break;
+                    case Skills.RANGED: target.getNPC().decreaseRangeModifier(-amount);break;
+                    case Skills.MAGIC: target.getNPC().decreaseMagicModifier(-amount);break;
+                }
+            }
+        }
 
 		public int[] getSkills() {
 			int[] skills = null;
@@ -1116,9 +1058,9 @@ public class Prayer {
 	 */
 	public void update() {
 		int stat = 30;
-		int value = (stat + attackModifier)
-		| ((stat + strengthModifier) << 6)
-		| ((stat + defenceModifier) << 12)
+		int value = (stat + attackModifier + getTurmoilAttack())
+		| ((stat + strengthModifier + getTurmoilStrength()) << 6)
+		| ((stat + defenceModifier + getTurmoilDefence()) << 12)
 		| ((stat + rangeModifier) << 18)
 		| ((stat + magicModifier) << 24);
 		ActionSender.sendConfig(player, 1583, value);
@@ -1134,8 +1076,8 @@ public class Prayer {
 			damage = mob.getPlayer().getSkills().getLevelForExperience(Skills.PRAYER) * 3;
 		} else if (mob.isNPC() && mob.getNPC().isNex()) {
 			center = mob.getLocation().transform(1, 1, 0);
-			damage = 600; //120 * 3
-			radius = 4; //10 //Note: nex already has a size of 2 by 2 (does that matter after transform (2 lines above)?)
+				damage = 300;
+				radius = 3;
 		}
 		if (center != null) {
 			ActionSender.spawnPositionedGraphic(center, 2259);
@@ -1155,7 +1097,20 @@ public class Prayer {
 					}
 				}
 			}
-			if (killer != null) {
+				if (mob.isNPC() && mob.getNPC().isNex()) {
+					for (Player player : World.getWorld().getPlayers()) {
+						Location location = player.getLocation();
+						if (!player.isDead() && location.getZ() == 0
+								&& location.getX() >= 2910 && location.getX() <= 2941
+								&& location.getY() >= 5188 && location.getY() <= 5220
+								&& location.distance(center) <= radius) {
+							player.getDamageManager().damage(mob, 100 + RANDOM.nextInt(201),
+									300, DamageType.RED_DAMAGE);
+						}
+					}
+					return;
+				}
+				if (killer != null) {
 				if (mob.isMulti()) {
 					if (killer.isNPC()) {
 						List<NPC> npcs = Region.getLocalNPCs(mob.getLocation(), radius);
@@ -1226,44 +1181,18 @@ public class Prayer {
 	  * @param mob The victim.
 	  */
 	 public void updateTurmoil(Mob mob) {
-		 if (mob == null) {
-			 player.getAttribute("hasTurmoil", false);
-			 player.setAttribute("turmoilEffect", true);
-			 attackModifier = 0; //TODO: Check if this player is cursed
-			 strengthModifier = 0;
-			 defenceModifier = 0;
-			 update();
-			 return;
-		 }
-		 if (player.getAttribute("hasTurmoil", false)) {
-			 return;
-		 }
-		 if (!player.getAttribute("turmoilEffect", false)) {
-			 player.setAttribute("turmoilEffect", true);
-			 return;
-		 }
-		 player.getAttribute("hasTurmoil", true);
-		 player.setAttribute("turmoilEffect", false);
-		 boolean p = mob.isPlayer();
-		 int strength = p ? mob.getPlayer().getSkills().getLevelForExperience(Skills.STRENGTH) : mob.getNPC().getDefinition().getStrengthLevel();
-		 int attack = p ? mob.getPlayer().getSkills().getLevelForExperience(Skills.ATTACK) : mob.getNPC().getDefinition().getAttackLevel();
-		 int defence = p ? mob.getPlayer().getSkills().getLevelForExperience(Skills.DEFENCE) : mob.getNPC().getDefinition().getDefenceLevel();
-		 int strengthIncrease = (int) (strength * 0.1);
-		 int attackIncrease = (int) (attack * 0.15);
-		 int defenceIncrease = (int) (defence * 0.15);
-		 strengthIncrease = strengthIncrease > 9 ? 9 : strengthIncrease;
-		 attackIncrease = attackIncrease > 14 ? 14 : attackIncrease;
-		 defenceIncrease = defenceIncrease > 14 ? 14 : defenceIncrease;
-		 attackModifier += attackIncrease;
-		 strengthModifier += strengthIncrease;
-		 defenceModifier += defenceIncrease;
-		 if (attackModifier > attackIncrease)
-			 attackModifier = attackIncrease;
-		 if (defenceModifier > defenceIncrease)
-			 defenceModifier = defenceIncrease;
-		 if (strengthModifier > strengthIncrease)
-			 strengthModifier = strengthIncrease;
-		 update();
-	 }
+        if (mob == null || !usingPrayer(1, TURMOIL)) {
+            turmoilAttack = turmoilStrength = turmoilDefence = 0;
+            player.removeAttribute("hasTurmoil");
+            update();
+            return;
+        }
+        boolean p = mob.isPlayer();
+        turmoilAttack = Math.min(14, (int)((p ? mob.getPlayer().getSkills().getLevelForExperience(Skills.ATTACK) : mob.getNPC().getDefinition().getAttackLevel()) * .15));
+        turmoilDefence = Math.min(14, (int)((p ? mob.getPlayer().getSkills().getLevelForExperience(Skills.DEFENCE) : mob.getNPC().getDefinition().getDefenceLevel()) * .15));
+        turmoilStrength = Math.min(9, (int)((p ? mob.getPlayer().getSkills().getLevelForExperience(Skills.STRENGTH) : mob.getNPC().getDefinition().getStrengthLevel()) * .10));
+        player.setAttribute("hasTurmoil", true);
+        update();
+    }
 
 }

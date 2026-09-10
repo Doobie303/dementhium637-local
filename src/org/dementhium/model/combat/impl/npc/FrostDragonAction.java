@@ -17,7 +17,8 @@ import org.dementhium.model.misc.ProjectileManager;
  *
  */
 public class FrostDragonAction extends CombatAction {
-	
+    @Override public CombatAction newSession(){return new FrostDragonAction();}
+
     /**
      * The bite melee attack animation.
      */
@@ -32,12 +33,12 @@ public class FrostDragonAction extends CombatAction {
      * The dragonfire projectile id.
      */
     private static final int DRAGONFIRE_ID = 2465;
-    
+
     /**
      * The current combat type.
      */
     private CombatType type = CombatType.DRAGONFIRE;
-    
+
 	/**
 	 * Constructs a new {@code FrostDragonAction}.
 	 */
@@ -90,20 +91,9 @@ public class FrostDragonAction extends CombatAction {
 	public boolean endSession() {
 		interaction.getVictim().getDamageManager().damage(
 				interaction.getSource(), interaction.getDamage(), type.getDamageType());
-		if (interaction.getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(
-					interaction.getSource(), interaction.getDamage().getVenged());
-		}
-		if (interaction.getDamage().getDeflected() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getDamage().getDeflected(), interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getDamage().getRecoiled(), interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
+
+
+
 		interaction.getVictim().retaliate(interaction.getSource());
 		return true;
 	}

@@ -11,6 +11,7 @@ import org.dementhium.task.Task;
 public class SessionLoginTask implements Task {
 
     private final Player player;
+    public Player getPlayer() { return player; }
 
     public SessionLoginTask(Player player) {
         this.player = player;

@@ -9,6 +9,7 @@ import java.util.Map;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import org.dementhium.model.player.DegradingHandler;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -44,6 +45,8 @@ public final class RangeWeapon {
 	 * The attack speed.
 	 */
 	private final int attackSpeed;
+    private int attackRange=10;
+    public int getAttackRange(boolean longrange) { return Math.min(10,attackRange+(longrange?2:0)); }
 	
 	/**
 	 * The equipment slot the ammunition uses, if any.
@@ -90,6 +93,7 @@ public final class RangeWeapon {
 					int itemId = 0;
 					int animationId = 426;
 					int attackSpeed = 4;
+                    int attackRange=10;
 					int slot = 13;
 					List<Integer> ammo = new ArrayList<Integer>();
 					for (int a = 1; a < list.getLength(); a += 2) {
@@ -100,14 +104,19 @@ public final class RangeWeapon {
 							animationId = Integer.parseInt(node.getTextContent());
 						} else if (node.getNodeName().equalsIgnoreCase("attackSpeed")) {
 							attackSpeed = Integer.parseInt(node.getTextContent());
-						} else if (node.getNodeName().equalsIgnoreCase("ammunitionSlot")) {
+						} else if (node.getNodeName().equalsIgnoreCase("attackRange")) {
+                            attackRange=Integer.parseInt(node.getTextContent());
+                            if(attackRange<1 || attackRange>10)throw new IllegalArgumentException("Invalid attackRange for item "+itemId);
+                        } else if (node.getNodeName().equalsIgnoreCase("ammunitionSlot")) {
 							slot = Integer.parseInt(node.getTextContent());
 						} else if (node.getNodeName().equalsIgnoreCase("ammunition")) {
 							int ammunitionId = Integer.parseInt(node.getTextContent());
 							ammo.add(ammunitionId);
 						}
 					}
-					RANGE_WEAPONS.put(itemId, new RangeWeapon(itemId, animationId, attackSpeed, slot, ammo));
+					RangeWeapon weapon=new RangeWeapon(itemId,animationId,attackSpeed,slot,ammo);
+                    weapon.attackRange=attackRange;
+                    RANGE_WEAPONS.put(itemId,weapon);
 				}
 			}
 		}
@@ -121,7 +130,20 @@ public final class RangeWeapon {
 	 * @return The instance.
 	 */
 	public static RangeWeapon get(int id) {
-		return RANGE_WEAPONS.get(id);
+		RangeWeapon weapon = RANGE_WEAPONS.get(id);
+		if (weapon != null) {
+			return weapon;
+		}
+		int combatId = DegradingHandler.getCombatItemId(id);
+		RangeWeapon base = RANGE_WEAPONS.get(combatId);
+		if (base == null || combatId == id) {
+			return null;
+		}
+		weapon = new RangeWeapon(id, base.animationId, base.attackSpeed,
+				base.ammunitionSlot, base.ammunition);
+		weapon.attackRange=base.attackRange;
+        RANGE_WEAPONS.put(id, weapon);
+		return weapon;
 	}
 
 	/**

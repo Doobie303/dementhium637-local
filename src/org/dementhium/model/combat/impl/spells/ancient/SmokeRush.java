@@ -24,7 +24,7 @@ public class SmokeRush extends MagicSpell {
 		ProjectileManager.sendProjectile(Projectile.create(interaction.getSource(), interaction.getVictim(), 384, 43, 31, 51, speed, 16, 64));
 		interaction.getSource().animate(1978);
 		if (interaction.getDamage().getHit() > 0) {
-			interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 20);
+			org.dementhium.model.combat.CombatStatus.poisonOnImpact(interaction.getDamage(), interaction.getSource(), interaction.getVictim(), 20);
 		}
 		interaction.setEndGraphic(Graphic.create(385));
 		return true;

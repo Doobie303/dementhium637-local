@@ -27,6 +27,7 @@ public class ProjectilePathFinder {
         if (ImpetuousImpulses.inPuroPuro(mob.getLocation())) {
         	return 1;
         }
+        if(clearPath(mob.getLocation(),victimLoc))return 1;
         Location loc = mob.getLocation();
         List<Location> available = new ArrayList<Location>();
         for (int x = -15; x <= 15; x++) {
@@ -68,69 +69,51 @@ public class ProjectilePathFinder {
     }
 
 
-    public static boolean clearPath(Location loc, Location to) {
-        int height = loc.getZ();
-        if (height != to.getZ()) {
-            return false;
-        }
-        int i = 0, i2 = 0;
-        int startX = loc.getX();
-        int startY = loc.getY();
-        int endX = to.getX();
-        int endY = to.getY();
-        int diffX = endX - startX, diffY = endY - startY;
-        int max = Math.max(Math.abs(diffX), Math.abs(diffY));
-        for (int ii = 0; ii < max; ii++) {
-            if (diffX < 0)
-                diffX++;
-            else if (diffX > 0)
-                diffX--;
-            if (diffY < 0)
-                diffY++;
-            else if (diffY > 0)
-                diffY--;
+    /** A symmetric centre-to-centre ray, including the first/last boundary. */
+    public static boolean clearPath(Location from, Location to) {
+        return ray(from,to,true);
+    }
 
-            int currentX = (endX - diffX);
-            int currentY = (endY - diffY);
-            if (diffX < 0 && diffY < 0) {
-                if ((Region.getClippingMask(currentX + i - 1, currentY + i2 - 1, height) & SOLID_FLAG) != 0 || (Region.getClippingMask(currentX + i - 1, currentY + i2, height) & SOLID_FLAG) != 0
-                        || (Region.getClippingMask(currentX + i, currentY + i2 - 1, height) & SOLID_FLAG) != 0) {
-                    return false;
-                }
-            } else if (diffX > 0 && diffY > 0) {
-                if ((Region.getClippingMask(currentX + i + 1, currentY + i2 + 1, height) & SOLID_FLAG) != 0 || (Region.getClippingMask(currentX + i + 1, currentY + i2, height) & SOLID_FLAG) != 0
-                        || (Region.getClippingMask(currentX + i, currentY + i2 + 1, height) & SOLID_FLAG) != 0) {
-                    return false;
-                }
-            } else if (diffX < 0 && diffY > 0) {
-                if ((Region.getClippingMask(currentX + i - 1, currentY + i2 + 1, height) & SOLID_FLAG) != 0 || (Region.getClippingMask(currentX + i - 1, currentY + i2, height) & SOLID_FLAG) != 0
-                        || (Region.getClippingMask(currentX + i, currentY + i2 + 1, height) & SOLID_FLAG) != 0) {
-                    return false;
-                }
-            } else if (diffX > 0 && diffY < 0) {
-                if ((Region.getClippingMask(currentX + i + 1, currentY + i2 - 1, height) & SOLID_FLAG) != 0 || (Region.getClippingMask(currentX + i + 1, currentY + i2, height) & SOLID_FLAG) != 0
-                        || (Region.getClippingMask(currentX + i, currentY + i2 - 1, height) & SOLID_FLAG) != 0) {
-                    return false;
-                }
-            } else if (diffX > 0 && diffY == 0) {
-                if ((Region.getClippingMask(currentX + i + 1, currentY + i2, height) & SOLID_FLAG) != 0) {
-                    return false;
-                }
-            } else if (diffX < 0 && diffY == 0) {
-                if ((Region.getClippingMask(currentX + i - 1, currentY + i2, height) & SOLID_FLAG) != 0) {
-                    return false;
-                }
-            } else if (diffX == 0 && diffY > 0) {
-                if ((Region.getClippingMask(currentX + i, currentY + i2 + 1, height) & SOLID_FLAG) != 0) {
-                    return false;
-                }
-            } else if (diffX == 0 && diffY < 0) {
-                if ((Region.getClippingMask(currentX + i, currentY + i2 - 1, height) & SOLID_FLAG) != 0) {
-                    return false;
-                }
-            }
+    /** Walking boundaries also govern melee; projectile-passable cover is not melee contact. */
+    public static boolean clearMeleePath(Location from, Location to) {
+        return ray(from,to,false);
+    }
+
+    private static boolean ray(Location from,Location to,boolean projectile) {
+        if(from==null||to==null||from.getZ()!=to.getZ())return false;
+        int x=from.getX(),y=from.getY(),z=from.getZ();
+        int nx=Math.abs(to.getX()-x),ny=Math.abs(to.getY()-y);
+        int sx=Integer.signum(to.getX()-x),sy=Integer.signum(to.getY()-y),ix=0,iy=0;
+        if(blocked(x,y,z,projectile))return false;
+        while(ix<nx||iy<ny){
+            long crossX=(1L+2*ix)*ny,crossY=(1L+2*iy)*nx;
+            int dx=0,dy=0;
+            if(crossX<=crossY&&ix<nx){dx=sx;ix++;}
+            if(crossY<=crossX&&iy<ny){dy=sy;iy++;}
+            if(!boundary(x,y,z,dx,dy,projectile))return false;
+            x+=dx;y+=dy;
         }
         return true;
     }
 
+    private static boolean blocked(int x,int y,int z,boolean projectile) {
+        // Region writes movement solidity separately from projectile solidity.
+        int mask=projectile?0x20000:(256|0x200000|0x40000);
+        return (Region.getClippingMask(x,y,z)&mask)!=0;
+    }
+
+    private static boolean boundary(int x,int y,int z,int dx,int dy,boolean projectile) {
+        if(blocked(x+dx,y+dy,z,projectile))return false;
+        int shift=projectile?9:0;
+        int out=dx<0?(dy<0?64:dy>0?1:128):dx>0?(dy<0?16:dy>0?4:8):(dy<0?32:2);
+        int in=dx<0?(dy<0?4:dy>0?16:8):dx>0?(dy<0?1:dy>0?64:128):(dy<0?2:32);
+        if((Region.getClippingMask(x,y,z)&(out<<shift))!=0
+                ||(Region.getClippingMask(x+dx,y+dy,z)&(in<<shift))!=0)return false;
+        if(dx!=0&&dy!=0){
+            // Both sides of a corner must be open; no shooting between touching walls.
+            return boundary(x,y,z,dx,0,projectile)&&boundary(x,y,z,0,dy,projectile)
+                &&boundary(x+dx,y,z,0,dy,projectile)&&boundary(x,y+dy,z,dx,0,projectile);
+        }
+        return true;
+    }
 }

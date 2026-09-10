@@ -56,7 +56,21 @@ public abstract class Activity<E extends Entity> extends Tick {
     /**
      * The activity's identification digit.
      */
-    private int activityId;
+    private int activityId = -1;
+    private ActivityManager registration;
+    private boolean endingSession;
+    boolean finishSession() {
+        if (endingSession) return true;
+        endingSession = true;
+        try { return endSession(); } finally { endingSession = false; }
+    }
+    ActivityManager registrationManager() { return registration; }
+    void attachRegistration(ActivityManager manager, int id) {
+        registration = manager; activityId = id;
+    }
+    void detachRegistration() {
+        registration = null; activityId = -1; super.stop();
+    }
 
     /**
      * A constructor setting the player instance to {@code null} <br>
@@ -221,11 +235,13 @@ public abstract class Activity<E extends Entity> extends Tick {
      */
     public void stop(boolean endSession) {
         super.stop();
-        ActivityManager.getSingleton().unregister(this, endSession);
+        ActivityManager manager = registration;
+        if (manager != null) manager.unregister(this, endSession);
     }
 
     @Override
     public void execute() {
+        if (!isRunning()) return;
         switch (activityState) {
             case PAUSE_STATE:
                 return;
@@ -243,7 +259,7 @@ public abstract class Activity<E extends Entity> extends Tick {
                 this.updateSession();
                 return;
             case END_STATE:
-                if (this.endSession()) {
+                if (this.finishSession()) {
                     this.stop(false);
                 }
         }
@@ -317,6 +333,7 @@ public abstract class Activity<E extends Entity> extends Tick {
      * @param activityId the activityId to set
      */
     public void setActivityId(int activityId) {
+        if (registration != null && this.activityId != activityId) throw new IllegalStateException("Registered activity IDs are immutable");
         this.activityId = activityId;
     }
 

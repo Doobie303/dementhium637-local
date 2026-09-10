@@ -22,12 +22,12 @@ public class SlimeSprayAction extends CombatAction {
 	 * The attack animation.
 	 */
 	private static final Animation ANIMATION = Animation.create(8148);
-	
+
 	/**
 	 * The graphic.
 	 */
 	private static final Graphic GRAPHIC = Graphic.create(1385);
-	
+
 	/**
 	 * The projectile to send.
 	 */
@@ -37,7 +37,7 @@ public class SlimeSprayAction extends CombatAction {
 	 * The graphic.
 	 */
 	private static final Graphic END_GRAPHIC = Graphic.create(1387);
-	
+
 	/**
 	 * Constructs a new {@code SlimeSprayAction} {@code Object}.
 	 */
@@ -90,19 +90,9 @@ public class SlimeSprayAction extends CombatAction {
 		interaction.getVictim().graphics(END_GRAPHIC);
 		interaction.getVictim().getDamageManager().damage(
 				interaction.getSource(), interaction.getDamage(), DamageType.RANGE);
-		if (interaction.getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(interaction.getSource(), interaction.getDamage().getVenged());
-		}
-		if (interaction.getDamage().getDeflected() > 0) {
-			interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-					interaction.getDamage().getDeflected(), 
-					interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getDamage().getRecoiled() > 0) {
-			interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-					interaction.getDamage().getRecoiled(), 
-					interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
+
+
+
 		interaction.getVictim().retaliate(interaction.getSource());
 		return true;
 	}

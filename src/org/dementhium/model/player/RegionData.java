@@ -13,6 +13,11 @@ public class RegionData {
 	private boolean NeedReload;
 	private Location lastMapRegion;
 	private Location lastLocation;
+    private long sceneRevision = 1;
+    public void setSceneRevision(long revision) { sceneRevision = revision; }
+    public boolean isSceneChanged() {
+        return sceneRevision != org.dementhium.model.map.region.RegionBuilder.sceneRevision(player.getLocation(), player.getViewportDepth());
+    }
 	
 	//The 4 ints below are ONLY used for refreshing: GroundItems + (Custom)Objects.
 	//4 ints because there are only 4 heights possible as far as I know.
@@ -30,6 +35,23 @@ public class RegionData {
 
 	public void teleport(int coordX, int coordY, int height) {
 		getLastMapRegion();
+        if (coordX<=0 || coordY<=0 || coordX>=16384 || coordY>=16384 || height<0 || height>3) return;
+        final Location destination = Location.locate(coordX, coordY, height);
+        if (!org.dementhium.model.instance.InstanceAccess.canRelocate(player,destination)) return;
+        if (org.dementhium.model.map.region.RegionBuilder.isDynamicViewport(destination, player.getViewportDepth())) {
+            try {
+                org.dementhium.model.map.region.DynamicMapPacket.validate(destination, player.getViewportDepth());
+            } catch (IllegalStateException failure) {
+                player.sendMessage("This map could not be loaded. Please try again later.");
+                return;
+            }
+        }
+        long nextRevision = org.dementhium.model.map.region.RegionBuilder.sceneRevision(destination, player.getViewportDepth());
+        if (sceneRevision != nextRevision) setDidMapRegionChange(true);
+        if (player.getLocation().getZ() != height
+                && (org.dementhium.model.map.region.RegionBuilder.isDynamicViewport(destination, player.getViewportDepth())
+                || org.dementhium.model.map.region.RegionBuilder.isDynamicViewport(player.getLocation(), player.getViewportDepth())))
+            setDidMapRegionChange(true);
 		player.getWalkingQueue().reset();
 		player.setAttribute("cantMove", Boolean.TRUE);
 		player.closeAll(true, false);
@@ -40,6 +62,7 @@ public class RegionData {
 			setDidMapRegionChange(true);
 		}
 		this.lastLocation = player.getLocation();
+		player.markCombatTransition();
 		player.setLocation(futurelocation);
 		setDidTeleport(true);
 		if (isDidMapRegionChange()) {
@@ -47,7 +70,7 @@ public class RegionData {
 			alreadyUpdatedZ = -1;
 			alreadyUpdatedZ2 = -1;
 			alreadyUpdatedZ3 = -1;
-			player.updateMap();
+			player.updateMap(); sceneRevision = nextRevision;
 			setDidMapRegionChange(false); //this refreshes objects and ground items as well, for the z the person arrived on when entering new map region
 		}
 		if (this.lastLocation.getZ() != futurelocation.getZ() && futurelocation.getZ() != z

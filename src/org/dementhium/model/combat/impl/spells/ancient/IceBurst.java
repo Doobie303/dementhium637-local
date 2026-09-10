@@ -3,6 +3,7 @@ package org.dementhium.model.combat.impl.spells.ancient;
 import java.util.ArrayList;
 
 import org.dementhium.model.Item;
+import org.dementhium.model.combat.CombatStatus;
 import org.dementhium.model.Mob;
 import org.dementhium.model.Projectile;
 import org.dementhium.model.World;
@@ -25,14 +26,14 @@ import org.dementhium.net.ActionSender;
  *
  */
 public class IceBurst extends MagicSpell {
-	
+
 	@Override
 	public boolean castSpell(Interaction interaction) {
 		if (!interaction.getSource().isMulti() || !interaction.getVictim().isMulti()) {
 			interaction.setTargets(new ArrayList<ExtraTarget>());
 			interaction.getTargets().add(new ExtraTarget(interaction.getVictim()));
 		} else {
-			interaction.setTargets(CombatUtils.getTargetList(interaction.getSource(), interaction.getVictim(), 1, 8));
+			interaction.setTargets(CombatUtils.getTargetList(interaction.getSource(), interaction.getVictim(), 1, 9));
 		}
 		interaction.getSource().animate(1979);
 		if (interaction.getVictim().getWalkingQueue().isMoving()) {
@@ -59,21 +60,7 @@ public class IceBurst extends MagicSpell {
 			m.setDamage(Damage.getDamage(interaction.getSource(), m.getVictim(), CombatType.MAGIC, 
 				MagicFormulae.getDamage(interaction.getSource().getPlayer(), m.getVictim(), this)));
 			m.getDamage().setMaximum(maximum);
-			if (m.getDamage().getHit() > 0) {
-				if (m.getVictim().getAttribute("freezeImmunity", -1) < World.getTicks()) {
-					int delay = 17;
-					m.getVictim().getCombatExecutor().reset();
-					if (m.getVictim().isPlayer()) {
-						ActionSender.sendMessage(m.getVictim().getPlayer(), "You have been frozen.");
-						if (m.isDeflected() || m.getVictim().getPlayer().getPrayer().usingPrayer(0, 17)) {
-							delay *= 0.5;
-						}
-					}
-					m.getVictim().getWalkingQueue().reset();
-					m.getVictim().setAttribute("freezeTime", World.getTicks() + delay);
-					m.getVictim().setAttribute("freezeImmunity", World.getTicks() + delay + 4);
-				}
-			}
+
 			Interaction inter = new Interaction(interaction.getSource(), m.getVictim());
 			inter.setDamage(m.getDamage());
 			interaction.getSource().preCombatTick(inter);
@@ -98,32 +85,23 @@ public class IceBurst extends MagicSpell {
 	public boolean endSpell(Interaction interaction) {
 		for (ExtraTarget m : interaction.getTargets()) {
 			if (m.getDamage().getHit() > -1) {
-				m.getVictim().graphics(363, 0);
+                m.getDamage().onContact(()->{
+                    m.setFrozen(!CombatStatus.freeze(m.getVictim(),17));
+                    m.getVictim().graphics(363,0);
+                });
 				m.getVictim().getDamageManager().damage(
 						interaction.getSource(), m.getDamage(), DamageType.MAGE);
 			} else {
 				m.getVictim().graphics(85, 96);
 			}
-			if (m.getDamage().getVenged() > 0) {
-				m.getVictim().submitVengeance(interaction.getSource(), m.getDamage().getVenged());
-			}
-			if (m.getDamage().getDeflected() > 0) {
-				//interaction.getSource().getDamageManager().damage(m.getVictim(), 
-						//m.getDamage().getDeflected(), 
-						//m.getDamage().getDeflected(), DamageType.DEFLECT);
-				interaction.getSource().getDamageManager().miscDamage(m.getDamage().getDeflected(), DamageType.DEFLECT);
-			}
-			if (m.getDamage().getRecoiled() > 0) {
-				//interaction.getSource().getDamageManager().damage(m.getVictim(), 
-						//m.getDamage().getRecoiled(), 
-						//m.getDamage().getRecoiled(), DamageType.DEFLECT);
-				interaction.getSource().getDamageManager().miscDamage(m.getDamage().getRecoiled(), DamageType.DEFLECT);
-			}
+
+
+
 			m.getVictim().retaliate(interaction.getSource());
 		}
 		return true;
 	}
-	
+
 	@Override
 	public double getExperience(Interaction interaction) {
 		double total = 0;;
@@ -151,17 +129,17 @@ public class IceBurst extends MagicSpell {
 	public int getBaseDamage() {
 		return 40;
 	}
-	
+
 	@Override
 	public int getAutocastConfig() {
 		return 77;
 	}
-	
+
 	@Override
 	public Item[] getRequiredRunes() {
 		return new Item[] { new Item(555, 4), new Item(562, 4), new Item(560, 2) };
 	}
-	
+
 	@Override
 	public int getRequiredLevel() {
 		return 70;

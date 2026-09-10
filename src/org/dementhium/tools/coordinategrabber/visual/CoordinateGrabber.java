@@ -82,7 +82,7 @@ public class CoordinateGrabber extends javax.swing.JFrame {
         infoLabel = new javax.swing.JLabel();
         headerSeparator = new javax.swing.JSeparator();
         insertLabel = new javax.swing.JLabel();
-        variablesToInsertComboBox = new javax.swing.JComboBox();
+        variablesToInsertComboBox = new javax.swing.JComboBox<String>();
         formattingScroller = new javax.swing.JScrollPane();
         stationaryFormattingTextArea = new javax.swing.JTextArea();
         insertSelectedButton = new javax.swing.JButton();
@@ -93,7 +93,7 @@ public class CoordinateGrabber extends javax.swing.JFrame {
         infoLabel1 = new javax.swing.JLabel();
         formattingScroller1 = new javax.swing.JScrollPane();
         walkingFormattingTextArea = new javax.swing.JTextArea();
-        variablesToInsertComboBox1 = new javax.swing.JComboBox();
+        variablesToInsertComboBox1 = new javax.swing.JComboBox<String>();
         insertLabel1 = new javax.swing.JLabel();
         insertSelectedButton1 = new javax.swing.JButton();
         headerSeparator1 = new javax.swing.JSeparator();
@@ -134,7 +134,7 @@ public class CoordinateGrabber extends javax.swing.JFrame {
         insertLabel.setFont(new java.awt.Font("Tahoma", 0, 12));
         insertLabel.setText("Insert:");
 
-        variablesToInsertComboBox.setModel(new javax.swing.DefaultComboBoxModel(new String[]{"Generated X Coordinate", "Generated Y Coordinate", "Height Level", "NPC ID"}));
+        variablesToInsertComboBox.setModel(new javax.swing.DefaultComboBoxModel<String>(new String[]{"Generated X Coordinate", "Generated Y Coordinate", "Height Level", "NPC ID"}));
         variablesToInsertComboBox.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 variablesToInsertComboBoxActionPerformed(evt);
@@ -224,7 +224,7 @@ public class CoordinateGrabber extends javax.swing.JFrame {
         walkingFormattingTextArea.setRows(5);
         formattingScroller1.setViewportView(walkingFormattingTextArea);
 
-        variablesToInsertComboBox1.setModel(new javax.swing.DefaultComboBoxModel(new String[]{"Generated Southeast X Coordinate", "Generated Southeast Y Coordinate", "Generated Northwest X Coordinate", "Generated Northwest Y Coordinate", "Height Level", "NPC ID", "Middle X of the Area", "Middle Y of the Area"}));
+        variablesToInsertComboBox1.setModel(new javax.swing.DefaultComboBoxModel<String>(new String[]{"Generated Southeast X Coordinate", "Generated Southeast Y Coordinate", "Generated Northwest X Coordinate", "Generated Northwest Y Coordinate", "Height Level", "NPC ID", "Middle X of the Area", "Middle Y of the Area"}));
         variablesToInsertComboBox1.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 variablesToInsertComboBox1ActionPerformed(evt);
@@ -609,8 +609,8 @@ public class CoordinateGrabber extends javax.swing.JFrame {
     private javax.swing.JTextArea stationaryFormattingTextArea;
     private javax.swing.JPanel stationarySpawnPanel;
     private javax.swing.JCheckBoxMenuItem tileGrid;
-    private javax.swing.JComboBox variablesToInsertComboBox;
-    private javax.swing.JComboBox variablesToInsertComboBox1;
+    private javax.swing.JComboBox<String> variablesToInsertComboBox;
+    private javax.swing.JComboBox<String> variablesToInsertComboBox1;
     private javax.swing.JTextArea walkingFormattingTextArea;
     private javax.swing.JPanel walkingSpawnPanel;
     private javax.swing.JPanel worldMapPanel;

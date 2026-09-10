@@ -24,7 +24,7 @@ public class MiasmicRush extends MagicSpell {
 		int weaponId = interaction.getSource().getPlayer().getEquipment().getSlot(3);
 		if (weaponId != 13867 && weaponId != 13869 && weaponId != 13941 && weaponId != 13943) {
 			ActionSender.sendMessage(interaction.getSource().getPlayer(), "You need Zuriel's staff to cast this spell.");
-			interaction.getVictim().getCombatExecutor().reset();
+			interaction.getSource().getCombatExecutor().reset();
 			return false;
 		}
 		MagicFormulae.setDamage(interaction);
@@ -32,13 +32,7 @@ public class MiasmicRush extends MagicSpell {
 		ProjectileManager.sendProjectile(Projectile.create(interaction.getSource(), interaction.getVictim(), 1846, 43, 22, 51, speed, 16, 64));
 		interaction.getSource().animate(10513);
 		interaction.getSource().graphics(1845);
-		if (interaction.getDamage().getHit() > -1 && interaction.getVictim().getAttribute("miasmicImmunity", -1) < World.getTicks()) {
-			if (interaction.getVictim().isPlayer()) {
-				ActionSender.sendMessage(interaction.getVictim().getPlayer(), "You feel slowed down.");
-			}
-			interaction.getVictim().setAttribute("miasmicTime", World.getTicks() + 20);
-			interaction.getVictim().setAttribute("miasmicImmunity", World.getTicks() + 35);
-		}
+		org.dementhium.model.combat.CombatStatus.miasmicOnImpact(interaction.getDamage(), interaction.getVictim(), 20);
 		interaction.setEndGraphic(Graphic.create(1847));
 		return true;
 	}

@@ -46,9 +46,13 @@ public class SpecialAction extends CombatAction {
 		}
 		if (specialAttack.commenceSpecialAttack(interaction)) {
 			interaction.getSource().getPlayer().setSpecialAmount(amount);
+            if (interaction.getRangeData() != null) {
+                org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), interaction.getRangeData().getDamage(), org.dementhium.model.misc.DamageManager.DamageType.RANGE);
+                org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), interaction.getRangeData().getDamage2(), org.dementhium.model.misc.DamageManager.DamageType.RANGE);
+            }
 			if (interaction.getSource().isPlayer() && interaction.getDamage() != null && !(specialAttack instanceof Disrupt)) {
-				CombatUtils.appendExperience(interaction.getSource().getPlayer(), 
-						interaction.getDamage().getHit(), specialAttack.getCombatType().getDamageType());
+				org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), 
+						interaction.getDamage(), specialAttack.getCombatType().getDamageType());
 			}
 			return true;
 		}

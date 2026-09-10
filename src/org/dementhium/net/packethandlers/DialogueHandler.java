@@ -194,6 +194,7 @@ public class DialogueHandler extends PacketHandler {
 		case 211:
 		case 212:
 		case 213:
+		case 214: // Five-line display box (sendDisplayBox supports one through five lines).
 			dialogue = player.getAttribute("dialogue");
 			if (dialogue != null) {
 				if (dialogue.getActions().get(0).handle(player)) {

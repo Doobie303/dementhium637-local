@@ -28,13 +28,26 @@ public class PlayerAreaTick extends Tick {
 
 	private boolean inWilderness, inBarrows, inDuelArena, inMulti, inPVPZone, inSafePk, inSafeZone;
 	int pvpZoneRestoreSpecTick = 100;
-	int pvpZoneEpRestoreTick = 400;
+	int pvpZoneEpRestoreTick = org.dementhium.content.misc.PvpSystem.EP_INTERVAL;
 	int lastWildernessLevel = 0;
 	int lastCombatLevel = 0;
 	//test it now
 	private boolean updateBarrows;
 
-	private int barrowsDrainTime = 10;
+	private int barrowsDrainTime = 30;
+    /** Clear the selected model so reopening interface 24 cannot replay an old haunt. */
+    private void updateBarrowsFace(boolean underground) {
+        if (!underground) {
+            barrowsDrainTime = 30;
+            if (barrowsFaceTicks > 0) ActionSender.sendBConfig(player, 1043, -1);
+            barrowsFaceTicks = 0;
+        } else if (barrowsFaceTicks > 0 && --barrowsFaceTicks == 0) {
+            ActionSender.sendBConfig(player, 1043, -1);
+        }
+    }
+    private int barrowsCollapseTime = 8;
+    private int barrowsFaceTicks;
+    private static final int BARROWS_FACE_DURATION = 5; // Brief 3-second appearance, not a looping overlay.
 
 	private int currentBlackout, lastBlackout;
 
@@ -48,21 +61,16 @@ public class PlayerAreaTick extends Tick {
 	@Override
 	public void execute() {
 		if (player.isOnline()) {
-			if (player.target != null && !inWilderness() && player.hasTargetArrow) {
-				//System.err.println("sup");
-				IconManager.removeIcon(player, player.target);
-				player.hasTargetArrow = false;
-				player.target = null;
-			}
-			if (!inWilderness()) {
-				player.targetLikelihood = 5;
-			}
+            updateBarrowsFace(BarrowsConstants.isInBarrowsZone(player)
+                    && !BarrowsConstants.BARROWS_AREA.isInArea(player.getLocation())
+                    && !player.getAttribute("looted_barrows_request_shake", false) && !player.isDead());
+            org.dementhium.content.misc.PvpSystem.tick(player);
 			if (BarrowsConstants.isInBarrowsZone(player)) {
 				if (!(player.getActivity() instanceof BarrowsActivity))
 					ActivityManager.getSingleton().register(new BarrowsActivity(player));
 			}
 			if (player.getAttribute("looted_barrows_request_shake", Boolean.FALSE) == Boolean.TRUE && !World.getWorld().getAreaManager().getAreaByName("BarrowsUnderground").contains(player.getLocation())) {
-				player.removeAttribute("looted_barrows_request_shake");
+				// Keep the looted run marker until the next dig resets it.
 				ActionSender.resetCamera(player);
 			}
 			if (World.getWorld().getAreaManager().getAreaByName("Duel").contains(player.getLocation()) && !World.getWorld().getAreaManager().getAreaByName("AreaNotBeloningToDuel").contains(player.getLocation())) {
@@ -164,7 +172,15 @@ public class PlayerAreaTick extends Tick {
                 }*/
 			} else if (BarrowsConstants.isInBarrowsZone(player) && !World.getWorld().getAreaManager().getAreaByName("BarrowsSurface").contains(player.getLocation())) {
 				if (player.getAttribute("looted_barrows_request_shake", Boolean.FALSE) == Boolean.TRUE) {
-					ActionSender.shakeCamera(player, 10);
+					if (BarrowsConstants.TUNNELS.isInArea(player.getLocation())) {
+                        if (--barrowsCollapseTime <= 0) {
+                            barrowsCollapseTime = 8;
+                            ActionSender.shakeCamera(player, 3);
+                            if (!player.isDead() && !Boolean.TRUE.equals(player.getAttribute("godmode")))
+                                player.getDamageManager().damage(null, 5 + player.getRandom().nextInt(16), 20,
+                                        org.dementhium.model.misc.DamageManager.DamageType.RED_DAMAGE);
+                        }
+                    }
 					ActionSender.sendCloseOverlay(player);
 					return;
 				}
@@ -182,67 +198,34 @@ public class PlayerAreaTick extends Tick {
 					player.removeAttribute("inWGuild");
 					ActionSender.sendPlayerOption(player, "null", 1, true);
 				} else {
-					//Not working yet..:
+					// One haunt every 30 game ticks (18 seconds).
 					if (barrowsDrainTime > 0) {
 						barrowsDrainTime--;
 					} else {
 						List<Integer> killedBrothers = player.getSettings().getBarrowsKilled();
+                        player.getSkills().drainPray(org.dementhium.content.activity.impl.barrows.BarrowsRules.prayerDrain(
+                                org.dementhium.content.activity.impl.barrows.BarrowsRules.count(killedBrothers)));
 						if (killedBrothers != null && killedBrothers.size() > 0) {
-							int head = 4761 + (killedBrothers.get(player.getRandom().nextInt(killedBrothers.size())) * 2);
+							int head = 4761 + ((killedBrothers.get(player.getRandom().nextInt(killedBrothers.size())) - 2025) * 2);
 							if (player.getLocation().getZ() == 0) {
 								head++;
 							}
 							ActionSender.sendCloseOverlay(player);
 							ActionSender.sendOverlay(player, BarrowsActivity.MAIN_INTERFACE);
 							ActionSender.sendBConfig(player, 1043, head);
+                            barrowsFaceTicks = BARROWS_FACE_DURATION;
 						}
-						barrowsDrainTime = 13 + Misc.random(5);
+						barrowsDrainTime = 29;
 					}
 				}
 			} else if (player.isInWilderness()) {
-				pvpZoneEpRestoreTick -= 5;
-				if (pvpZoneEpRestoreTick < 0) {
-					pvpZoneEpRestoreTick = 400;
-					if (player.pvpZoneEp < 100 || player.targetLikelihood < 60) {
-						player.pvpZoneEp += 2;
-						player.targetLikelihood += 5;
-						if (player.targetLikelihood >= 60)
-							player.targetLikelihood = 60;
-						if (player.pvpZoneEp > 100)
-							player.pvpZoneEp = 100;
-						enablePVPZoneInterface(true);
-						enablePvPStrings(true);
-					}
-				}
-				ActionSender.sendOverlay(player, 591);
-				if (player.target == null) {
-					boolean findTarget = player.targetLikelihood >= 60 -(Misc.random(30));
-					if (findTarget) {
-						player.target = findTarget();
-						if (player.target == null || player.targetLikelihood == 5) {
-							ActionSender.sendString(player, 591, 8, "None");
-						} else {
-							ActionSender.sendString(player, 591, 8, player.target.getDisplayName());
-							if (!player.hasTargetArrow)
-								IconManager.iconOnMob(player, player.target, 4, 65535);
-							player.hasTargetArrow = true;
-						}
-					} else {
-						ActionSender.sendString(player, 591, 8, "None");
-					}
-				} else {
-					ActionSender.sendString(player, 591, 8, player.target.getDisplayName());
-					if (!player.hasTargetArrow) {
-						IconManager.iconOnMob(player, player.target, 4, -1);
-						player.hasTargetArrow = true;
-					}
-					if (!player.target.getPlayerArea().inWilderness() || !World.getWorld().getPlayers().contains(player.target)) {
-						if(player.hasTargetArrow)
-							IconManager.removeIcon(player, player.target);
-						player.hasTargetArrow = false;
-						player.target = null;
-					}
-				}
+                if (!player.isDead() && --pvpZoneEpRestoreTick <= 0) {
+                    pvpZoneEpRestoreTick = org.dementhium.content.misc.PvpSystem.EP_INTERVAL;
+                    player.pvpZoneEp = Math.min(100,player.pvpZoneEp + org.dementhium.content.misc.PvpSystem.EP_GAIN);
+                    player.targetLikelihood = Math.min(60,player.targetLikelihood + 5);
+                    refreshPvpStrings();
+                }
+                org.dementhium.content.misc.PvpSystem.findTarget(player);
 				if (lastCombatLevel != player.getSkills()
 						.getCombatLevelWithoutSummoning()) {
 					enablePVPZoneInterface(true);
@@ -414,22 +397,9 @@ public class PlayerAreaTick extends Tick {
 		}
 	}
 
-	private Player findTarget() {
-		List<Player> players = new ArrayList<Player>();
-		for (Player player : World.getWorld().getPlayers()) {
-			if (player != this.player && player.getPlayerArea().inWilderness()) {
-				players.add(player);
-			}
-		}
-		if (players.size() == 0)
-			return null;
-		Player target = players.get(player.getRandom().nextInt(players.size()));
-		return target;
-	}
-
 	private void sendWildyInterface(Player p) {
 		ActionSender.sendCloseOverlay(player);
-		ActionSender.sendOverlay(p, 381);
+		ActionSender.sendOverlay(p, 591);
 		//ActionSender.sendInterfaceConfig(p, 381, 1, false);
 		//ActionSender.sendInterfaceConfig(p, 381, 2, false);
 
@@ -452,7 +422,7 @@ public class PlayerAreaTick extends Tick {
 		int winId = fixed ? 548 : 746;
 		int childId = fixed ? 9 : 14;
 		if (enable) {
-			String epColour = "";
+			String epColour = "<col=FFFF00>";
 			if (player.pvpZoneEp < 20)
 				epColour = "<col=7E2217>";
 			else if (player.pvpZoneEp >= 20 && player.pvpZoneEp < 40)
@@ -479,23 +449,12 @@ public class PlayerAreaTick extends Tick {
 		}
 	}
 
-	public int[] getPVPZoneCombatRange() {
-		int levelRange = (int) Math
-				.floor(((double) (0.1 * player.getSkills()
-						.getCombatLevel/* WithoutSummoning */()) + 5 + (player
-								.inWilderness() ? player.getLocation()
-										.getWildernessLevel() : 0)));
-		int lowestCombat = ((player.getSkills()
-				.getCombatLevelWithoutSummoning() - levelRange < 3) ? 3
-						: player.getSkills().getCombatLevelWithoutSummoning()
-						- levelRange);
-		int highestCombat = ((player.getSkills()
-				.getCombatLevelWithoutSummoning() + levelRange > 138) ? 138
-						: player.getSkills().getCombatLevelWithoutSummoning()
-						+ levelRange);
-		return new int[] { lowestCombat, highestCombat };
-	}
-
+    public int[] getPVPZoneCombatRange() {
+        return org.dementhium.content.misc.PvpSystem.combatRange(player);
+    }
+    public void refreshPvpStrings() {
+        enablePvPStrings(player.isInWilderness() || player.inPVPZone() || player.inSafePk());
+    }
 	public void updateWildernessState(boolean inWildy) {
 		if (inWildy && !inWilderness) {
 			inWilderness = true; // so we don't constantly add an attribute
@@ -523,8 +482,7 @@ public class PlayerAreaTick extends Tick {
 		// ActionSender.sendInterfaceConfig(player, 745, 3, inSafeZone); //= safe PVP zone icon
 		// if (inSafeZone)
 		//ActionSender.sendInterfaceConfig(player, 745, 4, false);
-		if (!pvpZone)
-			enablePvPStrings(false);
+        enablePvPStrings(pvpZone);
 	}
 	public void sendSafePkInterface(Player player) {
 		ActionSender.sendCloseOverlay(player);

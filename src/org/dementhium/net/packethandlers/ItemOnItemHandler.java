@@ -9,6 +9,7 @@ import org.dementhium.content.skills.herblore.Herblore;
 import org.dementhium.content.skills.magic.Enchant;
 import org.dementhium.model.Item;
 import org.dementhium.model.World;
+import org.dementhium.model.combat.impl.MagicAction;
 import org.dementhium.model.definition.ItemDefinition;
 import org.dementhium.model.player.Player;
 import org.dementhium.model.player.Skills;
@@ -228,26 +229,27 @@ public class ItemOnItemHandler extends PacketHandler {
 	}
 
 	private void lowAlch(final Player player, int itemId, int slot) {
+		boolean infiniteRunes = MagicAction.hasInfiniteRunes(player);
 		if (player.getSkills().getLevel(Skills.MAGIC) < 21) {
 			player.sendMessage("You need a higher magic level to cast this spell.");
 			return;
 		} else if (player.getAttribute("alching") != null) {
 			player.sendMessage("You are already casting an alchemy spell.");
 			return;
-		} else if (!player.getInventory().getContainer()
+		} else if (!infiniteRunes && !player.getInventory().getContainer()
 				.contains(new Item(561, 1))) {
 			player.sendMessage("You do not have the required runes or staff to cast that.");
 			return;
-		} else if (!player.getInventory().getContainer()
+		} else if (!infiniteRunes && !player.getInventory().getContainer()
 				.contains(new Item(554, 3))
 				&& !hasFireStaff(player)) {
 			player.sendMessage("You do not have the required runes or staff to cast that.");
 			return;
-		} else if (player.getInventory().getContainer()
+		} else if (!infiniteRunes && player.getInventory().getContainer()
 				.getItemCount(561) == 1 && itemId == 561) {
 			player.sendMessage("You can't cast an alchemy spell on the Nature rune required to cast the spell.");
 			return;
-		} else if (player.getInventory().getContainer()
+		} else if (!infiniteRunes && player.getInventory().getContainer()
 				.getItemCount(554) == 3 && itemId == 554) {
 			player.sendMessage("You can't cast an alchemy spell on the Fire rune required to cast the spell.");
 			return;
@@ -285,8 +287,10 @@ public class ItemOnItemHandler extends PacketHandler {
 			player.setAttribute("cantMove", Boolean.TRUE);
 			player.setAttribute("alching", Boolean.TRUE);
 			player.getInventory().getContainer().remove(new Item(itemId, 1));
-			player.getInventory().getContainer().remove(new Item(561, 1));
-			player.getInventory().getContainer().remove(new Item(554, 3));
+			if (!infiniteRunes) {
+				player.getInventory().getContainer().remove(new Item(561, 1));
+				player.getInventory().getContainer().remove(new Item(554, 3));
+			}
 			player.getInventory().addItem(995, (int) alchValue);
 			player.getInventory().refresh();
 			ActionSender.sendBConfig(player, 168, 7);
@@ -304,6 +308,7 @@ public class ItemOnItemHandler extends PacketHandler {
 	}
 
 	private void highAlch(final Player player, int itemId, int slot) {
+		boolean infiniteRunes = MagicAction.hasInfiniteRunes(player);
 		if (player.getSettings().getSpellBook() == 192) {
 			if (player.getSkills().getLevel(6) < 55) {
 				player.sendMessage("You need a higher magic level to cast this spell.");
@@ -311,20 +316,20 @@ public class ItemOnItemHandler extends PacketHandler {
 			} else if (player.getAttribute("alching") != null) {
 				player.sendMessage("You are already casting an alchemy spell.");
 				return;
-			} else if (!player.getInventory().getContainer()
+			} else if (!infiniteRunes && !player.getInventory().getContainer()
 					.contains(new Item(561, 1))) {
 				player.sendMessage("You do not have the required runes or staff to cast that.");
 				return;
-			} else if (!player.getInventory().getContainer()
+			} else if (!infiniteRunes && !player.getInventory().getContainer()
 					.contains(new Item(554, 5))
 					&& !hasFireStaff(player)) {
 				player.sendMessage("You do not have the required runes or staff to cast that.");
 				return;
-			} else if (player.getInventory().getContainer()
+			} else if (!infiniteRunes && player.getInventory().getContainer()
 					.getItemCount(561) == 1 && itemId == 561) {
 				player.sendMessage("You can't cast an alchemy spell on the Nature rune required to cast the spell.");
 				return;
-			} else if (player.getInventory().getContainer()
+			} else if (!infiniteRunes && player.getInventory().getContainer()
 					.getItemCount(554) == 5 && itemId == 554) {
 				player.sendMessage("You can't cast an alchemy spell on the Fire rune required to cast the spell.");
 				return;
@@ -369,8 +374,10 @@ public class ItemOnItemHandler extends PacketHandler {
 				player.setAttribute("cantMove", Boolean.TRUE);
 				player.setAttribute("alching", Boolean.TRUE);
 				player.getInventory().getContainer().remove(new Item(itemId, 1));
-				player.getInventory().getContainer().remove(new Item(561, 1));
-				player.getInventory().getContainer().remove(new Item(554, 5));
+				if (!infiniteRunes) {
+					player.getInventory().getContainer().remove(new Item(561, 1));
+					player.getInventory().getContainer().remove(new Item(554, 5));
+				}
 				player.getInventory().addItem(995, (int) alchValue);
 				player.getInventory().refresh();
 				ActionSender.sendBConfig(player, 168, 7);

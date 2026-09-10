@@ -29,6 +29,7 @@ public class RangeAction extends CombatAction {
 
 	@Override
 	public boolean commenceSession() {
+        interaction.setRangeData(interaction.getSource().getRangeData(interaction.getVictim()));
 		interaction.getSource().getCombatExecutor().setTicks(getCooldownTicks());
 		if (interaction.getRangeData() == null) {
 			interaction.getSource().getCombatExecutor().reset();
@@ -46,40 +47,13 @@ public class RangeAction extends CombatAction {
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 8));
 		}
-		if (interaction.getSource().isPlayer()) {
-				if ((interaction.getRangeData().getDamage() != null
-						&& interaction.getRangeData().getDamage().getHit() > 0)
-						|| (interaction.getRangeData().getDamage2() != null
-								&& interaction.getRangeData().getDamage2().getHit() > 0)) {
-					if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-							&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()
-							&& getInteraction().getRangeData().getWeapon().getItemId() == interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getId())
-						interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-								interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-					else if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS) != null
-							&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-							&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS).getDefinition().doesPoison())
-						interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-								interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS).getDefinition().getPoisonAmount());
-			}
-		}
-		ProjectileManager.sendProjectile(interaction.getRangeData().getProjectile(), interaction.getRangeData().getProjectile2());
+
+		if (interaction.getSource().isPlayer() && !CombatUtils.consumeAmmunition(interaction.getSource().getPlayer(), interaction.getRangeData())) return false;
+        ProjectileManager.sendProjectile(interaction.getRangeData().getProjectile(), interaction.getRangeData().getProjectile2());
 		interaction.setTicks((int) Math.floor(getInteraction().getSource().getLocation().distance(getInteraction().getVictim().getLocation()) * 0.3));
 		interaction.getSource().turnTo(getInteraction().getVictim(), false);
 		interaction.getSource().animate(getInteraction().getRangeData().getAnimation());
 		interaction.getSource().graphics(getInteraction().getRangeData().getGraphics());
-		if (interaction.getSource().isPlayer()) {
-			if (interaction.getRangeData().getDamage() != null) {
-				CombatUtils.appendExperience(interaction.getSource().getPlayer(), 
-						interaction.getRangeData().getDamage().getHit(), DamageType.RANGE);
-			}
-			if (interaction.getRangeData().getDamage2() != null) {
-				if (interaction.getSource().isPlayer()) {
-					CombatUtils.appendExperience(interaction.getSource().getPlayer(), 
-							interaction.getRangeData().getDamage2().getHit(), DamageType.RANGE);
-				}
-			}
-		}
 		return true;
 	}
 
@@ -108,43 +82,16 @@ public class RangeAction extends CombatAction {
 		}
 		interaction.getVictim().getDamageManager().damage(
 				interaction.getSource(), interaction.getRangeData().getDamage(), DamageType.RANGE);
-		if (interaction.getRangeData().getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(
-					interaction.getSource(), interaction.getRangeData().getDamage().getVenged());
-		}
-		if (interaction.getRangeData().getDamage().getDeflected() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getRangeData().getDamage().getDeflected(), interaction.getRangeData().getDamage().getDeflected(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getRangeData().getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getRangeData().getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getRangeData().getDamage().getRecoiled(), interaction.getRangeData().getDamage().getRecoiled(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getRangeData().getDamage().getDeflected(), DamageType.DEFLECT);
-		}
+        if (interaction.getSource().isPlayer()) org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), interaction.getRangeData().getDamage(), DamageType.RANGE);
+
+
+
 		if (interaction.getSource().isPlayer()) {
 			CombatUtils.dropArrows(interaction.getSource().getPlayer(), interaction.getVictim(), interaction.getRangeData());
 		}
-		if (interaction.getRangeData().getWeaponType() == 2) {
-			int delay = 18;
-			interaction.getVictim().getDamageManager().damage(
-					interaction.getSource(), interaction.getRangeData().getDamage2(), 
-					DamageType.RANGE, delay);
-			if (interaction.getRangeData().getDamage2().getDeflected() > 0) {
-				//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-						//interaction.getRangeData().getDamage2().getDeflected(), 
-						//interaction.getRangeData().getDamage2().getDeflected(), 
-						//DamageType.DEFLECT, delay);
-				interaction.getSource().getDamageManager().miscDamage(interaction.getRangeData().getDamage2().getDeflected(), DamageType.DEFLECT, delay);
-			}
-			if (interaction.getRangeData().getDamage2().getRecoiled() > 0) {
-				//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-						//interaction.getRangeData().getDamage2().getRecoiled(), 
-						//interaction.getRangeData().getDamage2().getRecoiled(), 
-						//DamageType.DEFLECT, delay);
-				interaction.getSource().getDamageManager().miscDamage(interaction.getRangeData().getDamage2().getRecoiled(), DamageType.DEFLECT, delay);
-			}
-		}
+        if(interaction.getRangeData().getWeaponType()==2)
+            org.dementhium.model.combat.SpecialHits.apply(interaction,interaction.getRangeData().getDamage2(),DamageType.RANGE,1);
+
 		interaction.getVictim().retaliate(interaction.getSource());
 		return true;
 	}
@@ -156,7 +103,7 @@ public class RangeAction extends CombatAction {
 
 	@Override
 	public int getCooldownTicks() {
-		interaction.setRangeData(getInteraction().getSource().getRangeData(interaction.getVictim()));
+
 		int ticks = interaction.getRangeData() != null && interaction.getRangeData().getWeapon() != null ? 
 				interaction.getRangeData().getWeapon().getAttackSpeed()
 				: interaction.getSource().getAttackDelay();

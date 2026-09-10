@@ -61,6 +61,7 @@ public class InputHandler {
 
         if (inputId > -1) {
             switch (inputId) {
+                case 40: org.dementhium.content.minigames.gambler.GamblerSession.input(player,value); break;
                 case 1:
                     int tradeInventSlot = (Integer) player.getAttribute("slotId", -1);
                     if (tradeInventSlot > -1) {
@@ -102,35 +103,12 @@ public class InputHandler {
                     }
                     break;
                 case 5:
-                    if (((DuelActivity) player.getActivity()).getCurrentState() != State.FIRST_SCREEN) {
-                        return;
-                    }
-                    int stakeInventorySlot = (Integer) player.getAttribute("slotId", -1);
-                    Stakes stake = (Stakes) player.getAttribute("duelStakes", null);
-                    if (stake == null || stakeInventorySlot < 0) {
-                        return;
-                    }
-                    Item item = player.getInventory().get(stakeInventorySlot);
-                    if (item == null) {
-                        return;
-                    }
-                    stake.stake(item.getId(), stakeInventorySlot, value);
-                    break;
+                    org.dementhium.event.impl.interfaces.DuelArenaListener.input(player,value,true);break;
                 case 6:
-                    if (((DuelActivity) player.getActivity()).getCurrentState() != State.FIRST_SCREEN) {
-                        return;
-                    }
-                    stake = (Stakes) player.getAttribute("duelStakes", null);
-                    if (stake == null) {
-                        return;
-                    }
-                    int itemId = player.getAttribute("itemX", -1);
-                    stake.remove(itemId, value);
-                    break;
-                case 7:
+                    org.dementhium.event.impl.interfaces.DuelArenaListener.input(player,value,false);break;                case 7:
                     boolean inventoryAction = player.getAttribute("inventoryAction", false);
                     int slot = player.getAttribute("slotId", -1);
-                    itemId = player.getAttribute("itemPriceCheckId", -1);
+                    int itemId = player.getAttribute("itemPriceCheckId", -1);
                     if (inventoryAction) {
                         player.getPriceCheck().checkPrice(itemId, slot, value);
                     } else {

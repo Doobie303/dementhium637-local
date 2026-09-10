@@ -20,7 +20,8 @@
 
 
    public class SaradominAction extends CombatAction {
-   
+    @Override public CombatAction newSession(){return new SaradominAction();}
+
       private static enum Style {
          PRIMARY(Graphic.create(1184, 96 << 16), 
          	Projectile.create(null, null, 1185, 30, 32, 52, 75, 3, 11), 
@@ -44,7 +45,7 @@
                   if (Misc.random(1) == 1) {
 						int playerCount = 0;
 						for(Player player : World.getWorld().getPlayers()) {
-							if (player.equals(preVictim)
+							if (!org.dementhium.model.combat.NPCCombatContext.validPair(sara,player) || player.isInvisible() || !player.isAttackable(sara) || player.equals(preVictim)
 									|| (sara.getLocation().distance(player.getLocation()) > 7 && (player.getCombatExecutor().getVictim() == null ||
 										(player.getCombatExecutor().getVictim() != null && !player.getCombatExecutor().getVictim().equals(sara))))) {
 								continue;
@@ -55,7 +56,7 @@
 							int random = Misc.random(1, playerCount);
 							playerCount = 0;
 							for(Player player : World.getWorld().getPlayers()) {
-								if (player.equals(preVictim)
+								if (!org.dementhium.model.combat.NPCCombatContext.validPair(sara,player) || player.isInvisible() || !player.isAttackable(sara) || player.equals(preVictim)
 										|| (sara.getLocation().distance(player.getLocation()) > 7 && (player.getCombatExecutor().getVictim() == null ||
 											(player.getCombatExecutor().getVictim() != null && !player.getCombatExecutor().getVictim().equals(sara))))) {
 									continue;
@@ -65,11 +66,13 @@
 									preVictim = player;
 									sara.getCombatExecutor().setVictim(player);
 								}
-								
+
 							}
 						}
                   }
                   final Mob victim = preVictim;
+                  final org.dementhium.model.combat.NPCCombatContext context = new org.dementhium.model.combat.NPCCombatContext(sara,victim);
+                  if(!context.isCurrent() || !victim.isPlayer())return false;
                   sara.forceText("Feel the power of Saradomin!");
                   sara.animate(6966);
                   victim.getPlayer().getSkills().decreaseLevelToZero(Skills.MAGIC, 15);
@@ -78,6 +81,7 @@
                         new Tick(9) {
                            @Override
                            public void execute() {
+                              if(!context.isCurrent()){stop();return;}
                               sara.animate(6967);
                               int magicDamage = Misc.random(500);
                               if (victim.getPlayer().getPrayer().usingPrayer(1, 7) || victim.getPlayer().getPrayer().usingPrayer(0, 17)) {
@@ -123,7 +127,7 @@
       public SaradominAction() {
          super(false);
       }
-   
+
       @Override
       public boolean commenceSession() {
          style = Style.PRIMARY;
@@ -154,7 +158,7 @@
          interaction.setTicks(ticks);
          return true;
       }
-   
+
       @Override
       public boolean executeSession() {
          if (interaction.getTicks() < 2) {
@@ -166,7 +170,7 @@
          interaction.setTicks(interaction.getTicks() - 1);
          return interaction.getTicks() < 1;
       }
-   
+
       @Override
       public boolean endSession() {
          interaction.getVictim().graphics(style.end);
@@ -178,27 +182,17 @@
             else {
                interaction.getVictim().graphics(85, 96 << 16);
             }
-            if (interaction.getDamage().getVenged() > 0) {
-               interaction.getVictim().submitVengeance(interaction.getSource(), interaction.getDamage().getVenged());
-            }
-            if (interaction.getDamage().getDeflected() > 0) {
-               interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-                  interaction.getDamage().getDeflected(), 
-                  interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-            }
-            if (interaction.getDamage().getRecoiled() > 0) {
-               interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-                  interaction.getDamage().getRecoiled(), 
-                  interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-            }
+
+
+
             interaction.getVictim().retaliate(interaction.getSource());
          }
          return true;
       }
-   
+
       @Override
       public CombatType getCombatType() {
          return CombatType.MAGIC;
       }
-   
+
    }

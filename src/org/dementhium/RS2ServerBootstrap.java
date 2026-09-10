@@ -55,7 +55,6 @@ public class RS2ServerBootstrap {
 			}
 		});
 		System.gc();
-		System.runFinalization();
 		Runtime.getRuntime().addShutdownHook(DementhiumShutdownHook.getSingleton());
 		//restart("86400000");
 		bind(Constants.PORT_ID);

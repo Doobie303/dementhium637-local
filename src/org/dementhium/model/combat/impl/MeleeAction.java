@@ -33,11 +33,8 @@ public class MeleeAction extends CombatAction {
 				interaction.getSource().getPlayer().sendMessage("[MeleeAction.java (ABSTRACT COMBATACTION)] Commence session for Melee.");
 		}
 		interaction.getSource().getCombatExecutor().setTicks(getCooldownTicks());
-		interaction.setDamage(
-				Damage.getDamage(interaction.getSource(), 
-						interaction.getVictim(), CombatType.MELEE, 
-						MeleeFormulae.getDamage(interaction.getSource(), 
-								interaction.getVictim())));
+        interaction.setDamage(org.dementhium.model.combat.BarrowsEquipmentEffects.melee(
+                interaction.getSource(), interaction.getVictim()));
 		interaction.getDamage().setMaximum(MeleeFormulae.getMeleeDamage(interaction.getSource(), 1));
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
@@ -49,16 +46,7 @@ public class MeleeAction extends CombatAction {
 		if (interaction.isDeflected()) {
 			interaction.getVictim().graphics(2230);
 		}
-		if (interaction.getSource().isPlayer() && interaction.getDamage().getHit() > 0
-				&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-				 && interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()) {
-			interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-					interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-		}
-		if (interaction.getSource().isPlayer()) {
-			CombatUtils.appendExperience(interaction.getSource().getPlayer(), 
-					interaction.getDamage().getHit(), DamageType.MELEE);
-		}
+
 		return true;
 	}
 
@@ -82,28 +70,13 @@ public class MeleeAction extends CombatAction {
 		}*/
 		interaction.getVictim().getDamageManager().damage(
 				interaction.getSource(), interaction.getDamage(), DamageType.MELEE);
-		if (interaction.getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(
-					interaction.getSource(), interaction.getDamage().getVenged());
+if (interaction.getSource().isPlayer()) {
+			org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), interaction.getDamage(), DamageType.MELEE);
 		}
-		if (interaction.getDamage().getDeflected() > 0) {
-			if (interaction.getSource().isPlayer()) {
-				if (interaction.getSource().getPlayer().getUsername().equals("mod combat"))
-					interaction.getSource().getPlayer().sendMessage("[MeleeAction.java] End session: Deflecting..");
-			}
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getDamage().getDeflected(), interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getDamage().getRecoiled(), interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
-		//SOAKING EXAMPLE!:
-		if (interaction.getDamage().getSoaked() > 0) {
-			interaction.getVictim().getDamageManager().miscDamage(interaction.getDamage().getSoaked(), DamageType.SOAK);
-		}
+
+
+
+
 		interaction.getVictim().retaliate(interaction.getSource());
 		return true;
 	}

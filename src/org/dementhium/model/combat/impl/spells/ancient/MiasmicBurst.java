@@ -23,20 +23,20 @@ import org.dementhium.net.ActionSender;
  *
  */
 public class MiasmicBurst extends MagicSpell {
-	
+
 	@Override
 	public boolean castSpell(Interaction interaction) {
 		int weaponId = interaction.getSource().getPlayer().getEquipment().getSlot(3);
 		if (weaponId != 13867 && weaponId != 13869 && weaponId != 13941 && weaponId != 13943) {
 			ActionSender.sendMessage(interaction.getSource().getPlayer(), "You need Zuriel's staff to cast this spell.");
-			interaction.getVictim().getCombatExecutor().reset();
+			interaction.getSource().getCombatExecutor().reset();
 			return false;
 		}
 		if (!interaction.getSource().isMulti() || !interaction.getVictim().isMulti()) {
 			interaction.setTargets(new ArrayList<ExtraTarget>());
 			interaction.getTargets().add(new ExtraTarget(interaction.getVictim()));
 		} else {
-			interaction.setTargets(CombatUtils.getTargetList(interaction.getSource(), interaction.getVictim(), 1, 8));
+			interaction.setTargets(CombatUtils.getTargetList(interaction.getSource(), interaction.getVictim(), 1, 9));
 		}
 		interaction.getSource().animate(10516);
 		interaction.getSource().graphics(1848);
@@ -48,13 +48,7 @@ public class MiasmicBurst extends MagicSpell {
 			m.setDamage(Damage.getDamage(interaction.getSource(), m.getVictim(), CombatType.MAGIC, 
 				MagicFormulae.getDamage(interaction.getSource().getPlayer(), m.getVictim(), this)));
 			m.getDamage().setMaximum(maximum);
-			if (m.getDamage().getHit() > -1 && m.getVictim().getAttribute("miasmicImmunity", -1) < World.getTicks()) {
-				if (m.getVictim().isPlayer()) {
-					ActionSender.sendMessage(m.getVictim().getPlayer(), "You feel slowed down.");
-				}
-				m.getVictim().setAttribute("miasmicTime", World.getTicks() + 40);
-				m.getVictim().setAttribute("miasmicImmunity", World.getTicks() + 55);
-			}
+			org.dementhium.model.combat.CombatStatus.miasmicOnImpact(m.getDamage(), m.getVictim(), 40);
 			Interaction inter = new Interaction(interaction.getSource(), m.getVictim());
 			inter.setDamage(m.getDamage());
 			interaction.getSource().preCombatTick(inter);
@@ -85,26 +79,14 @@ public class MiasmicBurst extends MagicSpell {
 			} else {
 				m.getVictim().graphics(85, 96);
 			}
-			if (m.getDamage().getVenged() > 0) {
-				m.getVictim().submitVengeance(interaction.getSource(), m.getDamage().getVenged());
-			}
-			if (m.getDamage().getDeflected() > 0) {
-				//interaction.getSource().getDamageManager().damage(m.getVictim(), 
-						//m.getDamage().getDeflected(), 
-						//m.getDamage().getDeflected(), DamageType.DEFLECT);
-				interaction.getSource().getDamageManager().miscDamage(m.getDamage().getDeflected(), DamageType.DEFLECT);
-			}
-			if (m.getDamage().getRecoiled() > 0) {
-				//interaction.getSource().getDamageManager().damage(m.getVictim(), 
-						//m.getDamage().getRecoiled(), 
-						//m.getDamage().getRecoiled(), DamageType.DEFLECT);
-				interaction.getSource().getDamageManager().miscDamage(m.getDamage().getRecoiled(), DamageType.DEFLECT);
-			}
+
+
+
 			m.getVictim().retaliate(interaction.getSource());
 		}
 		return true;
 	}
-	
+
 	@Override
 	public double getExperience(Interaction interaction) {
 		double total = 0;;
@@ -132,7 +114,7 @@ public class MiasmicBurst extends MagicSpell {
 	public int getBaseDamage() {
 		return 60;
 	}
-	
+
 	@Override
 	public int getAutocastConfig() {
 		return 97;
@@ -142,7 +124,7 @@ public class MiasmicBurst extends MagicSpell {
 	public Item[] getRequiredRunes() {
 		return new Item[] { new Item(566, 2), new Item(562, 4), new Item(557, 2) };
 	}
-	
+
 	@Override
 	public int getRequiredLevel() {
 		return 73;

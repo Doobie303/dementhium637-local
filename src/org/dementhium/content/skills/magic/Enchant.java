@@ -2,6 +2,7 @@ package org.dementhium.content.skills.magic;
 
 import org.dementhium.model.Item;
 import org.dementhium.model.World;
+import org.dementhium.model.combat.impl.MagicAction;
 import org.dementhium.model.mask.Animation;
 import org.dementhium.model.mask.Graphic;
 import org.dementhium.model.player.Player;
@@ -53,19 +54,20 @@ public class Enchant {
 
 	private static boolean handle(final Player player,
 			final EnchantLevel level, final Item item, final int slot) {
+		boolean infiniteRunes = MagicAction.hasInfiniteRunes(player);
 		if (player.getSkills().getLevelForExperience(Skills.MAGIC) < level
 				.getLevelReq()) {
 			ActionSender.sendMessage(player,
 					"Your Magic level is not high enough to cast this spell.");
 			return true;
 		}
-		if (!player.getInventory().contains(COSMIC_RUNE)) {
+		if (!infiniteRunes && !player.getInventory().contains(COSMIC_RUNE)) {
 			ActionSender.sendMessage(player,
 					"You do not have enough Cosmic Runes to cast this spell.");
 			return true;
 		}
 		for (Item rune : level.getRunes()) {
-			if (!player.getInventory().contains(rune)) {
+			if (!infiniteRunes && !player.getInventory().contains(rune)) {
 				ActionSender.sendMessage(player, "You do not have enough "
 						+ rune.getDefinition().getName()
 						+ "s to cast this spell.");
@@ -75,8 +77,10 @@ public class Enchant {
 		final int enchantedId = getEnchantedID(level, item);
 		if (enchantedId == -1)
 			return false;
-		for (Item rune : level.getRunes()) {
-			player.getInventory().deleteItem(rune);
+		if (!infiniteRunes) {
+			for (Item rune : level.getRunes()) {
+				player.getInventory().deleteItem(rune);
+			}
 		}
 		player.setAttribute("cantMove", Boolean.TRUE);
 		player.setAttribute("enchanting", Boolean.TRUE);

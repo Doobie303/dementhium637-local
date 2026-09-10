@@ -16,6 +16,7 @@ import org.dementhium.model.combat.CombatType;
  */
 public class TzTokJad extends NPC {
 
+	private static final int FIGHT_CAVES_HITPOINTS = 2500;
 
 	/**
 	 * The combat action used.
@@ -28,6 +29,27 @@ public class TzTokJad extends NPC {
 	 */
 	public TzTokJad(int id) {
 		super(id);
+		setHp(FIGHT_CAVES_HITPOINTS);
+	}
+
+	@Override
+	public int getMaxHp() {
+		return FIGHT_CAVES_HITPOINTS;
+	}
+
+	@Override
+	public int getMaximumHitPoints() {
+		return FIGHT_CAVES_HITPOINTS;
+	}
+
+	@Override
+	public void heal(int amount) {
+		setHp(Math.min(FIGHT_CAVES_HITPOINTS, getHitPoints() + Math.max(0, amount)));
+	}
+
+	@Override
+	public int getAttackDelay() {
+		return 8;
 	}
 	
 	@Override

@@ -2,6 +2,8 @@ package org.dementhium.model.misc;
 
 import java.util.ArrayList;
 import java.util.List;
+import org.dementhium.model.instance.GameInstance;
+import org.dementhium.model.instance.InstanceManager;
 
 import org.dementhium.content.misc.GraveStone;
 import org.dementhium.content.misc.GraveStoneManager;
@@ -22,6 +24,15 @@ import org.dementhium.tickable.Tick;
  */
 public class GroundItemManager {
 
+    public static boolean hasItemsInArea(int x, int y, int width, int height) {
+        if (groundItems == null) return false;
+        for (GroundItem item : groundItems) {
+            Location l = item.getLocation();
+            if (l != null && l.getX() >= x && l.getY() >= y && l.getX() < x + width && l.getY() < y + height) return true;
+        }
+        return false;
+    }
+
     /**
      * Represents all the current ground items.
      */
@@ -38,17 +49,40 @@ public class GroundItemManager {
     @SuppressWarnings("serial")
 	public static void load() {
         groundItems = new ArrayList<GroundItem>() {
+            @Override
+            public boolean add(GroundItem item) {
+                GameInstance owner = InstanceManager.at(item.getLocation());
+                if (owner != null) owner.trackDrop(item);
+                return super.add(item);
+            }
+            @Override
+            public GroundItem remove(int index) {
+                GroundItem item = get(index);
+                GameInstance owner = InstanceManager.at(item.getLocation());
+                if (owner != null) owner.untrackDrop(item);
+                return super.remove(index);
+            }
         	@Override
         	public boolean remove(Object item) {
-        		boolean ok = super.remove(item);
-        		if (item instanceof RespawnableGroundItem) {
+                GameInstance owner = item instanceof GroundItem ? InstanceManager.at(((GroundItem) item).getLocation()) : null;
+                if (owner != null) owner.untrackDrop((GroundItem) item);
+                boolean ok = super.remove(item);
+                if (ok && item instanceof RespawnableGroundItem) {
         			final RespawnableGroundItem respawnable = (RespawnableGroundItem) item;
-        			World.getWorld().submit(new Tick(respawnable.getDelay()) {
+                    final Location respawnLocation = respawnable.getLocation();
+                    final org.dementhium.model.map.region.DynamicRegion respawnMap =
+                        org.dementhium.model.map.region.RegionBuilder.getDynamicRegion(respawnLocation.getX(), respawnLocation.getY());
+                    final long respawnRevision = respawnMap == null ? 0 : respawnMap.getChunkRevision(respawnLocation.getZ(), respawnLocation.getX() & 63, respawnLocation.getY() & 63);
+                    Tick respawnTask = new Tick(respawnable.getDelay()) {
         				public void execute() {
         					stop();
-        					GroundItemManager.createGroundItem(respawnable, 1);
+                            if (org.dementhium.model.map.region.RegionBuilder.getDynamicRegion(respawnLocation.getX(), respawnLocation.getY()) != respawnMap
+                                || (respawnMap != null && respawnMap.getChunkRevision(respawnLocation.getZ(), respawnLocation.getX() & 63, respawnLocation.getY() & 63) != respawnRevision)) return;
+                            GroundItemManager.createGroundItem(respawnable, 1);
         				}
-        			});
+                };
+                if (owner == null) World.getWorld().submit(respawnTask);
+                else owner.submitTask(respawnTask);
         		}
         		return ok;
         	}
@@ -70,6 +104,15 @@ public class GroundItemManager {
      * @param groundItem The ground item.
      */
     public static void createGroundItem(final GroundItem groundItem, int updateTicks) {
+        GameInstance instance = InstanceManager.at(groundItem.getLocation());
+        if (instance != null && !instance.canTrackDrop(groundItem)) {
+            Location target = instance.overflowDropLocation(groundItem.getPlayer());
+            GroundItem overflow = new GroundItem(groundItem.getPlayer(), groundItem.getItem(), target,
+                groundItem.isPublic(), groundItem.isAdminDrop(), groundItemIndex++);
+            createGroundItem(overflow, updateTicks);
+            if (groundItem.getPlayer() != null) groundItem.getPlayer().sendMessage("Your instance is full of ground items. This drop was placed at your return point.");
+            return;
+        }
     	if (!ItemDefinition.forId(groundItem.getItem().getId()).isTradeable())
     		groundItem.setUpdateTicks(updateTicks + 250);
     	else
@@ -114,13 +157,21 @@ public class GroundItemManager {
         }
     }
 
-    /**
-     * Removes a ground item.
-     *
-     * @param groundItem The ground item to remove.
-     */
+    /** Teardown removal bypasses RespawnableGroundItem's normal respawn scheduling. */
+    public static void discardGroundItem(GroundItem groundItem) {
+        for (int i = 0; i < groundItems.size(); i++) {
+            if (groundItems.get(i) == groundItem) {
+                groundItems.remove(i);
+                notifyRemoval(groundItem);
+                return;
+            }
+        }
+    }
     public static void removeGroundItem(GroundItem groundItem) {
         groundItems.remove(groundItem);
+        notifyRemoval(groundItem);
+    }
+    private static void notifyRemoval(GroundItem groundItem) {
         if (groundItem.isPublic()) {
             List<Player> players = Region.getLocalPlayers(groundItem.getLocation());
             for (Player player : players) {
@@ -232,7 +283,15 @@ public class GroundItemManager {
      */
     public static void replacePrivateGroundItem(Player player, int id,
                                                 Location location, GroundItem toReplace) {
-        GroundItem item = getPrivateGroundItem(id, location);
+        GroundItem item = null;
+        for (GroundItem candidate : groundItems) {
+            if (candidate != null && !candidate.isPublic() && candidate.getItem().getId() == id
+                    && candidate.getLocation().equals(location) && candidate.getPlayer() != null
+                    && candidate.getPlayer().getUsername().equals(player.getUsername())) {
+                item = candidate;
+                break;
+            }
+        }
         if (item == null) {
             return;
         }
@@ -277,7 +336,15 @@ public class GroundItemManager {
      * @param amount The amount to increase.
      */
     public static boolean increaseAmount(Player player, int id, Location location, int amount) {
-        GroundItem item = getPrivateGroundItem(id, location);
+        GroundItem item = null;
+        for (GroundItem candidate : groundItems) {
+            if (candidate != null && !candidate.isPublic() && candidate.getItem().getId() == id
+                    && candidate.getLocation().equals(location) && candidate.getPlayer() != null
+                    && candidate.getPlayer().getUsername().equals(player.getUsername())) {
+                item = candidate;
+                break;
+            }
+        }
         if (item == null) {
             createGroundItem(new GroundItem(player, new Item(id, amount),
                     location, false, player.getRights() >= 2, groundItemIndex++));
@@ -299,7 +366,7 @@ public class GroundItemManager {
                     ActionSender.removeGroundItem(player, item);
                     groundItems.remove(item);
                     item.getItem().setAmount(item.getItem().getAmount() + amount);
-                    groundItems.add(amount, item);
+                    groundItems.add(item);
                     ActionSender.sendGroundItem(player, item);
                     return true;
             	}
@@ -390,6 +457,7 @@ public class GroundItemManager {
      * @return The ground item.
      */
     public static GroundItem getQualifiedGroundItem(int id, Location loc, Player player) {
+        if (player!=null && !org.dementhium.model.instance.InstanceAccess.canAccess(player,loc)) return null;
     	GroundItem firstItem = null;
     	GroundItem firstQualifiedItem = null;
     	int numberOfSameItemsOnLoc = 0;

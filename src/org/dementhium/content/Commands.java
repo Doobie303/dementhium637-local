@@ -125,6 +125,24 @@ public final class Commands {
 	}
 
 	public static void handle(Player player, String[] command) {
+        if(command.length>0&&command[0].equalsIgnoreCase("infernalcape")){spawnItem(player,InfernalCape.ID,1);return;}
+        if(command.length>0 && command[0].equalsIgnoreCase("gamblerui")) {
+            if(player.getActivity()!=org.dementhium.model.Mob.DEFAULT_ACTIVITY){player.sendMessage("Close your current activity before changing the Gambler interface.");return;}
+            boolean enabled=command.length>1&&command[1].equalsIgnoreCase("on");
+            player.setAttribute("gamblerCustomUi",enabled);
+            player.sendMessage(enabled?"Custom Gambler interface enabled for this login. Use the updated Gambler client.":"Original Gambler interface enabled. Use ::gamblerui on with the updated client.");return;
+        }
+        if(command.length>0 && command[0].equalsIgnoreCase("gamblerpreview")) {
+            org.dementhium.content.minigames.gambler.GamblerInterfacePreview.open(player);return;
+        }
+        if(command.length>0 && command[0].equalsIgnoreCase("gambleclaim")) {
+            player.closeAll(false,true);
+            org.dementhium.content.minigames.gambler.GamblerRecovery.claim(player);return;
+        }
+        if(command.length>0 && command[0].equalsIgnoreCase("duelclaim")) {
+            player.closeAll(false,true);
+            org.dementhium.content.activity.impl.duel.DuelRecovery.claim(player); return;
+        }
 		try {
 			boolean invalidCmd = true;
 			if (player.getRights() >= 0) {
@@ -298,7 +316,6 @@ public final class Commands {
 				World.getWorld().getPlayerLoader().save(player);
 				System.out.println("Saving clans...");
 				try {
-					World.getWorld().getClanManager().getClans();
 					XMLHandler.toXML(OffencesHandler.DIRECTORY + "clans.xml",
 							ClanManager.getClans());
 					System.out.println("Clans succesfully saved.");
@@ -307,7 +324,6 @@ public final class Commands {
 				}
 				System.out.println("Saving DisplayNames...");
 				try {
-					World.getWorld().getDisplayNamesHandler().getDisplayNames();
 					XMLHandler.toXML(DisplayNamesHandler.DIRECTORY + "DisplayNames.xml",
 							DisplayNamesHandler.getDisplayNames());
 					System.out.println("DisplayNames succesfully saved.");
@@ -722,10 +738,10 @@ public final class Commands {
 				player.removeAttribute("teleblock");
 				player.removeAttribute("teleblockImmunity");
 				player.graphics(1690);
-				player.sendMessage("<col=ff0000><shad=000000>GODMODE ON</col></shad> — no damage taken, no prayer drain, 500+ hits.");
+				player.sendMessage("<col=ff0000><shad=000000>GODMODE ON</col></shad> � invulnerable, 750 hits, unlimited prayer, special attack and runes.");
 				player.sendMessage("<col=ffff00>Type ::god again to turn it off.");
 			} else {
-				player.sendMessage("<col=00ff00>GODMODE OFF</col> — you can die again.");
+				player.sendMessage("<col=00ff00>GODMODE OFF</col> � normal damage and resource costs restored.");
 			}
 			return true;
 		}
@@ -743,12 +759,51 @@ public final class Commands {
 		}
 		
 		if (command[0].equalsIgnoreCase("caves")) {
-			org.dementhium.content.minigames.FightCaves.startCaves(player);
+			if (Boolean.TRUE.equals(player.getAttribute("inFightCaves"))) {
+				org.dementhium.content.minigames.FightCaves.quitCaves(player);
+			} else {
+				player.teleport(org.dementhium.content.minigames.FightCaves.OUTSIDE_OF_CAVE, false);
+			}
+			player.sendMessage("You teleport outside the TzHaar Fight Cave.");
+			return true;
+		}
+
+		if (command[0].equalsIgnoreCase("wave")) {
+			int wave = 1;
+			if (command.length > 1) {
+				try {
+					wave = Integer.parseInt(command[1]);
+				} catch (Exception ignored) {
+					wave = 1;
+				}
+			}
+			if (wave < 1) {
+				wave = 1;
+			}
+			if (wave > 63) {
+				wave = 63;
+			}
+			org.dementhium.content.minigames.FightCaves.restartCaves(player, wave - 1);
+			player.sendMessage("Starting Fight Caves at wave " + wave + ".");
+			return true;
+		}
+
+		if (command[0].equalsIgnoreCase("cavepull")) {
+			org.dementhium.content.minigames.FightCaves.pullRemaining(player);
 			return true;
 		}
 		
-		if (command[0].equalsIgnoreCase("testgear") || command[0].equalsIgnoreCase("gearbank")) {
+		if (command[0].equalsIgnoreCase("combatdebug")) {
+            boolean enabled = !player.getAttribute("combatDebug", false);
+            player.setAttribute("combatDebug", enabled);
+            player.sendMessage("Combat hit diagnostics " + (enabled ? "ON" : "OFF") + ".");
+            return true;
+        }
+
+        if (command[0].equalsIgnoreCase("testgear") || command[0].equalsIgnoreCase("gearbank")) {
 			int[][] melee = {
+                { 1127, 1000000 }, { 1079, 1000000 }, { 1163, 1000000 }, { 1201, 1000000 },
+                { 4587, 1000000 }, { 1305, 1000000 }, { 1434, 1000000 },
 				{ 20135, 1000000 }, { 20139, 1000000 }, { 20143, 1000000 },
 				{ 11724, 1000000 }, { 11726, 1000000 }, { 11728, 1000000 },
 				{ 10551, 1000000 }, { 10548, 1000000 }, { 3751, 1000000 }, { 10828, 1000000 },
@@ -786,6 +841,10 @@ public final class Commands {
 				{ 2415, 1000000 }, { 2416, 1000000 }, { 2417, 1000000 }
 			};
 			int[][] extra = {
+                { 2550, 1000000 }, { 1725, 1000000 }, { 1727, 1000000 }, { 1731, 1000000 },
+                { 1540, 1000000 }, { 2552, 1000000 }, { 3853, 1000000 },
+                { 952, 1000000 }, { 954, 1000000 }, { 590, 1000000 }, { 2347, 1000000 },
+                { 1275, 1000000 }, { 1359, 1000000 },
 				{ 13740, 1000000 }, { 13742, 1000000 }, { 13738, 1000000 }, { 13744, 1000000 },
 				{ 13736, 1000000 }, { 13734, 1000000 }, { 11283, 1000000 }, { 6524, 1000000 },
 				{ 3842, 1000000 }, { 3840, 1000000 }, { 3844, 1000000 },
@@ -801,12 +860,17 @@ public final class Commands {
 				{ 379, 1000000 }, { 373, 1000000 }, { 365, 1000000 }, { 333, 1000000 }
 			};
 			int[][] pots = {
+                { 12140, 1000000 }, { 10925, 1000000 }, { 2446, 1000000 },
+                { 15304, 1000000 }, { 15308, 1000000 }, { 15312, 1000000 },
+                { 15316, 1000000 }, { 15320, 1000000 }, { 15324, 1000000 },
 				{ 6685, 1000000 }, { 3024, 1000000 }, { 2434, 1000000 },
 				{ 15332, 1000000 }, { 15300, 1000000 },
 				{ 2444, 1000000 }, { 2436, 1000000 }, { 2440, 1000000 }, { 2442, 1000000 },
 				{ 2448, 1000000 }, { 2452, 1000000 }, { 3008, 1000000 }, { 3016, 1000000 }
 			};
 			int[][] ammo = {
+                { 4740, 1000000 }, { 9240, 1000000 }, { 9241, 1000000 },
+                { 564, 1000000 }, { 561, 1000000 }, { 10033, 1000000 }, { 10034, 1000000 },
 				{ 11212, 1000000 }, { 892, 1000000 }, { 890, 1000000 },
 				{ 9245, 1000000 }, { 9244, 1000000 }, { 9243, 1000000 }, { 9242, 1000000 },
 				{ 15243, 1000000 }, { 811, 1000000 }, { 868, 1000000 }, { 11230, 1000000 },
@@ -814,16 +878,33 @@ public final class Commands {
 				{ 556, 1000000 }, { 554, 1000000 }, { 566, 1000000 }, { 9075, 1000000 },
 				{ 558, 1000000 }, { 562, 1000000 }, { 563, 1000000 }
 			};
-			addTabGear(player, melee, 2);
-			addTabGear(player, range, 3);
-			addTabGear(player, mage, 4);
-			addTabGear(player, extra, 5);
-			addTabGear(player, food, 6);
-			addTabGear(player, pots, 7);
-			addTabGear(player, ammo, 8);
-			player.getBank().refresh();
-			player.sendMessage("Test bank loaded: 1m of each item.");
-			return true;
+			int skipped = 0;
+            skipped += addTabGear(player, melee, 2);
+            skipped += addTabGear(player, range, 3);
+            skipped += addTabGear(player, mage, 4);
+            skipped += addTabGear(player, extra, 5);
+            skipped += addTabGear(player, food, 6);
+            skipped += addTabGear(player, pots, 7);
+            skipped += addTabGear(player, ammo, 8);
+            java.util.List<int[]> summoning = new java.util.ArrayList<int[]>();
+            for (org.dementhium.content.skills.summoning.SummoningPouch pouch
+                    : org.dementhium.content.skills.summoning.SummoningPouch.values()) {
+                summoning.add(new int[] { pouch.getPouchId(), 1000000 });
+            }
+            for (org.dementhium.content.skills.summoning.SummoningScroll scroll
+                    : org.dementhium.content.skills.summoning.SummoningScroll.values()) {
+                summoning.add(new int[] { scroll.getItemId(), 1000000 });
+            }
+            // Empty pouches, shards, and all four charms for pouch-creation tests.
+            for (int id : new int[] {12155, 12183, 12158, 12159, 12160, 12163}) {
+                summoning.add(new int[] {id, 1000000});
+            }
+            skipped += addTabGear(player, summoning.toArray(new int[summoning.size()][]), 9);
+            player.getBank().refresh();
+            player.sendMessage("Test bank stocked: combat gear, supplies, tools and summoning items.");
+            player.sendMessage("Summoning pouches, scrolls and charms are in the last bank tab; potions are in the potion tab.");
+            if (skipped > 0) player.sendMessage("Skipped " + skipped + " entries: bank full or unavailable item. Free bank space and rerun ::testgear.");
+            return true;
 		}
 		
 		if (command[0].equalsIgnoreCase("untb") || command[0].equalsIgnoreCase("unteleblock")) {
@@ -1937,6 +2018,18 @@ public final class Commands {
 
 
 	public static boolean adminCommands(final Player player, String[] command) {
+        if (command[0].equalsIgnoreCase("instances")) {
+            org.dementhium.content.instance.InstanceOperations.command(player, command);
+            return true;
+        }
+		if (command[0].equalsIgnoreCase("instanceparty")) {
+			org.dementhium.content.instance.PartyInstanceExample.command(player, command);
+			return true;
+		}
+		if (command[0].equalsIgnoreCase("instanceexample")) {
+			org.dementhium.content.instance.InstanceExamples.command(player, command);
+			return true;
+		}
 		if (command[0].equalsIgnoreCase("dungtest")) {
 			//World.getDungeoneeringManager().startSingleDungeon(player);
 			ActivityManager.getSingleton().register(new DungeoneeringActivity(player));
@@ -4009,6 +4102,7 @@ public final class Commands {
 	}
 
 	public static boolean spawnItem(Player player,	int itemId, int amount){
+        if(itemId==InfernalCape.ID&&!InfernalCape.supported(player)){player.sendMessage("Use the updated development client to test the Infernal cape.");return false;}
 		if (player.getRights() < 2) {
 				player.sendMessage("You can't spawn, try using some of the spawn commands!");
 				return false;
@@ -4078,13 +4172,30 @@ public final class Commands {
 		return false;
 	}
 	
-	private static void addTabGear(Player player, int[][] items, int tab) {
-		for (int i = 0; i < items.length; i++) {
-			player.getBank().commandAdd(items[i][0], items[i][1], tab);
-		}
-	}
+	private static int addTabGear(Player player, int[][] items, int tab) {
+        int skipped = 0;
+        java.util.Set<Integer> seen = new java.util.HashSet<Integer>();
+        for (int[] entry : items) {
+            int id = entry[0];
+            if (!seen.add(id)) continue;
+            if (id < 0 || id >= ItemDefinition.MAX_SIZE || ItemDefinition.forId(id) == null
+                    || ItemDefinition.forId(id).getName() == null
+                    || "null".equalsIgnoreCase(ItemDefinition.forId(id).getName())) {
+                skipped++;
+                continue;
+            }
+            // commandAdd inserts into tabs: never pass it a missing free slot for a new item.
+            if (player.getBank().getContainer().indexOf(new Item(id)) < 0
+                    && player.getBank().getContainer().getFreeSlots() == 0) {
+                skipped++;
+                continue;
+            }
+            player.getBank().commandAdd(id, entry[1], tab);
+        }
+        return skipped;
+    }
 
-	public static void requestDropInventory(Player player) {
+    public static void requestDropInventory(Player player) {
 		player.getInventory();
 		for (int i = 0; i < Inventory.SIZE; i++) {
 			if (player.getInventory().get(i) != null && !player.getInventory().get(i).getDefinition().isDropable()) {
@@ -4392,3 +4503,6 @@ public final class Commands {
 	}
 
 }
+
+
+

@@ -60,34 +60,35 @@ public class SliceAndDice extends SpecialAttack {
 		ExtraTarget[] targets = new ExtraTarget[4];
 		for (int i = 0; i < targets.length; i++) {
 			targets[i] = new ExtraTarget(interaction.getVictim());
+            targets[i].setDamage(new Damage(0));
 		}
 		int maximum = MeleeFormulae.getMeleeDamage(interaction.getSource(), 1.95);
-		int hit = MeleeFormulae.getDamage(interaction.getSource(), interaction.getVictim(), 2.0, 1.4, 1.4);
+		int hit = MeleeFormulae.getDamage(interaction.getSource(), interaction.getVictim(), 2.0, 1.0, 1.0);
 		targets[0].setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, hit));
-		if (targets[0].getDamage().getHit() > 0) {
+		if (hit > 0) {
 			targets[1].setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, hit / 2));
 			targets[2].setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, hit / 4));
 			targets[3].setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, (hit / 2) - hit / 4));
 		} else {
-			hit = MeleeFormulae.getDamage(interaction.getSource(), interaction.getVictim(), 2.0, 1.4, 1.4);
+			hit = MeleeFormulae.getDamage(interaction.getSource(), interaction.getVictim(), 2.0, 1.0, 1.0);
 			Damage damage = Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, hit);
-			if (damage.getHit() > 0) {
+			if (hit > 0) {
 				targets[0].setDamage(new Damage(0));
 				targets[1].setDamage(damage);
-				targets[2].setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, hit / 3));
+				targets[2].setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, hit / 2));
 				targets[3].setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, hit - (hit / 2)));
 			} else {
-				hit = MeleeFormulae.getDamage(interaction.getSource(), interaction.getVictim(), 2.0, 1.4, 1.4);
+				hit = MeleeFormulae.getDamage(interaction.getSource(), interaction.getVictim(), 2.0, 1.0, 1.0);
 				damage = Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, hit);
-				if (damage.getHit() > 0) {
+				if (hit > 0) {
 					targets[0].setDamage(new Damage(0));
 					targets[1].setDamage(new Damage(0));
 					targets[2].setDamage(damage);
-					targets[3].setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, hit + 10));
+					targets[3].setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, hit));
 				} else {
-					hit = MeleeFormulae.getDamage(interaction.getSource(), interaction.getVictim(), 2.0, 1.8, 1.2);
+					hit = MeleeFormulae.getDamage(interaction.getSource(), interaction.getVictim(), 2.0, 1.5, 1.0);
 					damage = Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, hit);
-					if (damage.getHit() > 0) {
+					if (hit > 0) {
 						targets[0].setDamage(new Damage(0));
 						targets[1].setDamage(new Damage(0));
 						targets[2].setDamage(new Damage(0));
@@ -98,7 +99,7 @@ public class SliceAndDice extends SpecialAttack {
 						} else {
 							damage = Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, interaction.getSource().getRandom().nextInt(7) + 1);
 						}
-						targets[0].setDamage(damage);
+						targets[3].setDamage(damage);
 						targets[1].setDamage(new Damage(0));
 					}
 				}
@@ -123,44 +124,20 @@ public class SliceAndDice extends SpecialAttack {
 			interaction.getVictim().graphics(2230);
 		}
 		interaction.setDamage(new Damage(totalDamage));
-		if (interaction.getSource().isPlayer() && interaction.getDamage().getHit() > 0
-				&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-				 && interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()) {
-			interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-					interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-		}
+        interaction.getDamage().claimExperience();
+		
 		interaction.setTargets(hits);
 		return true;
 	}
 
 	@Override
 	public boolean endSpecialAttack(final Interaction interaction) {
-		int count = 0;
-		int delay = 0;
-		for (ExtraTarget e : interaction.getTargets()) {
-			if (count++ > 1) {
-				delay = 22;
-			}
-			interaction.getVictim().getDamageManager().damage(
-					interaction.getSource(), e.getDamage(), DamageType.MELEE, delay);
-			if (e.getDamage().getVenged() > 0) {
-				interaction.getVictim().submitVengeance(
-						interaction.getSource(), e.getDamage().getVenged());
-			}
-			if (e.getDamage().getDeflected() > 0) {
-				//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-						//e.getDamage().getDeflected(), e.getDamage().getDeflected(), DamageType.DEFLECT, delay);
-				interaction.getSource().getDamageManager().miscDamage(e.getDamage().getDeflected(), DamageType.DEFLECT, delay);
-			}
-			if (e.getDamage().getRecoiled() > 0) {
-				//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-						//e.getDamage().getRecoiled(), e.getDamage().getRecoiled(), DamageType.DEFLECT, delay);
-				interaction.getSource().getDamageManager().miscDamage(e.getDamage().getRecoiled(), DamageType.DEFLECT, delay);
-			}
-		}
-		interaction.getVictim().retaliate(interaction.getSource());
-		return true;
-	}
+        int index = 0;
+        for (ExtraTarget e : interaction.getTargets()) {
+            org.dementhium.model.combat.SpecialHits.apply(interaction, e.getDamage(), DamageType.MELEE, index++ < 2 ? 0 : 1);
+        }
+        return true;
+    }
 
 	@Override
 	public CombatType getCombatType() {

@@ -89,7 +89,7 @@ public class ItemDefEditor extends javax.swing.JFrame {
         slotLabel = new javax.swing.JLabel();
         slotField = new javax.swing.JTextField();
         tradeableLabel = new javax.swing.JLabel();
-        tradeableCombo = new javax.swing.JComboBox();
+        tradeableCombo = new javax.swing.JComboBox<String>();
         speedLabel = new javax.swing.JLabel();
         speedField = new javax.swing.JTextField();
         bonusPanel = new javax.swing.JPanel();
@@ -117,8 +117,8 @@ public class ItemDefEditor extends javax.swing.JFrame {
         skillReqTable = new javax.swing.JTable();
         deleteButton = new javax.swing.JButton();
         addNew = new javax.swing.JButton();
-        stackableCombo = new javax.swing.JComboBox();
-        notedCombo = new javax.swing.JComboBox();
+        stackableCombo = new javax.swing.JComboBox<String>();
+        notedCombo = new javax.swing.JComboBox<String>();
         nameField = new javax.swing.JTextField();
         nameLabel = new javax.swing.JLabel();
 		meleeAbsorptionField = new javax.swing.JTextField();
@@ -230,7 +230,7 @@ public class ItemDefEditor extends javax.swing.JFrame {
         tradeableLabel.setFont(new java.awt.Font("Tahoma", 0, 12));
         tradeableLabel.setText("Tradeable:");
 
-        tradeableCombo.setModel(new javax.swing.DefaultComboBoxModel(new String[]{"true", "false"}));
+        tradeableCombo.setModel(new javax.swing.DefaultComboBoxModel<String>(new String[]{"true", "false"}));
 
         speedLabel.setFont(new java.awt.Font("Tahoma", 0, 12));
         speedLabel.setText("Speed:");
@@ -594,9 +594,9 @@ public class ItemDefEditor extends javax.swing.JFrame {
 
         skillReqPanel.add(skillReqOption, "Requires");
 
-        stackableCombo.setModel(new javax.swing.DefaultComboBoxModel(new String[]{"true", "false"}));
+        stackableCombo.setModel(new javax.swing.DefaultComboBoxModel<String>(new String[]{"true", "false"}));
 
-        notedCombo.setModel(new javax.swing.DefaultComboBoxModel(new String[]{"true", "false"}));
+        notedCombo.setModel(new javax.swing.DefaultComboBoxModel<String>(new String[]{"true", "false"}));
 
         nameField.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -1402,7 +1402,7 @@ public class ItemDefEditor extends javax.swing.JFrame {
     private javax.swing.JLabel nameLabel;
     private javax.swing.JPanel noExtraDefsPanel;
     private javax.swing.JPanel noSkillReq;
-    private static javax.swing.JComboBox notedCombo;
+    private static javax.swing.JComboBox<String> notedCombo;
     private javax.swing.JLabel notedLabel;
     private javax.swing.JSeparator panelSeparator;
     private javax.swing.JLabel pictureLabel;
@@ -1424,11 +1424,11 @@ public class ItemDefEditor extends javax.swing.JFrame {
     private javax.swing.JLabel slotLabel;
     private static javax.swing.JTextField speedField;
     private javax.swing.JLabel speedLabel;
-    private static javax.swing.JComboBox stackableCombo;
+    private static javax.swing.JComboBox<String> stackableCombo;
     private javax.swing.JLabel stackableLabel;
     private javax.swing.JLabel storeLabel;
     private static javax.swing.JTextField storePriceField;
-    private static javax.swing.JComboBox tradeableCombo;
+    private static javax.swing.JComboBox<String> tradeableCombo;
     private javax.swing.JLabel tradeableLabel;
     private javax.swing.JScrollPane treeScroller;
     private static javax.swing.JTextField weightField;

@@ -41,22 +41,14 @@ public class SaradominsLightning extends SpecialAttack {
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
 		}
-		if (interaction.getSource().isPlayer() && interaction.getDamage().getHit() > 0
-				&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-				 && interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()) {
-			interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-					interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-		}
-		int second = interaction.getSource().getRandom().nextInt(161);
-		if (second < 50) {
-			second = 50 + interaction.getSource().getRandom().nextInt(12);
-		}
-		Damage secondHit = Damage.getDamage(interaction.getSource(), 
+		
+		int second = 50 + interaction.getSource().getRandom().nextInt(101);
+        Damage secondHit = Damage.getDamage(interaction.getSource(), 
 				interaction.getVictim(), CombatType.MAGIC, second);
-		secondHit.setMaximum(160);
-		CombatUtils.appendExperience(interaction.getSource().getPlayer(), 
-				secondHit.getHit(), DamageType.MAGE);
-		interaction.getSource().setAttribute("secondHit", secondHit);
+		secondHit.setMaximum(150);
+		org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), 
+				secondHit, DamageType.MAGE);
+		interaction.setSecondaryDamage(secondHit);
 		interaction.getSource().animate(ANIMATION);
 		interaction.getSource().graphics(GRAPHICS);
 		interaction.getVictim().animate(interaction.isDeflected() ? 12573 : interaction.getVictim().getDefenceAnimation());
@@ -69,26 +61,10 @@ public class SaradominsLightning extends SpecialAttack {
 
 	@Override
 	public boolean endSpecialAttack(Interaction interaction) {
-		super.endSpecialAttack(interaction);
-		Damage hit = interaction.getSource().getAttribute("secondHit");
-		interaction.setDamage(hit);
-		int delay = 5;
-		interaction.getVictim().getDamageManager().damage(
-				interaction.getSource(), interaction.getDamage(), DamageType.MAGE, delay);
-		if (interaction.getDamage().getDeflected() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getDamage().getDeflected(), 
-					//interaction.getDamage().getDeflected(), DamageType.DEFLECT, delay);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getDamage().getRecoiled(), 
-					//interaction.getDamage().getRecoiled(), DamageType.DEFLECT, delay);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
-		return true;
-	}
+org.dementhium.model.combat.SpecialHits.apply(interaction, interaction.getDamage(), DamageType.MELEE, 0);
+        org.dementhium.model.combat.SpecialHits.apply(interaction, interaction.getSecondaryDamage(), DamageType.MAGE, 1);
+        return true;
+    }
 
 	@Override
 	public CombatType getCombatType() {

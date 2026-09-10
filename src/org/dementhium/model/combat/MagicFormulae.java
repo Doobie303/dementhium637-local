@@ -3,7 +3,7 @@ package org.dementhium.model.combat;
 import org.dementhium.model.Mob;
 import org.dementhium.model.definition.WeaponInterface;
 import org.dementhium.model.npc.NPC;
-import org.dementhium.model.npc.impl.MetalDragon;
+import org.dementhium.model.player.Bonuses;
 import org.dementhium.model.player.Equipment;
 import org.dementhium.model.player.Player;
 import org.dementhium.model.player.Skills;
@@ -33,13 +33,12 @@ public class MagicFormulae {
 	public static int getDamage(NPC source, Mob victim,
 			double accuracyMultiplier, double hitMultiplier,
 			double defenceMultiplier) {
-		double accuracy = CombatExecutor.getGaussian(0.5, source.getRandom(),
+		double accuracy = CombatRolls.roll(source.getRandom(),
 				getMaximumMagicAccuracy(source, accuracyMultiplier));
-		double defence = CombatExecutor.getGaussian(0.5, victim.getRandom(),
+		double defence = CombatRolls.roll(victim.getRandom(),
 				getMaximumMagicDefence(victim, defenceMultiplier));
-		double mod = accuracy / (accuracy + defence);
 		if (accuracy > defence) {
-			return (int) CombatExecutor.getGaussian(mod, source.getRandom(),
+			return (int) CombatRolls.roll(source.getRandom(),
 					getMaximumMagicDamage(source, hitMultiplier));
 		}
 		return -1;
@@ -66,13 +65,12 @@ public class MagicFormulae {
 	 */
 	public static int getDamage(NPC source, Mob victim,
 			double accuracyMultiplier, int damage, double defenceMultiplier) {
-		double accuracy = CombatExecutor.getGaussian(0.5, source.getRandom(),
+		double accuracy = CombatRolls.roll(source.getRandom(),
 				getMaximumMagicAccuracy(source, accuracyMultiplier));
-		double defence = CombatExecutor.getGaussian(0.5, victim.getRandom(),
+		double defence = CombatRolls.roll(victim.getRandom(),
 				getMaximumMagicDefence(victim, defenceMultiplier));
-		double mod = accuracy / (accuracy + defence);
 		if (accuracy > defence) {
-			return (int) CombatExecutor.getGaussian(mod, source.getRandom(),
+			return (int) CombatRolls.roll(source.getRandom(),
 					damage);
 		}
 		return -1;
@@ -89,11 +87,9 @@ public class MagicFormulae {
 	 */
 	private static double getMaximumMagicAccuracy(NPC source,
 			double accuracyMultiplier) {
-		int magicLevel = source.getDefinition().getMagicLevel() + 1;
-		int magicBonus = source.getDefinition().getBonuses()[4];
-		double accuracy = (((magicLevel + (magicBonus * 2)) + 45) * accuracyMultiplier) * 1.5;
-		return accuracy < 1 ? 1 : accuracy;
-	}
+        int effective = CombatFormula.effectiveLevel(source.getCombatLevel(org.dementhium.model.player.Skills.MAGIC), source.getMagicModifier(), 0, 1);
+        return CombatFormula.accuracyRoll(effective, source.getDefinition().getBonuses()[Bonuses.MAGIC_ATTACK], accuracyMultiplier);
+    }
 
 	/**
 	 * Gets the maximum magic defence.
@@ -108,27 +104,17 @@ public class MagicFormulae {
 	 */
 	private static double getMaximumMagicDefence(Mob victim,
 			double defenceMultiplier) {
-		int style = 0;
-		if (victim.isPlayer()) {
-			if (victim.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_DEFENSIVE) {
-				style = 3;
-			} else if (victim.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_CONTROLLED) {
-				style = 1;
-			}
-		}
-		double defLvl = (victim.isNPC() ? victim.getNPC().getDefinition()
-				.getDefenceLevel() : victim.getPlayer().getSkills().getLevel(1)) * 0.3;
-		defLvl += (victim.isNPC() ? victim.getNPC().getDefinition()
-				.getMagicLevel() : victim.getPlayer().getSkills().getLevel(6)) * 0.7;
-		int defBonus = victim.isNPC() ? victim.getNPC().getDefinition()
-				.getBonuses()[8] : victim.getPlayer().getBonuses().getBonus(8);
-		double defMult = 1.0;
-		defMult += victim.isPlayer() ? victim.getPlayer().getPrayer()
-				.getDefenceModifier() : victim.getNPC().getDefenceModifier();
-		double defence = (((defLvl + (defBonus * 2)) + style) * defMult)
-				* defenceMultiplier;
-		return defence < 1 ? 1 : defence;
-	}
+        int magic = victim.isPlayer() ? victim.getPlayer().getSkills().getLevel(Skills.MAGIC)
+                : victim.getNPC().getCombatLevel(org.dementhium.model.player.Skills.MAGIC);
+        // Defence prayer boosts only the Defence contribution, not the whole magic-weighted level.
+        double magicModifier = victim.isPlayer() ? victim.getPlayer().getPrayer().getMagicDefenceModifier()
+                : victim.getNPC().getMagicModifier();
+        int effective = CombatFormula.floor(Math.floor(Math.max(0, magic) * Math.max(0,1 + magicModifier)) * 0.7)
+                + CombatFormula.floor(CombatFormula.defenceLevel(victim) * 0.3);
+        int bonus = victim.isPlayer() ? victim.getPlayer().getBonuses().getBonus(Bonuses.MAGIC_DEFENCE)
+                : victim.getNPC().getDefinition().getBonuses()[8];
+        return CombatFormula.accuracyRoll(effective, bonus, defenceMultiplier);
+    }
 
 	/**
 	 * Gets the maximum magic damage.
@@ -140,7 +126,7 @@ public class MagicFormulae {
 	 * @return The maximum magic damage.
 	 */
 	public static double getMaximumMagicDamage(NPC source, double hitMultiplier) {
-		int mageLvl = source.getDefinition().getMagicLevel() + 1;
+		int mageLvl = source.getCombatLevel(org.dementhium.model.player.Skills.MAGIC) + 1;
 		int magicBonus = source.getDefinition().getBonuses()[13];
 		return (14 + mageLvl + (magicBonus / 8) + ((mageLvl * magicBonus) / 64))
 				* hitMultiplier;
@@ -153,21 +139,16 @@ public class MagicFormulae {
 	 *            The interaction.
 	 */
 	public static void setDamage(Interaction interaction) {
-		double accuracy = CombatExecutor.getGaussian(
-				0.5,
-				interaction.getSource().getRandom(),
+		double accuracy = CombatRolls.roll(interaction.getSource().getRandom(),
 				getMaximumAccuracy(interaction.getSource().getPlayer(),
-						interaction.getSpell()) + 5);
-		double defence = CombatExecutor.getGaussian(
-				0.5,
-				interaction.getVictim().getRandom(),
+						interaction.getSpell()) * EquipmentEffects.multiplier(interaction.getSource(), interaction.getVictim(), CombatType.MAGIC));
+		double defence = CombatRolls.roll(interaction.getVictim().getRandom(),
 				getMaximumDefence(interaction.getSource().getPlayer(),
-						interaction.getVictim(), interaction.getSpell()) + 5);
+						interaction.getVictim(), interaction.getSpell()));
 		double maximum = getMaximumDamage(interaction.getSource().getPlayer(),
 				interaction.getVictim(), interaction.getSpell());
-		double mod = accuracy / (accuracy + defence);
 		if (accuracy > defence) {
-			int hit = (int) CombatExecutor.getGaussian(mod, interaction
+			int hit = (int) CombatRolls.roll(interaction
 					.getSource().getRandom(), maximum);
 			interaction.setDamage(Damage.getDamage(interaction.getSource(),
 					interaction.getVictim(), CombatType.MAGIC, hit));
@@ -189,14 +170,13 @@ public class MagicFormulae {
 	 * @return The current damage.
 	 */
 	public static int getDamage(Player source, Mob victim, MagicSpell spell) {
-		double accuracy = CombatExecutor.getGaussian(0.5, source.getRandom(),
-				getMaximumAccuracy(source, spell) + 5);
-		double defence = CombatExecutor.getGaussian(0.5, victim.getRandom(),
-				getMaximumDefence(source, victim, spell) + 5);
+		double accuracy = CombatRolls.roll(source.getRandom(),
+				getMaximumAccuracy(source, spell) * EquipmentEffects.multiplier(source, victim, CombatType.MAGIC));
+		double defence = CombatRolls.roll(victim.getRandom(),
+				getMaximumDefence(source, victim, spell));
 		double maximum = getMaximumDamage(source, victim, spell);
-		double mod = accuracy / (accuracy + defence);
 		if (accuracy > defence) {
-			return (int) CombatExecutor.getGaussian(mod, source.getRandom(),
+			return (int) CombatRolls.roll(source.getRandom(),
 					maximum);
 		}
 		return -1;
@@ -212,20 +192,10 @@ public class MagicFormulae {
 	 * @return The maximum magic accuracy.
 	 */
 	private static double getMaximumAccuracy(Player source, MagicSpell spell) {
-		int magicLevel = source.getSkills().getLevel(Skills.MAGIC);
-		int magicBonus = source.getBonuses().getBonus(3);
-		double prayerBonus = 1 + source.getPrayer().getMagicModifier();
-		double accuracy = ((magicLevel + (magicBonus * 4)) * 1.15) * prayerBonus
-				* 1.17;
-		accuracy += (spell.getNormalDamage() + spell.getBaseDamage()) / 2;
-		if (accuracy < 1) {
-			accuracy = 1;
-		}
-		if (source.getEquipment().voidSet(3)) {
-			return accuracy * 1.1;
-		}
-		return accuracy;
-	}
+        int effective = CombatFormula.effectiveLevel(source.getSkills().getLevel(Skills.MAGIC),
+                source.getPrayer().getMagicModifier(), 0, source.getEquipment().voidSet(3) ? 1.3 : 1);
+        return CombatFormula.accuracyRoll(effective, source.getBonuses().getBonus(Bonuses.MAGIC_ATTACK), 1);
+    }
 
 	/**
 	 * Gets the maximum magic defence.
@@ -242,30 +212,8 @@ public class MagicFormulae {
 	 */
 	private static double getMaximumDefence(Player source, Mob victim,
 			MagicSpell spell) {
-		int style = 0;
-		if (victim.isPlayer()) {
-			if (victim.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_DEFENSIVE) {
-				style = 3;
-			} else if (victim.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_CONTROLLED) {
-				style = 1;
-			}
-		}
-		double defLvl = (victim.isNPC() ? victim.getNPC().getDefinition()
-				.getDefenceLevel() : victim.getPlayer().getSkills().getLevel(1)) * 0.3;
-		defLvl += (victim.isNPC() ? victim.getNPC().getDefinition()
-				.getMagicLevel() : victim.getPlayer().getSkills().getLevel(6)) * 0.7;
-		int defBonus = victim.isNPC() ? victim.getNPC().getDefinition()
-				.getBonuses()[8] : victim.getPlayer().getBonuses().getBonus(8);
-		double defMult = 1.0;
-		defMult += victim.isPlayer() ? victim.getPlayer().getPrayer()
-				.getDefenceModifier() : victim.getNPC().getDefenceModifier();
-		if (victim instanceof MetalDragon
-				&& spell.getClass().getSimpleName().contains("Fire")) {
-			defMult -= 0.5;
-		}
-		double defence = ((defLvl + (defBonus * 4)) + style) * defMult;
-		return defence < 1 ? 1 : defence;
-	}
+        return getMaximumMagicDefence(victim, 1);
+    }
 
 	/**
 	 * Gets the maximum magic damage.
@@ -283,14 +231,13 @@ public class MagicFormulae {
 	public static double getMaximumDamage(Player source, Mob victim,
 			MagicSpell spell) {
 		int damage = spell.getStartDamage(source, victim);
-		double multiplier = 1;
+		double multiplier = EquipmentEffects.multiplier(source, victim, CombatType.MAGIC);
 		multiplier *= (source.getBonuses().getBonus(14) * 0.01) + 1;
 		if (source.getSkills().getLevel(Skills.MAGIC) > source.getSkills()
 				.getLevelForExperience(Skills.MAGIC)) {
 			multiplier *= 1 + ((source.getSkills().getLevel(Skills.MAGIC) - source
 					.getSkills().getLevelForExperience(Skills.MAGIC)) * 0.03);
 		}
-		// TODO: Slayer helm/HexCreft helm multiplier on slayer tasks.
 		if (victim.isNPC() && victim.getNPC().getId() == 9463) {
 			boolean isFireSpell = spell.getClass().getSimpleName()
 					.contains("Fire");
@@ -304,10 +251,7 @@ public class MagicFormulae {
 				damage += 40;
 			}
 		}
-		if (source.getEquipment().voidSet(3)) {
-			multiplier += .1;
-		}
-		return damage * multiplier;
+		return CombatFormula.floor(damage * multiplier);
 	}
 
 	/**

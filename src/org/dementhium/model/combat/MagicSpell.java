@@ -48,21 +48,9 @@ public abstract class MagicSpell {
 		} else {
 			interaction.getVictim().graphics(85, 96 << 16);
 		}
-		if (interaction.getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(interaction.getSource(), interaction.getDamage().getVenged());
-		}
-		if (interaction.getDamage().getDeflected() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-					//interaction.getDamage().getDeflected(), 
-					//interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-					//interaction.getDamage().getRecoiled(), 
-					//interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
+
+
+
 		interaction.getVictim().retaliate(interaction.getSource());
 		return true;
 	}
@@ -73,7 +61,7 @@ public abstract class MagicSpell {
 	 * @return The experience to add.
 	 */
 	public abstract double getExperience(Interaction interaction);
-	
+
 	/**
 	 * Gets the start damage for maximum hit calculation.
 	 * @param source The attacking player.
@@ -93,19 +81,19 @@ public abstract class MagicSpell {
 	 * @return The base damage.
 	 */
 	public abstract int getBaseDamage();
-	
+
 	/**
 	 * Gets the required runes used for this spell.
 	 * @return The array of runes.
 	 */
 	public abstract Item[] getRequiredRunes();
-	
+
 	/**
 	 * Gets the required level to cast this spell.
 	 * @return The level requirement.
 	 */
 	public abstract int getRequiredLevel();
-	
+
 	/**
 	 * Gets the extra delay between casting and hitting.
 	 * @return The extra delay amount in ticks.

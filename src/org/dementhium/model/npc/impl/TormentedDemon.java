@@ -1,184 +1,61 @@
 package org.dementhium.model.npc.impl;
+import java.util.*;
+import org.dementhium.model.*;
+import org.dementhium.model.combat.*;
+import org.dementhium.model.npc.encounter.*;
+import org.dementhium.model.player.*;
+import org.dementhium.model.misc.ProjectileManager;
+import org.dementhium.net.ActionSender;
 
-import java.util.List;
-
-import org.dementhium.model.Mob;
-import org.dementhium.model.Projectile;
-import org.dementhium.model.World;
-import org.dementhium.model.combat.CombatAction;
-import org.dementhium.model.combat.CombatType;
-import org.dementhium.model.combat.CombatUtils;
-import org.dementhium.model.combat.Damage;
-import org.dementhium.model.combat.Interaction;
-import org.dementhium.model.combat.impl.npc.TormentedDemonAction;
-import org.dementhium.model.map.Region;
-import org.dementhium.model.mask.Animation;
-import org.dementhium.model.mask.Graphic;
-import org.dementhium.model.npc.NPC;
-import org.dementhium.model.player.Player;
-import org.dementhium.tickable.Tick;
-
-/**
- * Represents a tormented demon.
- * @author Emperor
- *
- */
-public class TormentedDemon extends NPC {
-
-	/**
-	 * The combat action to use.
-	 */
-	private final TormentedDemonAction combatAction = new TormentedDemonAction();
-	
-	/**
-	 * The shield graphic.
-	 */
-	private static final Graphic SHIELD_GRAPHIC = Graphic.create(1885);
-	
-	/**
-	 * The switching combat types animation.
-	 */
-	private static final Animation SWITCH_COMBAT_TYPE = Animation.create(10917);
-	
-	/**
-	 * The melee protection demon npc id
-	 */
-	private static final int MELEE_PROTECT_DEMON = 8352;
-	
-	/**
-	 * The projectile the demon uses for its location-based magic attack.
-	 */
-	private final Projectile projectile = 
-			Projectile.create(this, null, 1884, 43, 0, 56, 76, 3, size());
-	
-	/**
-	 * The amount of damage received.
-	 */
-	private int damageReceived;
-	
-	/**
-	 * The shield restoration tick.
-	 */
-	private final Tick shieldRestoreTick = new Tick(100) {
-		@Override
-		public void execute() {
-			stop();
-			shieldActive = true;
-			List<Player> players = Region.getLocalPlayers(getLocation());
-			for (Player p : players) {
-				if (p.getCombatExecutor().getVictim() == TormentedDemon.this) {
-					p.sendMessage("The Tormented demon has regained its strength against your weapon.");
-				}
-			}
-		}
-	};
-	
-	/**
-	 * If the shield is active.
-	 */
-	private boolean shieldActive = true;
-		
-	/**
-	 * Constructs a new {@code TormentedDemon} {@code Object}.
-	 * @param id The npc id.
-	 */
-	public TormentedDemon(int id) {
-		super(id);
-		shieldRestoreTick.stop();
-	}
-	
-	@Override
-	public int size() {
-		return 4;
-	}
-	
-	@Override
-	public void tick() {
-		super.tick();
-		if (getAttribute("nextSwitch", -1) < World.getTicks()) {
-			setAttribute("nextSwitch", World.getTicks() + 27);//3 minutes delay till next auto-switch.
-			World.getWorld().submit(new Tick(1) {
-				@Override
-				public void execute() {
-					stop();
-					animate(SWITCH_COMBAT_TYPE);
-					TormentedDemonAction.sendLocationAttack(TormentedDemon.this);
-					combatAction.setType(CombatType.values()[getRandom().nextInt(3)]);
-				}				
-			});
-		}
-	}
-	
-	@Override
-    public int getDefenceAnimation() {
-		if (shieldActive) {
-			graphics(SHIELD_GRAPHIC);
-		}
-        return getDefinition().getDefenceAnimation();
+public class TormentedDemon extends AdvancedNPC {
+    private final int spawnId,baseId;
+    private CombatType protection=CombatType.MELEE,offence=CombatType.RANGE;
+    private final int[] received=new int[3];
+    private boolean shield=true;
+    private int restoreAt,nextSwitch=27;
+    public TormentedDemon(int id){super(id);spawnId=id;baseId=id<=8364?8349+(id-8349)/4*4:8349;bindArena(2570,5690,2640,5768,0);showProtection();}
+    @Override public int size(){return 4;}
+    @Override public int getAttackDelay(){return 6;}
+    @Override public int aggression(){return 6;}
+    public boolean shieldActive(){return shield;}
+    public CombatType protection(){return protection;}
+    public CombatType offence(){return offence;}
+    public Projectile getProjectile(){return Projectile.create(this,null,1884,43,0,56,76,3,size());}
+    private void showProtection(){
+        // Mask transformation also replaces the definition. Preserve mutable drains across overhead changes.
+        int[] skills={Skills.ATTACK,Skills.STRENGTH,Skills.DEFENCE,Skills.RANGED,Skills.MAGIC};int[] levels=new int[skills.length];
+        for(int i=0;i<skills.length;i++)levels[i]=getCombatLevel(skills[i]);
+        getMask().setSwitchId(baseId+3-protection.ordinal());
+        for(int i=0;i<skills.length;i++)getCombatStats().drain(skills[i],Math.max(0,getCombatLevel(skills[i])-levels[i]));
     }
-	
-	@Override
-	public Damage updateHit(Mob source, int hit, CombatType type) {
-		int currentHit = hit;
-		if (CombatUtils.usingProtection(this, type)) {
-			currentHit = (int) (hit * (source.isPlayer() ? 0.6 : 0));
-		}
-		if (shieldActive) {
-			currentHit -= hit * 0.75;
-			if (currentHit < 0) {
-				currentHit = 0;
-			}
-		}
-		if (source.isPlayer() && currentHit > 0) {
-			if (source.getPlayer().getEquipment().getSlot(3) == 6746) {
-				shieldRestoreTick.setTime(100);
-				shieldActive = false;
-				if (!shieldRestoreTick.isRunning()) {
-					shieldRestoreTick.start();
-					World.getWorld().submit(shieldRestoreTick);
-					source.getPlayer().sendMessage("The demon is temporarily weakened by your weapon.");
-				}
-			}
-		}
-		damageReceived += currentHit < 20 ? 20 : currentHit;
-		if (damageReceived >= 310) {
-			switchDemonType(type);
-		}
-		return new Damage(currentHit);
-	}
-	
-	@Override
-	public void postCombatTick(Interaction interaction) {
-		super.postCombatTick(interaction);
-	}
-	
-	/**
-	 * Switches the current demon type.
-	 */
-	private void switchDemonType(final CombatType type) {
-		if (getId() == MELEE_PROTECT_DEMON - type.ordinal()) {
-			return;
-		}
-		damageReceived = 0;
-		World.getWorld().submit(new Tick(1) {
-			@Override
-			public void execute() {
-				stop();
-				getMask().setSwitchId(MELEE_PROTECT_DEMON - type.ordinal());
-			}				
-		});
-	}
-	
-	@Override
-	public CombatAction getCombatAction() {
-		return combatAction;
-	}
-
-	/**
-	 * @return the projectile
-	 */
-	public Projectile getProjectile() {
-		return projectile;
-	}
-
+    @Override public int getDefenceAnimation(){if(shield)graphics(1885);return super.getDefenceAnimation();}
+    @Override public Damage updateHit(Mob source,int hit,CombatType type){
+        return updateHit(source,hit,type,false);
+    }
+    public Damage updateHit(Mob source,int hit,CombatType type,boolean bypassProtection){
+        final boolean blocked=type==protection&&!bypassProtection;final int counted=Math.max(20,hit);
+        final boolean darklight=source!=null&&source.isPlayer()&&type==CombatType.MELEE&&source.getPlayer().getEquipment().getSlot(3)==6746;
+        Damage damage=new Damage(blocked?0:shield?Math.max(0,hit)/4:Math.max(0,hit));
+        if(type.ordinal()<3)damage.onContact(()->{
+            if(isDead()||blocked)return;int index=type.ordinal();received[index]=Math.min(310,received[index]+counted);
+            if(received[index]>=310){protection=type;Arrays.fill(received,0);showProtection();}
+        });
+        if(darklight)damage.onImpact(actual->{if(!isDead()){shield=false;restoreAt=clock()+100;source.getPlayer().sendMessage("The demon is temporarily weakened by your weapon.");}});
+        return damage;
+    }
+    @Override protected void restoreForm(){shield=true;restoreAt=0;protection=CombatType.MELEE;offence=CombatType.RANGE;Arrays.fill(received,0);nextSwitch=clock()+27;clearSelection();showProtection();}
+    @Override protected void mechanics(){
+        if(!shield&&clock()>=restoreAt)shield=true;
+        if(getCombatExecutor().getVictim()==null||clock()<nextSwitch)return;
+        nextSwitch=clock()+27;animate(10917);getCombatExecutor().setTicks(3);
+        CombatType previous=offence;do{offence=CombatType.values()[getRandom().nextInt(3)];}while(offence==previous);clearSelection();
+        List<Player> targets=players();if(targets.isEmpty())return;Location tile=targets.get(getRandom().nextInt(targets.size())).getLocation();
+        ProjectileManager.sendProjectile(1884,getLocation(),tile,46,10,90,0,0,11);
+        for(Player viewer:targets)ActionSender.sendPositionedGraphic(viewer,tile,1883);
+        schedule(3,()->{for(Player p:players())if(near(p.getLocation(),tile,1)&&NPCCombatContext.validPair(this,p)){
+            Damage d=Damage.getDamage(this,p,CombatType.MAGIC,getRandom().nextInt(270));d.setMaximum(269);
+            AdvancedAttack.impact(this,p,CombatType.MAGIC,d,1883);
+        }});
+    }
+    @Override public void loot(Mob killer){int current=getId();setId(spawnId);try{super.loot(killer);}finally{setId(current);}}
 }

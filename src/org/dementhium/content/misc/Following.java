@@ -17,6 +17,7 @@ import java.util.List;
 public class Following {
 
     public static void playerFollow(final Mob mob, final Mob o) {
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(mob,o)) return;
         if (o == null) {
             return;
         }
@@ -25,7 +26,7 @@ public class Following {
         mob.submitTick("following_mob", new Tick(1) {
             @Override
             public void execute() {
-                if (o.isDead() || o.destroyed() || mob.getLocation().distance(o.getLocation()) > 15) {
+                if (!org.dementhium.model.instance.InstanceAccess.canInteract(mob,o) || o.isDead() || o.destroyed() || mob.getLocation().distance(o.getLocation()) > 15) {
                     stop();
                     return;
                 }
@@ -59,6 +60,7 @@ public class Following {
     }
 
     public static void combatFollow(Mob mob, Mob other) {
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(mob,other)) return;
         mob.turnTo(other, false);
         if (mob.getAttribute("freezeTime", -1) > World.getTicks()) {
             return;

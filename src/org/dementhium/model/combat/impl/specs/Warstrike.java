@@ -32,20 +32,15 @@ public class Warstrike extends SpecialAttack {
 		interaction.setDamage(Damage.getDamage(interaction.getSource(), 
 				interaction.getVictim(), CombatType.MELEE, 
 				MeleeFormulae.getDamage(interaction.getSource(), 
-						interaction.getVictim(), 1.139, 1.1, 0.998)));
+						interaction.getVictim(), 2.0, 1.1, 1.0)));
 		interaction.getDamage().setMaximum(MeleeFormulae.getMeleeDamage(interaction.getSource(), 1.1));
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
 		}
 		if (interaction.getDamage().getHit() > 0) {
-			drainStats(interaction.getVictim(), (int) (interaction.getDamage().getHit() * .1));
+			interaction.getDamage().onImpact(actual -> drainStats(interaction.getVictim(), actual / 10));
 		}
-		if (interaction.getSource().isPlayer() && interaction.getDamage().getHit() > 0
-				&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-				 && interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()) {
-			interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-					interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-		}
+		
 		interaction.getSource().animate(ANIMATION);
 		interaction.getSource().graphics(GRAPHICS);
 		interaction.getVictim().animate(interaction.isDeflected() ? 12573 : interaction.getVictim().getDefenceAnimation());
@@ -64,6 +59,12 @@ public class Warstrike extends SpecialAttack {
 	 *            The damage dealt / 10.
 	 */
 	private void drainStats(Mob victim, int maximumHit) {
+        if(victim.isNPC()&&!victim.isFamiliar()){
+            int left=maximumHit;
+            for(int skill:new int[]{Skills.DEFENCE,Skills.STRENGTH,Skills.ATTACK,Skills.MAGIC,Skills.RANGED})
+                left=victim.getNPC().getCombatStats().drain(skill,left);
+            return;
+        }
 		if (victim.isPlayer()) {
 			Player player = victim.getPlayer();
 			player.sendMessage("You feel drained.");

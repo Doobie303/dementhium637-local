@@ -62,6 +62,9 @@ public class Settings {
      * The amount of barrows activity kill counts.
      */
     private int barrowsKillcount = 0;
+    private int barrowsPotential;
+    public int getBarrowsPotential() { return barrowsPotential; }
+    public void setBarrowsPotential(int value) { barrowsPotential = Math.max(0, Math.min(1000, value)); }
     
     /**
      * The stronghold chests that have been looted.

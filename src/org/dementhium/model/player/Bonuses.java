@@ -1,6 +1,7 @@
 package org.dementhium.model.player;
 
 import org.dementhium.model.Item;
+import org.dementhium.model.definition.ItemDefinition;
 import org.dementhium.net.ActionSender;
 
 public final class Bonuses {
@@ -20,63 +21,17 @@ public final class Bonuses {
         this.player = player;
     }
 
-    public void calculate() {
-        bonuses = new int[15];
-        int rangeBonus = -1;
-        int rangeBonus2 = -1;
-        for (int i = 0; i < Equipment.SIZE; i++) {
-            Item equip = player.getEquipment().get(i);
-            if (equip != null) {
-                for (int x = 0; x < 15; x++) {
-                    bonuses[x] += equip.getDefinition().getBonus()[x];
-                }
-                if (i == 3 && equip.getDefinition().getBonus()[RANGED_ATTACK] > 0)
-                	rangeBonus = equip.getDefinition().getBonus()[RANGED_ATTACK];
-                if (i == 3 && equip.getDefinition().getBonus()[RANGED] > 0)
-                	rangeBonus2 = equip.getDefinition().getBonus()[RANGED];
-            }
-        }
-        if (rangeBonus != -1)
-        	bonuses[RANGED] = rangeBonus;
-        if (rangeBonus2 != -1)
-        	bonuses[RANGED_ATTACK] = rangeBonus2;
-        absorptionBonus = new int[3];
-        for (int i = 0; i < Equipment.SIZE; i++) {
-            Item equip = player.getEquipment().get(i);
-            if (equip != null) {
-                for (int x = 0; x < 3; x++) {
-                    absorptionBonus[x] += equip.getDefinition().getAbsorptionBonus()[x];
-                }
-            }
-        }
-        weight = 0.0;
-        for (Item item : player.getInventory().getContainer().toArray()) {
-            if (item != null) {
-                weight += item.getDefinition().getWeight();
-            }
-        }
-        for (Item item : player.getEquipment().getContainer().toArray()) {
-            if (item != null) {
-                weight += item.getDefinition().getWeight();
-            }
-        }
-        refreshEquipScreen();
-    }
-    
+    public void calculate() { calculate(player); }
+
     public void calculate(Player victim) {
         bonuses = new int[15];
         for (int i = 0; i < Equipment.SIZE; i++) {
             Item equip = victim.getEquipment().get(i);
             if (equip != null) {
+				ItemDefinition definition = combatDefinition(equip);
                 for (int x = 0; x < 15; x++) {
-                	//if (x == RANGED) {
-                		//if (bonuses[x] == 0) {
-                			//bonuses[x] = equip.getDefinition().getBonus()[x];
-                		//}
-                		//continue;
-                	//}
                 	
-                    bonuses[x] += equip.getDefinition().getBonus()[x];
+					bonuses[x] += x == RANGED ? RangedEquipmentStats.strength(definition, i, victim.getEquipment().get(Equipment.SLOT_WEAPON)) : definition.getBonus()[x];
                 }
             }
         }
@@ -84,20 +39,21 @@ public final class Bonuses {
         for (int i = 0; i < Equipment.SIZE; i++) {
             Item equip = victim.getEquipment().get(i);
             if (equip != null) {
+				ItemDefinition definition = combatDefinition(equip);
                 for (int x = 0; x < 3; x++) {
-                    absorptionBonus[x] += equip.getDefinition().getAbsorptionBonus()[x];
+					absorptionBonus[x] += definition.getAbsorptionBonus()[x];
                 }
             }
         }
         weight = 0.0;
         for (Item item : victim.getInventory().getContainer().toArray()) {
             if (item != null) {
-                weight += item.getDefinition().getWeight();
+				weight += combatDefinition(item).getWeight();
             }
         }
         for (Item item : victim.getEquipment().getContainer().toArray()) {
             if (item != null) {
-                weight += item.getDefinition().getWeight();
+				weight += combatDefinition(item).getWeight();
             }
         }
         refreshEquipScreen();
@@ -114,6 +70,38 @@ public final class Bonuses {
     	}
     }
 
+    /** Open a stationary modal, recalculating from the equipment actually worn. */
+    public void openEquipmentScreen(boolean fromBank) {
+        player.getActionManager().stopAction();
+        player.removeTick("following_mob");
+        player.getCombatExecutor().reset(); // Also clears the queued walking/running path.
+        player.stopAll();
+        // Do not retain the bank inventory (763) behind this screen.  The
+        // client can close interface 667 locally when minimap walking, which
+        // used to orphan 763 and poison the next bank open.  Transition to a
+        // self-contained equipment screen instead; only keep enough state for
+        // the Back button to reopen the bank.
+        player.closeAll(true, true);
+        player.removeAttribute("itemPriceCheckId");
+        if (fromBank) player.setAttribute("fromBank", Boolean.TRUE);
+        // Varbit 4894 (1248 bit 31) enables the bank-return parent in
+        // equipment on-load script 787 and config-change script 2371.
+        ActionSender.sendConfig(player, 1248, 268435464 | (fromBank ? Integer.MIN_VALUE : 0));
+        ActionSender.sendBConfig(player, 199, -1);
+        ActionSender.sendAMask(player, 1538, 667, 7, 0, 15);
+        ActionSender.sendAMask(player, 1538, 670, 0, 0, 28);
+        ActionSender.sendBConfig(player, 779, 28);
+        ActionSender.sendInterfaceConfig(player, 667, 49, fromBank);
+        ActionSender.sendInterfaceConfig(player, 667, 50, fromBank);
+        ActionSender.sendInterfaceConfig(player, 667, 51, false);
+        calculate();
+        ActionSender.sendInterface(player, 667);
+        ActionSender.sendInventoryInterface(player, 670);
+        // sendInterfaceConfig's legacy boolean means visible on the wire.
+        // Set the root and return parent after the interface's on-load script.
+        ActionSender.sendInterfaceConfig(player, 667, 0, true);
+        ActionSender.sendInterfaceConfig(player, 667, 48, fromBank);
+    }
     public void refreshEquipScreen() {
         // Weight
         ActionSender.sendString(player, 667, 24, Math.ceil(weight) + " kg");
@@ -145,14 +133,12 @@ public final class Bonuses {
     }
 
     public int getAbsorptionBonus(int id) {
-        absorptionBonus = new int[3];
-        for (int i = 0; i < Equipment.SIZE; i++) {
-            Item equip = player.getEquipment().get(i);
-            if (equip != null) {
-            	absorptionBonus[id] += equip.getDefinition().getAbsorptionBonus()[id];
-            }
+        if (id < 0 || id >= 3) return 0;
+        int total = 0;
+        for (Item equip : player.getEquipment().getContainer().toArray()) {
+            if (equip != null) total += combatDefinition(equip).getAbsorptionBonus()[id];
         }
-        return absorptionBonus[id];
+        return total;
     }
 
     public int getDefence(int type) {
@@ -161,4 +147,8 @@ public final class Bonuses {
     	}
         return bonuses[type + 5];
     }
+
+	private static ItemDefinition combatDefinition(Item item) {
+		return ItemDefinition.forId(DegradingHandler.getCombatItemId(item.getId()));
+	}
 }

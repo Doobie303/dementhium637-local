@@ -37,7 +37,10 @@ public final class DefaultGameDecoder extends FrameDecoder {
                     length = buffer.readUnsignedByte();
                 }
             }
-            if (length <= buffer.readableBytes() && length > 0) {
+            // Zero-length packets are real protocol messages too (notably
+            // opcode 32, interfaces closed client-side).  The old > 0 guard
+            // consumed their opcode and silently discarded the event.
+            if (length <= buffer.readableBytes() && length >= 0) {
                 byte[] payload = new byte[length];
                 buffer.readBytes(payload, 0, length);
                 return new Message(opcode, PacketType.STANDARD, ChannelBuffers.wrappedBuffer(payload));

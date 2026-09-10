@@ -77,9 +77,6 @@ public class Skills {
 		hitPoints -= hitDiff;
 		if (hitPoints < 1)
 			sendDead();
-		if (hitPoints > getMaximumLifePoints()) {
-			hitPoints = getMaximumLifePoints();
-		}
 		ActionSender.sendConfig(player, 1240, hitPoints * 2);
 	}
 
@@ -146,7 +143,26 @@ public class Skills {
 	}
 
 	//@SuppressWarnings("unused")
-	public void sendDead() {
+    /** Complete the managed-session death before exit/save; ordinary death remains below. */
+    public void finishInstanceDeath() {
+        dead=false;
+        for (int i=0;i<SKILL_COUNT;i++) set(i,getLevelForExperience(i));
+        hitPoints=getMaximumLifePoints();
+        player.animate(Animation.RESET);
+        player.setAttribute("hitImmunity",World.getTicks()+5);
+        player.setSpecialAmount(1000); player.resetCombat();
+        player.getPoisonManager().removePoison();
+        player.removeTick("nex_virus");
+        player.setAttribute("teleblock",0); player.setAttribute("teleblockImmunity",0);
+        player.setAttribute("freezeTime",0);
+        player.getEquipment().recalculateHpModifier(); player.getEquipment().refresh();
+        player.getPrayer().closeAllPrayers(); player.getDamageManager().clearEnemyHits();
+        org.dementhium.content.misc.PvpSystem.finishDeath(player);
+        ActionSender.sendConfig(player,1240,hitPoints*2);
+        player.sendMessage("Oh dear, you are dead!");
+    }
+    public void resetDuelDeath() { dead=false; }
+    public void sendDead() {
 		/*if (true) {
               hitPoints = 990;
               return;
@@ -154,7 +170,13 @@ public class Skills {
           if (dead) {
         	  return;
           }
+          player.markCombatTransition();
+          if(player.getActivity() instanceof DuelActivity) {
+              dead=true;((DuelActivity)player.getActivity()).beginDeath(player);return;
+          }
+          org.dementhium.content.misc.PvpSystem.beginDeath(player);
           dead = true;
+          if (org.dementhium.model.instance.InstanceAccess.beginDeath(player)) return;
           Mob last = player.getCombatExecutor().getLastAttacker();
           if (last != null) {
           		last.setAttribute("combatTicks", 0);
@@ -212,6 +234,8 @@ public class Skills {
         							 // GroundItemManager.createGroundItem(pvpDrop);
         					  }       
         					  player.teleport(2815, 5511, 0, false); //safepk spawns
+        				  } else if (Boolean.TRUE.equals(player.getAttribute("inFightCaves"))) {
+        					  org.dementhium.content.minigames.FightCaves.quitCaves(player);
         				  } else if (World.getWorld().getAreaManager().getAreaByName("FFA").contains(player.getLocation())) { //In a safe activity we don't drop items or teleport to the DEFAULT_LOCATION, this will be done in the onDeath method.
         					  if (killer != null && killer != player && killer.isPlayer()) {
         						 // Item rawPVPDrop = new Item(PVPItems(), 1);
@@ -238,6 +262,7 @@ public class Skills {
         				  }
         				  player.getPrayer().closeAllPrayers(); //this is needed after the dropItemsOnDeath above for item protection prayer.
         				  player.getDamageManager().clearEnemyHits();
+                          org.dementhium.content.misc.PvpSystem.finishDeath(player);
         				  //player.getDamageManager().clearHits(); //?
         			  }
 
@@ -549,6 +574,7 @@ public class Skills {
 	}
 
 	public void setHitPoints(int hitPoints) {
+		if((this.hitPoints>0)!=(hitPoints>0))player.markCombatTransition();
 		this.hitPoints = hitPoints;
 	}
 
@@ -718,3 +744,4 @@ public class Skills {
 
 }
 }
+

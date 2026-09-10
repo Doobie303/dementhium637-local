@@ -32,13 +32,7 @@ public class ShadowBlitz extends MagicSpell {
 		int speed = (int) (46 + interaction.getSource().getLocation().getDistance(interaction.getVictim().getLocation()) * 10);
 		ProjectileManager.sendProjectile(Projectile.create(interaction.getSource(), interaction.getVictim(), 380, 43, 0, 51, speed, 16, 64));
 		interaction.getSource().animate(1978);
-		if (interaction.getDamage().getHit() > -1 && interaction.getVictim().isPlayer() && RANDOM.nextInt(20) < 4) {
-			Player p = interaction.getVictim().getPlayer();
-			ActionSender.sendMessage(p, "You have been blinded.");
-			int attackLevel = p.getSkills().getLevel(Skills.ATTACK);
-			attackLevel -= attackLevel * 0.1;
-			p.getSkills().set(Skills.ATTACK, attackLevel);
-		}
+		if (interaction.getDamage().getHit() > -1 && interaction.getVictim().isPlayer() && RANDOM.nextInt(20) < 4) org.dementhium.model.combat.CombatStatus.shadowOnImpact(interaction.getDamage(),interaction.getVictim(),0.1);
 		interaction.setEndGraphic(Graphic.create(381));
 		return true;
 	}

@@ -34,23 +34,9 @@ public class EnergyDrain extends SpecialAttack {
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
 		}
-		if (interaction.getSource().isPlayer() && interaction.getDamage().getHit() > 0
-				&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-				 && interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()) {
-			interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-					interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-		}
-		if (interaction.getVictim().isPlayer()) {
-			int toDrain = 10;
-			if (interaction.getDamage().getHit() > 100) {
-				toDrain = (int) (interaction.getDamage().getHit() * 0.1 > 35 ? 35 : 
-					interaction.getDamage().getHit() * 0.1);
-			}
-			int runEnergy = interaction.getVictim().getWalkingQueue().getRunEnergy() - toDrain;
-			interaction.getVictim().getWalkingQueue().setRunEnergy(toDrain < 0 ? 0 : toDrain);
-			runEnergy = interaction.getSource().getWalkingQueue().getRunEnergy() + toDrain;
-			interaction.getSource().getWalkingQueue().setRunEnergy(runEnergy > 100 ? 100 : runEnergy);
-		}
+		
+        org.dementhium.model.combat.SpecialEffects.energyDrain(interaction.getDamage(),interaction.getSource(),interaction.getVictim());
+
 		interaction.getSource().animate(ANIMATION);
 		interaction.getVictim().animate(interaction.isDeflected() ? 12573 : interaction.getVictim().getDefenceAnimation());
 		if (interaction.isDeflected()) {

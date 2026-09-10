@@ -41,7 +41,7 @@ public class BarrowsCrypt extends Entity {
 	 * @return The barrows crypt instance.
 	 */
 	public BarrowsCrypt duplicate() {
-		return new BarrowsCrypt(new NPC(npc.getId()), area);
+		return new BarrowsCrypt(new org.dementhium.model.npc.impl.BarrowBrother(npc.getId()), area);
 	}
 	
 	@Override

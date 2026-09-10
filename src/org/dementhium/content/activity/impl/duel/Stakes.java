@@ -1,142 +1,54 @@
 package org.dementhium.content.activity.impl.duel;
-
 import org.dementhium.content.activity.impl.DuelActivity;
-import org.dementhium.model.Container;
-import org.dementhium.model.Item;
-import org.dementhium.model.player.Inventory;
+import org.dementhium.model.*;
 import org.dementhium.model.player.Player;
 import org.dementhium.net.ActionSender;
 
-/**
- * The player's stake containers.
- *
- * @author Emperor
- */
+/** Exact transfers; no inventory helper may report a debit which did not happen. */
 public class Stakes {
-
-	/**
-	 * The container.
-	 */
-	private Container stake;
-
-	/**
-	 * The player.
-	 */
-	private final Player player;
-
-	/**
-	 * Constructs a new {@code Stakes} {@code Object}.
-	 *
-	 * @param player The player.
-	 */
-	public Stakes(Player player) {
-		this.stake = new Container(9, false);
-		this.player = player;
-	}
-
-	/**
-	 * Stakes a new item.
-	 *
-	 * @param itemId The item id.
-	 * @param slot   The slot.
-	 * @param amount The amount.
-	 * @return {@code True} if the items could be staked, {@code false} if not.
-	 */
-	public boolean stake(int itemId, int slot, int amount) {
-		Item item = player.getInventory().getContainer().get(slot);
-		if (item == null || item.getId() != itemId) {
-			return false;
-		}
-		if (stake.getTakenSlots() >= 9) {
-			if (!item.getDefinition().isStackable() || (item.getDefinition().isStackable() && !stake.contains(item))) {
-				player.sendMessage("Your stake is full!");
-				return false;
-			}
-		}
-		int amt = player.getInventory().getContainer().getNumberOf(item);
-		if (amount > amt) {
-			amount = amt;
-		}
-		if (amount <= 0) {
-			return false;
-		}
-		if (!item.getDefinition().isTradeable() /*|| item.getId() == 995*/) { //&& BOTH players rights < 2
-			player.sendMessage("You can't stake this item.");
-			return false;
-		}
-		if (stake.getTakenSlots() + amount > 9) {
-			if (!item.getDefinition().isStackable() && !item.getDefinition().isNoted()) {
-				amount = 9 - stake.getTakenSlots();
-			}
-		}
-		if (stake.getTakenSlots() == 9) {
-			if ((item.getDefinition().isStackable() && !stake.contains(item)) && !item.getDefinition().isStackable() && item.getDefinition().isNoted()) {
-				player.sendMessage("Your stake is full!");
-				return false;
-			}
-		}
-		item = new Item(itemId, amount);
-		if (item.getDefinition().isStackable()) {
-			if (player.getInventory().removeItems(item)) {
-				stake.add(item);
-			}
-		} else {
-			item = new Item(itemId, 1);
-			for (int i = 0; i < amount; i++) {
-				if (player.getInventory().removeItems(item)) {
-					stake.add(item);
-				}
-			}
-			player.getInventory().refresh();
-		}
-		refresh();
-		Player other = ((DuelActivity) player.getActivity()).getOpponent(player);
-		((Stakes) other.getAttribute("duelStakes")).refresh();
-		player.setAttribute("acceptedDuel", false);
-		other.setAttribute("acceptedDuel", false);
-		return true;
-	}
-
-	/**
-	 * Refreshes the stake.
-	 *
-	 * @return {@code True}.
-	 */
-	public boolean refresh() {
-		Player other = ((DuelActivity) player.getActivity()).getOpponent(player);
-		ActionSender.sendItems(player, 134, stake, false);
-		ActionSender.sendItems(player, 134, ((Stakes) other.getAttribute("duelStakes")).getContainer(), true);
-		ActionSender.sendItems(player, 93, player.getInventory().getContainer(), false);
-		return true;
-	}
-
-	/**
-	 * Removes a staked item.
-	 *
-	 * @param item   The item.
-	 * @param amount The amount.
-	 * @return {@code True} if the item could be removed, {@code false} if not.
-	 */
-	public boolean remove(int item, int amount) {
-		int amt = stake.getNumberOf(new Item(item));
-		if (amount > amt) {
-			amount = amt;
-		}
-		if (amount < 1) {
-			return false;
-		}
-		Item i = new Item(item, amount);
-		stake.remove(i);
-		player.getInventory().addItem(i);
-		refresh();
-		Player other = ((DuelActivity) player.getActivity()).getOpponent(player);
-		((Stakes) other.getAttribute("duelStakes")).refresh();
-		player.setAttribute("acceptedDuel", false);
-		other.setAttribute("acceptedDuel", false);
-		return true;
-	}
-
-	public Container getContainer() {
-		return stake;
-	}
+    private final Container stake=new Container(9,false);
+    private final Player player;
+    private final DuelActivity duel;
+    public Stakes(Player p,DuelActivity duel){player=p;this.duel=duel;}
+    public Container getContainer(){return stake;}
+    public boolean stake(int itemId,int slot,int amount){
+        if(!duel.editable(player)||amount<=0)return false;
+        if(!duel.isStaking()){player.sendMessage("Items cannot be staked in a friendly duel.");return false;}
+        Item item=player.getInventory().getContainer().get(slot);
+        if(item==null||item.getId()!=itemId||!item.getDefinition().isTradeable())return false;
+        return transfer(player.getInventory().getContainer(),stake,slot,amount,"changed their stake");
+    }
+    public boolean remove(int id,int amount){return removeSlot(stake.lookupSlot(id),id,amount);}
+    public boolean removeSlot(int slot,int id,int amount){
+        if(!duel.editable(player)||amount<=0)return false;
+        Item item=stake.get(slot);if(item==null||item.getId()!=id)return false;
+        return transfer(stake,player.getInventory().getContainer(),slot,amount,"removed items from their stake");
+    }
+    private boolean transfer(Container from,Container to,int slot,int amount,String text){
+        Container beforeFrom=DuelRecovery.copy(from),beforeTo=DuelRecovery.copy(to);
+        Container work=DuelRecovery.copy(from),offered=new Container(from.getSize(),false,false,true);
+        Item selected=work.get(slot);if(selected==null)return false;
+        long left=amount;
+        // Prefer the clicked slot; only combine items with identical charge/degradation metadata.
+        for(int n=0;n<work.getSize()&&left>0;n++){
+            int index=n==0?slot:n<=slot?n-1:n;Item item=work.get(index);
+            if(item==null||item.getId()!=selected.getId()||item.getHealth()!=selected.getHealth())continue;
+            int count=(int)Math.min(left,item.getAmount());Item moved=new Item(item);moved.setAmount(count);
+            offered.forceAdd(moved);left-=count;
+            if(count==item.getAmount())work.set(index,null);else {Item rest=new Item(item);rest.setAmount(item.getAmount()-count);work.set(index,rest);}
+        }
+        if(offered.size()==0||!to.tryAddAll(offered)){player.sendMessage("There is not enough room for that transfer.");return false;}
+        DuelRecovery.replace(from,work);
+        if(!World.getWorld().getPlayerLoader().save(player)){
+            DuelRecovery.replace(from,beforeFrom);DuelRecovery.replace(to,beforeTo);
+            player.sendMessage("The stake change could not be saved. No items were moved.");return false;
+        }
+        duel.changed(player,text);refresh();duel.stakeOf(duel.getOpponent(player)).refresh();return true;
+    }
+    public boolean refresh(){
+        if(!duel.owns(player))return false;
+        ActionSender.sendItems(player,134,stake,false);
+        ActionSender.sendItems(player,134,duel.stakeOf(duel.getOpponent(player)).getContainer(),true);
+        player.getInventory().refresh();return true;
+    }
 }

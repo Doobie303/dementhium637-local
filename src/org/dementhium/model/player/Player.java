@@ -87,6 +87,7 @@ import org.jboss.netty.buffer.ChannelBuffer;
  */
 @SuppressWarnings("unused")
 public final class Player extends Mob {
+	private static final int ITEM_CHARGES_SAVE_MAGIC = 0x44475244;
 
 	private final PlayerDefinition definition;
 
@@ -202,9 +203,8 @@ public final class Player extends Mob {
 
 	private long lastPing = System.currentTimeMillis();
 
-	private static int[] emptyLot = RegionBuilder.findEmptyMap(40, 40); // 16x16
-	private final static Location houseLocation = Location.locate(emptyLot[0],
-			emptyLot[1], 0);
+	// Legacy housing placeholder; do not allocate a map when Player is class-loaded.
+	private static Location houseLocation;
 
 	private int dungeonIndex = -1;
 	private int dungeonDeathCount = 0;
@@ -235,6 +235,11 @@ public final class Player extends Mob {
     }
 
 	public Location getHouseLocation() {
+		if (houseLocation == null) {
+			int[] lot = RegionBuilder.findEmptyMap(40, 40);
+			if (lot == null) throw new IllegalStateException("No map space available");
+			houseLocation = Location.locate(lot[0], lot[1], 0);
+		}
 		return houseLocation;
 	}
 
@@ -257,7 +262,7 @@ public final class Player extends Mob {
 			ActionSender.loginResponse(this);
 			World.getWorld().submit(playerAreaTick);
 			World.getWorld().submit(new PlayerRestorationTick(this));
-			initPackets();
+			initPackets(); org.dementhium.content.minigames.gambler.GamblerRecovery.claim(this); if(org.dementhium.content.activity.impl.duel.DuelRecovery.pending(this).size()>0) org.dementhium.content.activity.impl.duel.DuelRecovery.claim(this);
 			setLastConnectDate(System.currentTimeMillis());
 			if (!hasSetAppearance) {
 				//Char interface:
@@ -606,6 +611,8 @@ public final class Player extends Mob {
 	}
 
 	public void closeAll(boolean resetTurnTo, boolean doStopRestEmote) {
+        if(getActivity() instanceof org.dementhium.content.minigames.gambler.GamblerSession
+                ||getActivity() instanceof org.dementhium.content.minigames.gambler.GamblerInterfacePreview)getActivity().forceEnd(this);
 		if (getTradeSession() != null) {
 			getTradeSession().tradeFailed(this);
 		}
@@ -628,9 +635,13 @@ public final class Player extends Mob {
 		ActionSender.sendCloseInterface(this);
 		ActionSender.sendCloseInventoryInterface(this);
 		ActionSender.closeInventoryInterface(this); //new one
+		// Bank clientscript 2318 toggles varbit 8348 locally. Closing the
+		// panels does not reset it; script 2319 would hide the next bank.
+		ActionSender.sendVarbit(this, 8348, 0);
 		ActionSender.sendCloseChatBox(this);
 		removeAttribute("inBank");
 		removeAttribute("fromBank");
+		removeAttribute("bankScreen");
 		removeAttribute("itemInfoSlot");
 		//stop resting:
 		if (getSettings().isResting()) {
@@ -656,28 +667,6 @@ public final class Player extends Mob {
 			resetTurnTo();
 		}
 	}
-	
-	public void EpDrop() {
-		Mob killer = getPlayer().getDamageManager().getKiller();
-		Item rawPVPDrop = new Item(PVPItems(), 1);
-		GroundItem pvpDrop = new GroundItem(killer.getPlayer(), rawPVPDrop,
-				getPlayer().getLocation(), false, killer.getPlayer()
-						.getRights() >= 2, GroundItemManager.groundItemIndex++);
-
-		if (killer.getPlayer().pvpZoneEp < 20) {
-				GroundItemManager.createGroundItem(pvpDrop);
-
-		} else if (killer.getPlayer().pvpZoneEp >= 20
-				&& killer.getPlayer().pvpZoneEp < 40) {
-				GroundItemManager.createGroundItem(pvpDrop);
-
-		} else if (getPlayer().pvpZoneEp >= 76
-				&& killer.getPlayer().pvpZoneEp <= 100) {
-				GroundItemManager.createGroundItem(pvpDrop);
-
-		}
-	}
-
 	
 	public static int PVPItems[] = { 379, 373, 385, 391, 15272, 2434, 6685,
 			11235, 11732, 11335, 11283, 11284, 8850, 10551, 1079, 1093, 1113,
@@ -738,7 +727,7 @@ public final class Player extends Mob {
 		BufferUtils.readRS2String(buffer); //Reads password
 		if(buffer.remaining() > 0) {
 			//LOCATION:
-			setLocation(Location.locate(buffer.getShort(), buffer.getShort(), buffer.get()));
+			setLocation(org.dementhium.model.instance.InstanceAccess.readLocation(buffer.getShort(), buffer.getShort(), buffer.get()));
 
 			//ACCOUNT DETAILS:
 			boolean hasDisplayName = buffer.get() == 1;
@@ -879,7 +868,7 @@ public final class Player extends Mob {
 			pkKills = buffer.getInt();
 			pkDeaths = buffer.getInt();
 			pkPoints = buffer.getInt();
-			pvpZoneEp = buffer.getInt();
+			pvpZoneEp = org.dementhium.content.misc.PvpSystem.clampEp(buffer.getInt());
 			personalCombatXpRate = buffer.getInt();
 			if (personalCombatXpRate > 100)
 				personalCombatXpRate = 5000;
@@ -952,11 +941,14 @@ public final class Player extends Mob {
 			savedX = buffer.getShort();
 			savedY = buffer.getShort();
 			savedZ = buffer.get();
-			/*if (buffer.remaining() > 0) {
-
-			}*/
+			loadItemCharges(buffer);
+            if (buffer.remaining() >= 8) {
+                buffer.mark();
+                if (buffer.getInt() == 0x42525231) settings.setBarrowsPotential(buffer.getInt());
+                else buffer.reset();
+            }
 		}
-		//OKAY so we add all the way to the bottom
+		org.dementhium.content.activity.impl.duel.DuelRecovery.load(this,buffer); org.dementhium.content.minigames.gambler.GamblerRecovery.load(this,buffer); // Optional, backward-compatible duel recovery trailer.
 		//if you the value is a boolean use a byte but if the value is going to be greater then 128 use a short and if its greater then 32768 use an int
 
 		//what do you need saved player.getSettings().hasGodwarsRope();
@@ -966,9 +958,10 @@ public final class Player extends Mob {
 	public void save(ChannelBuffer buffer) { // we use a dynamic buffer
 		BufferUtils.writeRS2String(buffer, getPassword());
 		//LOCATION:
-		buffer.writeShort((short) getLocation().getX());
-		buffer.writeShort((short) getLocation().getY());
-		buffer.writeByte((byte) getLocation().getZ());
+		Location savedLocation = org.dementhium.content.activity.impl.duel.DuelRecovery.saveLocation(this,org.dementhium.model.instance.InstanceAccess.saveLocation(this));
+        buffer.writeShort((short) savedLocation.getX());
+		buffer.writeShort((short) savedLocation.getY());
+		buffer.writeByte((byte) savedLocation.getZ());
 
 		//ACCOUNT DETAILS:
 		buffer.writeByte(hasDisplayName() ? 1 : 0);
@@ -1069,7 +1062,7 @@ public final class Player extends Mob {
 		buffer.writeInt(getMagicAutocast());
 
 		//HITPOINTS & PRAYER:
-		buffer.writeShort((short) skills.getHitPoints());
+		buffer.writeShort((short) org.dementhium.model.instance.InstanceAccess.savedHitPoints(this));
 		buffer.writeByte((byte) Math.ceil(skills.getPrayerPoints()));
 		for(int i = 0; i < 30; i++) {
 			if(i >= 20 && prayer.getPrayerBook() == 1) {
@@ -1174,6 +1167,76 @@ public final class Player extends Mob {
 		buffer.writeShort((short) savedX);
 		buffer.writeShort((short) savedY);
 		buffer.writeByte((byte) savedZ);
+		saveItemCharges(buffer);
+        buffer.writeInt(0x42525231);
+        buffer.writeInt(settings.getBarrowsPotential()); org.dementhium.content.activity.impl.duel.DuelRecovery.save(this,buffer); org.dementhium.content.minigames.gambler.GamblerRecovery.save(this,buffer);
+	}
+
+	/**
+	 * Charge data is appended to the old player format so existing character
+	 * files remain readable. Item amounts retain their original layout.
+	 */
+	private void loadItemCharges(ByteBuffer buffer) {
+		if (buffer.remaining() < 6) {
+			return;
+		}
+		buffer.mark();
+		if (buffer.getInt() != ITEM_CHARGES_SAVE_MAGIC) {
+			buffer.reset();
+			return;
+		}
+		int count = buffer.getShort() & 0xffff;
+		for (int i = 0; i < count && buffer.remaining() >= 7; i++) {
+			int containerId = buffer.get() & 0xff;
+			int slot = buffer.getShort() & 0xffff;
+			int charges = buffer.getInt();
+			Container container = itemChargeContainer(containerId);
+			if (container != null) {
+				Item item = container.get(slot);
+				if (item != null && charges > 0) {
+					item.setHealth(charges);
+				}
+			}
+		}
+	}
+
+	private void saveItemCharges(ChannelBuffer buffer) {
+		Container[] containers = { inventory.getContainer(), equipment.getContainer(), bank.getContainer() };
+		int count = 0;
+		for (Container container : containers) {
+			for (int slot = 0; slot < container.getSize(); slot++) {
+				Item item = container.get(slot);
+				if (item != null && item.getHealth() > 0) {
+					count++;
+				}
+			}
+		}
+		buffer.writeInt(ITEM_CHARGES_SAVE_MAGIC);
+		buffer.writeShort(count);
+		for (int containerId = 0; containerId < containers.length; containerId++) {
+			Container container = containers[containerId];
+			for (int slot = 0; slot < container.getSize(); slot++) {
+				Item item = container.get(slot);
+				if (item != null && item.getHealth() > 0) {
+					buffer.writeByte(containerId);
+					buffer.writeShort(slot);
+					buffer.writeInt(item.getHealth());
+				}
+			}
+		}
+	}
+
+	private Container itemChargeContainer(int containerId) {
+		switch (containerId) {
+		case 0:
+			return inventory.getContainer();
+		case 1:
+			return equipment.getContainer();
+		case 2:
+			return bank.getContainer();
+		default:
+			return null;
+		}
 	}
 
 	private void addObjects() {
@@ -1183,6 +1246,9 @@ public final class Player extends Mob {
 	}
 
 	public void setSpecialAmount(int amt) {
+		if (Boolean.TRUE.equals(getAttribute("godmode"))) {
+			amt = 1000;
+		}
 		settings.setSpecialAmount(amt);
 		ActionSender.sendConfig(this, 300, amt);
 	}
@@ -1201,6 +1267,7 @@ public final class Player extends Mob {
 	}
 
 	public void setOnline(boolean isOnline) {
+		if(this.isOnline != isOnline)markCombatTransition();
 		this.isOnline = isOnline;
 	}
 
@@ -1314,7 +1381,7 @@ public final class Player extends Mob {
 		if (sword == -1) {
 			speed = 5;
 		} else {
-			ItemDefinition def = ItemDefinition.forId(sword);
+			ItemDefinition def = ItemDefinition.forId(DegradingHandler.getCombatItemId(sword));
 			if (def.getAttackSpeed() > 0) {
 				speed = def.getAttackSpeed();
 			}
@@ -1351,7 +1418,7 @@ public final class Player extends Mob {
 				return 13042;
 			if (name.contains("warhammer"))
 				return 403;
-			switch (weapon.getId()) {
+			switch (DegradingHandler.getCombatItemId(weapon.getId())) {
 			case 10034:
 				return 3176;
 			case 19784: // korasi's
@@ -1774,79 +1841,11 @@ public final class Player extends Mob {
 	//TODO:
 	//(if last hit is bigger than 500, for every 100 hit more + 1 point)
 	//make a shop that u can buy stuff with pkpoints
-	public void handlePkStatistics(Player departed, Player lastHitter) {
-		//this = killer
-
-		//KILL / DEATH STATISTICS:
-		if (departed.getPkDeaths() + 1 > 0)
-			departed.pkDeaths++;
-		if (pkKills + 1 > 0)
-			pkKills++;
-		//if (lastHitter.getPkKills() + 1 > 0)
-		//lastHitter doesn't get anything? -lastHitter.pkKills++;
-
-		//LASTHITTER PKPOINTS:
-		if (!lastHitter.getUsername().equals(getUsername())) {
-			if (lastHitter.getPkPoints() == Integer.MAX_VALUE) {
-				lastHitter.pvpZoneEp = 0;
-				lastHitter.sendMessage("You receive no pk points, as you've reached the maximum amount of pk points.");
-			} else {
-				//TODO: make a proper way for the lastHitterToReceive his reward, instead of just giving 2 pkPoints.
-				int lastHitterReward = 2;
-				if (departed.getRights() >= 2)
-					lastHitterReward += 5;
-				Container[] keptItems = ItemsKeptOnDeath.getDeathContainers(lastHitter);
-				int riskedWealth = ItemsKeptOnDeath.getRiskedWealth(keptItems[1]);
-				lastHitterReward += ((int) Math.floor(riskedWealth / 200000000));
-				if (lastHitter.getDonor() > 0)
-					Math.ceil(lastHitterReward *= 0.3); //does that work?
-				if (lastHitter.getPkPoints() + lastHitterReward < 0) {
-					lastHitter.sendMessage("You receive a reduced amount of pk points, as you've reached the maximum amount ");
-					lastHitter.sendMessage("of pk points.");
-				} else
-					lastHitter.sendMessage("You have been awarded "+lastHitterReward+" pk points for your efforts.  You now have a total of "+(lastHitter.getPkPoints()+lastHitterReward)+" pk points.");
-				lastHitter.addPkPoints(lastHitterReward);
-				lastHitter.pvpZoneEp = 0;
-			}
-		}
-
-		//KILLER PKPOINTS:
-		if (pkPoints == Integer.MAX_VALUE) {
-			lastHitter.pvpZoneEp = 0;
-			lastHitter.targetLikelihood = 5;
-			sendMessage("You receive no pk points, as you've reached the maximum amount of pk points.");
-		} else {
-			int reward = 1;
-			if (departed.getRights() >= 2)
-				reward += 10;
-			Container[] keptItems = ItemsKeptOnDeath.getDeathContainers(this);
-			int riskedWealth = ItemsKeptOnDeath.getRiskedWealth(keptItems[1]);
-			reward += ((int) Math.floor(riskedWealth / 100000000));
-			/*if (getUsername().equals(lastHitter.getUsername())) {
-				departed.getLastReceivedHit().getType();
-				player.sendMessage("Your melee maximum hit is "
-						+ MeleeFormulae.getMeleeDamage(player, 1.0) + ".");
-				player.sendMessage("Your ranged maximum hit is "
-						+ RangeFormulae.getRangeDamage(player, 1.0) + ".");
-
-				int hitReward = ((int) departed.getLastReceivedHit() - 500);
-				reward += hitReward;
-			}*/
-			if (getDonor() > 0)
-				reward *= 2;
-			if (pkPoints + reward < 0) {
-				sendMessage("You receive a reduced amount of pk points, as you've reached the maximum amount ");
-				sendMessage("of pk points.");
-			} else {
-				sendMessage("You have been awarded "+reward+" pk points. You now have a total of "+(pkPoints+reward)+" pk points.");
-			}
-			addPkPoints(reward);
-			lastHitter.pvpZoneEp = 0;
-			lastHitter.targetLikelihood = 5;
-			lastHitter.EpDrop();
-		}
-	}
-
+    public void handlePkStatistics(Player departed, Player lastHitter) {
+        org.dementhium.content.misc.PvpSystem.rewardDeath(departed, this, lastHitter);
+    }
+    public void incrementPkKills() { if (pkKills < Integer.MAX_VALUE) pkKills++; }
+    public void incrementPkDeaths() { if (pkDeaths < Integer.MAX_VALUE) pkDeaths++; }
 	public int getPkPoints() {
 		return pkPoints;
 	}
@@ -1941,27 +1940,19 @@ public final class Player extends Mob {
 						"You can only use Magic to attack players in this area.");
 				return false;
 			}
-			if (!inPVPZone() && !mob.getPlayer().inPVPZone() && !inSafePk() && !mob.getPlayer().inSafePk()) {
-				int combatLevel = getSkills().getCombatLevelWithoutSummoning();
-				int otherLevel = mob.getPlayer().getSkills().getCombatLevelWithoutSummoning();
-				int wildernessLevel = getLocation().getWildernessLevel();
-				int otherWildernessLevel = mob.getLocation().getWildernessLevel();
-				if (!((combatLevel + wildernessLevel >= otherLevel && combatLevel
-						- wildernessLevel <= otherLevel)
-						&& (otherLevel + otherWildernessLevel) >= combatLevel && otherLevel
-						- otherWildernessLevel <= combatLevel)) {
-					mob.getPlayer()
-					.sendMessage(
-							"The combat level difference between you and your opponent is too great.");
-					return false;
-				}
-			}
+            if (!org.dementhium.content.misc.PvpSystem.inCombatRange(this,mob.getPlayer())) {
+                mob.getPlayer().sendMessage("The combat level difference between you and your opponent is too great.");
+                return false;
+            }
 		}
 		return true;
 	}
 
 	@Override
 	public Damage updateHit(Mob source, int hit, CombatType type) {
+        return updateHit(source, hit, type, false);
+    }
+    public Damage updateHit(Mob source, int hit, CombatType type, boolean bypassProtection) {
 		if (Boolean.TRUE.equals(getAttribute("godmode"))) {
 			return new Damage(0);
 		}
@@ -1973,44 +1964,43 @@ public final class Player extends Mob {
 		}
 
 		//DEFLECTING:
-		int deflected = 0;
-		if (getPrayer().usingPrayer(1, type.getDeflectCurse())) {
+        boolean barrowsBypass = bypassProtection || source instanceof org.dementhium.model.npc.impl.BarrowBrother
+                && ((org.dementhium.model.npc.impl.BarrowBrother) source).isDefilerHit();
+		int originalShieldInput = hit;
+        double protectionMultiplier = 1;
+        boolean staffReduction = false;
+        int deflected = 0;
+		if (!barrowsBypass && getPrayer().usingPrayer(1, type.getDeflectCurse())) {
 			int deflectchance = Misc.random(2);
 			if (deflectchance == 0) { //1/3 chance (random chance I made up)
 				if (hit >= 10) {
 					deflected = (int) (hit * 0.1);
 				}
 			}
-			hit *= source.isPlayer() ? 0.6 : 0;
+			protectionMultiplier = source.isPlayer() ? 0.6 : 0;
+            hit *= protectionMultiplier;
 
-		} else if (getPrayer().usingPrayer(0, type.getProtectionPrayer())) {
-			hit *= source.isPlayer() ? 0.6 : 0;
+		} else if (!barrowsBypass && getPrayer().usingPrayer(0, type.getProtectionPrayer())) {
+			protectionMultiplier = source.isPlayer() ? 0.6 : 0;
+            hit *= protectionMultiplier;
 		}
 		if (type == CombatType.MELEE
-				&& getAttribute("staffOfLightEffect", -1) > World.getTicks()) {
+				&& getEquipment().getSlot(Equipment.SLOT_WEAPON) == 15486
+                && getAttribute("staffOfLightEffect", -1) > World.getTicks()) {
 			ActionSender.sendMessage(this,
 					"Your staff of light deflects some damage.");
-			hit *= 0.5;
+			staffReduction = true;
+            hit *= 0.5;
 		}
 		if (type == CombatType.DRAGONFIRE) {
 			hit = CombatUtils.getDragonProtection(this, source, hit);
 		}
-		if ((int) getSkills().getPrayerPoints() > 0
-				&& getEquipment().getSlot(Equipment.SLOT_SHIELD) == 13740) {
-			double decrease = hit * .3;
-			double prayerDecrease = Math.ceil(decrease / 20);
-			if (getSkills().getPrayerPoints() >= prayerDecrease) {
-				getSkills().drainPray(prayerDecrease);
-				hit -= decrease;
-			} else {
-				hit -= getSkills().getPrayerPoints() * 40;
-				getSkills().drainPray(9);
-			}
-		} else if (getRandom().nextInt(10) < 7
-				&& getEquipment().getSlot(Equipment.SLOT_SHIELD) == 13742) {
-			hit *= .75;
-		}
-		return new Damage(hit).setDeflected(deflected);
+		// Typed combat shields resolve at impact in DamageManager, once per incoming hit.
+        if (type == CombatType.DRAGONFIRE) hit = org.dementhium.model.combat.SpiritShield.reduce(this, hit);
+        Damage result = new Damage(hit).setDeflected(deflected);
+        if (type == CombatType.MELEE || type == CombatType.RANGE || type == CombatType.MAGIC)
+            result.withShieldInput(originalShieldInput, protectionMultiplier, staffReduction);
+        return result;
 	}
 
 	public boolean isActive() {
@@ -2148,47 +2138,32 @@ public final class Player extends Mob {
 		if (interaction.getRangeData() != null) {
 			interaction.setDamage(interaction.getRangeData().getDamage());
 		}
-		if (interaction.getDamage() != null
-				&& getPrayer().usingPrayer(1, Prayer.SOUL_SPLIT)) {
-			int ticks = (int) Math.floor(getLocation().distance(
-					interaction.getVictim().getLocation()) * 0.5) + 1;
-			int speed = (int) (46 + getLocation().distance(
-					interaction.getVictim().getLocation()) * 10);
-			if (interaction.getDamage().getHit() > 0) {
-				getSkills().heal(
-						(int) (interaction.getDamage().getHit() * (interaction
-								.getVictim().isNPC() ? 0.2 : 0.4)));
-				if (interaction.getVictim().isPlayer()) {
-					interaction.getVictim().getPlayer().getSkills()
-					.drainPray(interaction.getDamage().getHit() * 0.02);
-				}
-				ProjectileManager
-				.sendProjectile(Projectile.create(this,
-						interaction.getVictim(), 2263, 11, 11, 30,
-						speed, 0, 0));
-			}
-			World.getWorld().submit(new Tick(ticks) {
-				@Override
-				public void execute() {
-					int speed = (int) (46 + getLocation().distance(
-							interaction.getVictim().getLocation()) * 10);
-					interaction.getVictim().graphics(2264);
-					ProjectileManager.sendProjectile(Projectile.create(
-							interaction.getVictim(), interaction.getSource(),
-							2263, 11, 11, 30, speed, 0, 0));
-					stop();
-				}
-			});
-		} else if (interaction.getDamage() != null
-				&& getPrayer().usingPrayer(0, Prayer.SMITE)) {
-			if (interaction.getVictim().isPlayer()) {
-				interaction.getVictim().getPlayer().getSkills()
-				.drainPray(interaction.getDamage().getHit() * 0.025);
-			}
-		}
 	}
 
-	@Override
+    /** Called once per applied offensive hit, after immunity, absorption and HP capping. */
+    public void applyOffensivePrayerEffects(final Mob victim, int applied) {
+        if (applied <= 0 || getSkills().isDead()) return;
+        if (getPrayer().usingPrayer(1, Prayer.SOUL_SPLIT)) {
+            getSkills().heal(applied / 5);
+            if (victim.isPlayer()) victim.getPlayer().getSkills().drainPray(applied * 0.02);
+            int speed = (int)(46 + getLocation().distance(victim.getLocation()) * 10);
+            ProjectileManager.sendProjectile(Projectile.create(this, victim, 2263, 11, 11, 30, speed, 0, 0));
+            int ticks = (int)Math.floor(getLocation().distance(victim.getLocation()) * 0.5) + 1;
+            World.getWorld().submit(new Tick(ticks) {
+                @Override public void execute() {
+                    stop();
+                    if (destroyed() || victim.destroyed()) return;
+                    int speed = (int)(46 + getLocation().distance(victim.getLocation()) * 10);
+                    victim.graphics(2264);
+                    ProjectileManager.sendProjectile(Projectile.create(victim, Player.this, 2263, 11, 11, 30, speed, 0, 0));
+                }
+            });
+        } else if (getPrayer().usingPrayer(0, Prayer.SMITE) && victim.isPlayer()) {
+            victim.getPlayer().getSkills().drainPray(applied * 0.025);
+        }
+    }
+
+    @Override
 	public void postCombatTick(Interaction interaction) {
 		if (interaction.getSource().getPlayer().getUsername().equals("mod combat")) {
 			interaction.getSource().getPlayer().sendMessage("[Player.java (ABSTRACT MOB)] PostCombatTick (5+).");
@@ -2271,6 +2246,7 @@ public final class Player extends Mob {
 	}
 
 	public void updateRegionArea() {
+		isAtDynamicRegion = false;
 		mapRegionIds = new ArrayList<Integer>();
 		int regionX = location.getRegionX();
 		int regionY = location.getRegionY();
@@ -2315,3 +2291,4 @@ public final class Player extends Mob {
 		return false;
 	}
 }
+

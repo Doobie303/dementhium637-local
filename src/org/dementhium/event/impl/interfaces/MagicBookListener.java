@@ -5,6 +5,7 @@ import org.dementhium.content.activity.impl.duel.DuelConfigurations.Rules;
 import org.dementhium.content.skills.magic.TeleportHandler;
 import org.dementhium.event.EventListener;
 import org.dementhium.event.EventManager;
+import org.dementhium.model.Item;
 import org.dementhium.model.combat.MagicSpell;
 import org.dementhium.model.combat.SpellContainer;
 import org.dementhium.model.combat.impl.MagicAction;
@@ -20,6 +21,10 @@ import org.dementhium.net.ActionSender;
  * @author Emperor
  */
 public class MagicBookListener extends EventListener {
+
+    private static final Item[] VENGEANCE_RUNES = {
+            new Item(560, 2), new Item(557, 10), new Item(9075, 4)
+    };
 
     @Override
     public void register(EventManager manager) {
@@ -57,7 +62,7 @@ public class MagicBookListener extends EventListener {
                             return true;
                         }
                     }
-                    if (!player.getInventory().contains(560, 2) || !player.getInventory().contains(557, 10) || !player.getInventory().contains(9075, 4)) {
+                    if (!MagicAction.checkRunes(player, VENGEANCE_RUNES, false)) {
                         player.sendMessage("You don't have enough runes to cast vengeance.");
                         return true;
                     }
@@ -73,9 +78,7 @@ public class MagicBookListener extends EventListener {
                         player.sendMessage("You can only cast vengeance spells once every 30 seconds.");
                         return true;
                     }
-                    player.getInventory().deleteItem(560, 2);
-                    player.getInventory().deleteItem(557, 10);
-                    player.getInventory().deleteItem(9075, 4);
+                    MagicAction.checkRunes(player, VENGEANCE_RUNES, true);
                     player.setAttribute("vengDelay", System.currentTimeMillis());
                     player.setAttribute("vengeance", Boolean.TRUE);
                     player.animate(Animation.create(4410));

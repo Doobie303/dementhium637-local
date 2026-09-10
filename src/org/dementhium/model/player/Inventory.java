@@ -167,6 +167,15 @@ public class Inventory {
 	}
 
 	public boolean addItem(Item item) {
+		if (item != null && item.getHealth() > 0) {
+			if (inventory.getFreeSlots() < 1) {
+				ActionSender.sendChatMessage(player, 0, "Not enough space in your inventory.");
+				return false;
+			}
+			boolean added = inventory.add(new Item(item));
+			refresh();
+			return added;
+		}
 		return addItem(item.getId(), item.getAmount(), true, true);
 	}
 

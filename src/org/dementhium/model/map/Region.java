@@ -26,6 +26,42 @@ public class Region {
 
 	public static final int REGION_SIZE = 128;
 
+	public static boolean hasEntitiesInArea(int x, int y, int width, int height) {
+		for (Region r : regionCache.values()) {
+			if ((r.x + 1) * 128 <= x || r.x * 128 >= x + width || (r.y + 1) * 128 <= y || r.y * 128 >= y + height) continue;
+			for (int p = 0; p < 4; p++) {
+				for (Player player : r.players[p]) if (inside(player.getLocation(), x, y, width, height)) return true;
+				for (NPC npc : r.npcs[p]) if (inside(npc.getLocation(), x, y, width, height)) return true;
+			}
+		}
+		return false;
+	}
+	private static boolean inside(Location l, int x, int y, int w, int h) {
+		return l != null && l.getX() >= x && l.getY() >= y && l.getX() < x + w && l.getY() < y + h;
+	}
+	/** Read-only allocator check: do not create Region/Location entries while searching. */
+	public static boolean hasRuntimeState(int x, int y, int w, int h) {
+		if (hasEntitiesInArea(x, y, w, h)) return true;
+		for (int tx = x; tx < x + w; tx++) for (int ty = y; ty < y + h; ty++) {
+			Region r = regionCache.get(hash(tx, ty)); if (r == null) continue;
+			for (int p = 0; p < 4; p++) {
+				if (r.clippingMasks[p] != null) return true;
+				if (r.tiles[p] != null) {
+					Location l = r.tiles[p][tx & 127][ty & 127];
+					if (l != null && l.hasObjects()) return true;
+				}
+			}
+		}
+		return false;
+	}
+	/** Allocations own whole 128-tile cells; drop their empty Location caches on release. */
+	public static void discardEmptyArea(int x, int y, int width, int height) {
+		for (int rx = x; rx < x + width; rx += 128) for (int ry = y; ry < y + height; ry += 128) {
+			Region r = regionCache.get(hash(rx, ry));
+			if (r != null && !hasRuntimeState(rx, ry, 128, 128)) regionCache.remove(hash(rx, ry));
+		}
+	}
+
 	private static Map<Integer, Region> regionCache = new HashMap<Integer, Region>();
 
 	public static List<NPC> getLocalNPCs(Location tile) {
@@ -45,8 +81,9 @@ public class Region {
 				int currentRegionId = hash(baseX + x, baseY + y);
 				if (currentRegionId != lastRegionId) {
 					lastRegionId = currentRegionId;
-					if (!regions.contains(region)) {
-						regions.add(forCoords(lastRegionId));
+					Region neighbour = forCoords(lastRegionId);
+                    if (!regions.contains(neighbour)) {
+						regions.add(neighbour);
 					}
 				}
 			}
@@ -78,8 +115,9 @@ public class Region {
 				int currentRegionId = hash(baseX + x, baseY + y);
 				if (currentRegionId != lastRegionId) {
 					lastRegionId = currentRegionId;
-					if (!regions.contains(region)) {
-						regions.add(forCoords(lastRegionId));
+					Region neighbour = forCoords(lastRegionId);
+                    if (!regions.contains(neighbour)) {
+						regions.add(neighbour);
 					}
 				}
 			}
@@ -147,6 +185,8 @@ public class Region {
 	}
 
 	public static void addClipping(int x, int y, int z, int shift) {
+		DynamicRegion dynamic = RegionBuilder.getDynamicRegion(x, y);
+		if (dynamic != null) { dynamic.changeMask(z, x & 63, y & 63, shift, true); return; }
 		Region region = forCoords(x, y);
 		int localX = x - ((x >> 7) << 7);
 		int localY = y - ((y >> 7) << 7);
@@ -158,6 +198,8 @@ public class Region {
 	}
 
 	public static void removeClipping(int x, int y, int z, int shift) {
+		DynamicRegion dynamic = RegionBuilder.getDynamicRegion(x, y);
+		if (dynamic != null) { dynamic.changeMask(z, x & 63, y & 63, shift, false); return; }
 		Region region = forCoords(x, y);
 		int localX = x - ((x >> 7) << 7);
 		int localY = y - ((y >> 7) << 7);
@@ -193,14 +235,10 @@ public class Region {
 	}
 
 	public static int getClippingMask(int x, int y, int z) {
+		DynamicRegion dynamic = RegionBuilder.getDynamicRegion(x, y);
+		if (dynamic != null) return dynamic.getMask(z, x & 63, y & 63);
 		Region region = forCoords(x, y);
 		if (region.clippingMasks[z] == null || !region.clipped) {
-			DynamicRegion dynamicRegion = RegionBuilder.getDynamicRegion(x, y);
-			if (dynamicRegion != null) {
-				int baseLocalX = x - (((x >> 3) >> 3) << 6) ;
-				int baseLocalY = y - (((y >> 3) >> 3) << 6);
-				return dynamicRegion.getMask(z, baseLocalX, baseLocalY);
-			}
 			return -1;
 		}
 		int localX = x - ((x >> 7) << 7);
@@ -305,13 +343,15 @@ public class Region {
 		int xLength;
 		int yLength;
 		GameObject object = new GameObject(objectId, x, y, height, type, direction);
-		if (direction == 1 || direction == 3) {
+		if (direction != 1 && direction != 3) {
 			xLength = def.getSizeX();
 			yLength = def.getSizeY();
 		} else {
 			xLength = def.getSizeY();
 			yLength = def.getSizeX();
 		}
+		// Remove the old object's collision before adding its replacement.
+		if (!ignoreObjects) { removeObject(x, y, height, type); Location.locate(x, y, height).markObjectChanged(type); }
 		if (type == 22) {
 			if (def.getActionCount() == 1) {
 				addClipping(x, y, height, 0x200000);
@@ -324,9 +364,6 @@ public class Region {
 			if (def.getActionCount() != 0) {
 				addClippingForVariableObject(x, y, height, type, direction, def.isSolid(), !def.isClippingFlag());
 			}
-		}
-		if (!ignoreObjects) {
-			removeObject(x, y, height, type);
 		}
 		addGameObject(object);
 		return object;
@@ -361,6 +398,7 @@ public class Region {
 		Location loc = Location.locate(x, y, height);
 		GameObject oldObj = loc.getGameObjectType(type);
 		loc.removeObject(oldObj);
+        if (oldObj != null) loc.markObjectChanged(type);
 		if (oldObj != null) {
 			CacheObjectDefinition def = CacheObjectDefinition.forId(oldObj.getId());
 			int xLength;

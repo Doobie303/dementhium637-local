@@ -20,18 +20,24 @@ public class BloodRush extends MagicSpell {
 	public boolean castSpell(Interaction interaction) {
 		MagicFormulae.setDamage(interaction);
 		interaction.getSource().animate(1978);
-		if (interaction.getDamage().getHit() > 0) {
+		interaction.setEndGraphic(Graphic.create(373));
+		return true;
+	}
+
+	@Override
+    public boolean endSpell(Interaction interaction) {
+        if (!super.endSpell(interaction)) return false;
+if (interaction.getDamage().getHit() > 0) {
 			if (interaction.getVictim().isPlayer()) {
 				ActionSender.sendMessage(interaction.getVictim().getPlayer(), "Your lifepoints have been drained.");
 			}
 			interaction.getSource().heal((int) (interaction.getDamage().getHit() * 0.25));
 			ActionSender.sendMessage(interaction.getSource().getPlayer(), "You drain some of your opponents' lifepoints.");
 		}
-		interaction.setEndGraphic(Graphic.create(373));
 		return true;
-	}
+    }
 
-	@Override
+    @Override
 	public double getExperience(Interaction interaction) {
 		double xp = 33;
 		if (interaction.getDamage().getHit() > 0) {

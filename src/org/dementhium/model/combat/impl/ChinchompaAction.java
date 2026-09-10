@@ -27,12 +27,12 @@ public class ChinchompaAction extends CombatAction {
 	 * The singleton.
 	 */
 	private static final ChinchompaAction SINGLETON = new ChinchompaAction();
-	
+
 	/**
 	 * The end graphic.
 	 */
 	private static final Graphic END_GRAPHIC = Graphic.create(2739, 96 << 16);
-	
+
 	/**
 	 * Constructs a new {@code ChinchompaAction} {@code Object}.
 	 */
@@ -60,11 +60,9 @@ public class ChinchompaAction extends CombatAction {
 			Interaction inter = new Interaction(interaction.getSource(), e.getVictim());
 			inter.setDamage(e.getDamage());
 			interaction.getSource().preCombatTick(inter);
-			CombatUtils.appendExperience(interaction.getSource().getPlayer(), 
-						e.getDamage().getHit(), DamageType.RANGE);
+			org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), e.getDamage(), DamageType.RANGE);
 		}
-		interaction.getSource().getPlayer().getEquipment().getContainer().remove(new Item(interaction.getRangeData().getAmmo().getItemId(), 1));
-		interaction.getSource().getPlayer().getEquipment().refresh();
+        if(!CombatUtils.consumeAmmunition(interaction.getSource().getPlayer(),interaction.getRangeData()))return false;
 		if (interaction.getSource().getPlayer().getEquipment().getSlot(3, -1) == -1) {
 			ActionSender.sendMessage(interaction.getSource().getPlayer(), "You've ran out of ammo.");
 		}
@@ -97,20 +95,9 @@ public class ChinchompaAction extends CombatAction {
 			e.getVictim().graphics(END_GRAPHIC);
 			e.getVictim().getDamageManager().damage(
 					interaction.getSource(), e.getDamage(), DamageType.RANGE);
-			if (e.getDamage().getVenged() > 0) {
-				e.getVictim().submitVengeance(
-						interaction.getSource(), e.getDamage().getVenged());
-			}
-			if (e.getDamage().getDeflected() > 0) {
-				//interaction.getSource().getDamageManager().damage(e.getVictim(),
-						//e.getDamage().getDeflected(), e.getDamage().getDeflected(), DamageType.DEFLECT);
-				interaction.getSource().getDamageManager().miscDamage(e.getDamage().getDeflected(), DamageType.DEFLECT);
-			}
-			if (e.getDamage().getRecoiled() > 0) {
-				//interaction.getSource().getDamageManager().damage(e.getVictim(),
-						//e.getDamage().getRecoiled(), e.getDamage().getRecoiled(), DamageType.DEFLECT);
-				interaction.getSource().getDamageManager().miscDamage(e.getDamage().getRecoiled(), DamageType.DEFLECT);
-			}
+
+
+
 			e.getVictim().retaliate(interaction.getSource());
 		}
 		return true;

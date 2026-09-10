@@ -22,17 +22,17 @@ public class DreadfowlStrike extends CombatAction {
 	 * The attack animation.
 	 */
 	private static final Animation ANIMATION = Animation.create(7810);
-	
+
 	/**
 	 * The graphic.
 	 */
 	private static final Graphic GRAPHIC = Graphic.create(1523);
-	
+
 	/**
 	 * The projectile to send.
 	 */
 	private static final Projectile PROJECTILE = Projectile.create(null, null, 1318, 30, 32, 52, 74, 3, 1 << 6);
-	
+
 	/**
 	 * Constructs a new {@code DreadfowlStrike} {@code Object}.
 	 */
@@ -88,19 +88,9 @@ public class DreadfowlStrike extends CombatAction {
 		} else {
 			interaction.getVictim().graphics(85, 96 << 16);
 		}
-		if (interaction.getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(interaction.getSource(), interaction.getDamage().getVenged());
-		}
-		if (interaction.getDamage().getDeflected() > 0) {
-			interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-					interaction.getDamage().getDeflected(), 
-					interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getDamage().getRecoiled() > 0) {
-			interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-					interaction.getDamage().getRecoiled(), 
-					interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
+
+
+
 		interaction.getVictim().retaliate(interaction.getSource());
 		return true;
 	}

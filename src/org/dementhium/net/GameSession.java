@@ -15,6 +15,15 @@ public class GameSession {
     private Player player;
     private int displayMode;
     private boolean inLobby;
+    private boolean gamblerInterface;
+    private boolean infernalCape;
+    public boolean supportsInfernalCape(){return infernalCape;}
+    /** Cosmetic capability only; never grants permission to wager or claim. */
+    public void readClientSettings(String settings) {
+        infernalCape = settings != null && settings.contains("|infernal-cape=1|");
+        gamblerInterface = settings != null && settings.endsWith("|gambler-ui=1");
+    }
+    public boolean supportsGamblerInterface() { return gamblerInterface; }
 
     public Channel getChannel() {
         return channel;
@@ -58,3 +67,5 @@ public class GameSession {
         return inLobby;
     }
 }
+
+

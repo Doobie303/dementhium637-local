@@ -38,21 +38,18 @@ public class Clobber extends SpecialAttack {
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
 		}
-		if (interaction.getSource().isPlayer() && interaction.getDamage().getHit() > 0
-				&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-				 && interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()) {
-			interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-					interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-		}
+		
 		interaction.getSource().animate(ANIMATION);
 		interaction.getSource().graphics(GRAPHICS, 96 << 16);
-		if (interaction.getDamage().getHit() > 0 && interaction.getVictim().isPlayer()) {
-			interaction.getVictim().getPlayer().sendMessage("Your magic and defence level has been drained.");
-			interaction.getVictim().getPlayer().getSkills().set(Skills.DEFENCE, 
-					(int) (interaction.getVictim().getPlayer().getSkills().getLevel(Skills.DEFENCE) - (interaction.getDamage().getHit() * 0.1)));
-			interaction.getVictim().getPlayer().getSkills().set(Skills.MAGIC, 
-					(int) (interaction.getVictim().getPlayer().getSkills().getLevel(Skills.MAGIC) - (interaction.getDamage().getHit() * 0.1)));
-		}
+        if(interaction.getVictim().isPlayer()) {
+            final org.dementhium.model.player.Player victim=interaction.getVictim().getPlayer();
+            interaction.getDamage().onImpact(actual -> {
+                victim.getSkills().decreaseLevelToMinimum(Skills.DEFENCE,actual/10);
+                victim.getSkills().decreaseLevelToMinimum(Skills.MAGIC,actual/10);
+                victim.sendMessage("Your magic and defence level has been drained.");
+            });
+        }
+
 		interaction.getVictim().animate(interaction.isDeflected() ? 12573 : interaction.getVictim().getDefenceAnimation());
 		if (interaction.isDeflected()) {
 			interaction.getVictim().graphics(2230);

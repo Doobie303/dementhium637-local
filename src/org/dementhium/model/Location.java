@@ -3,6 +3,8 @@ package org.dementhium.model;
 import org.dementhium.model.map.Directions;
 import org.dementhium.model.map.GameObject;
 import org.dementhium.model.map.Region;
+import org.dementhium.model.map.region.DynamicRegion;
+import org.dementhium.model.map.region.RegionBuilder;
 import org.dementhium.model.player.Player;
 import org.dementhium.tickable.impl.PlayerAreaTick;
 
@@ -33,6 +35,15 @@ public class Location {
     }
 
     private List<GameObject> objects;
+    private java.util.Set<Integer> changedObjectTypes;
+    public void markObjectChanged(int type) {
+        if (changedObjectTypes == null) changedObjectTypes = new java.util.HashSet<Integer>();
+        changedObjectTypes.add(type);
+    }
+    public java.util.Set<Integer> getChangedObjectTypes() {
+        return changedObjectTypes == null ? java.util.Collections.<Integer>emptySet()
+                : new java.util.HashSet<Integer>(changedObjectTypes);
+    }
     private Region region;
     private final int x, y, z;
 
@@ -45,6 +56,7 @@ public class Location {
         this.region = region;
     }
     public GameObject getGameObject(int id) {
+        List<GameObject> objects = objectList();
         if (objects == null)
             return null;
         for (GameObject object : objects)
@@ -54,6 +66,7 @@ public class Location {
     }
     
     public GameObject getGameObject(Location location) {
+        List<GameObject> objects = objectList();
         if (objects == null)
             return null;
         for (GameObject object : objects)
@@ -63,6 +76,7 @@ public class Location {
     }
 
     public GameObject getGameObjectType(int type) {
+        List<GameObject> objects = objectList();
         if (objects == null)
             return null;
         for (GameObject object : objects) {
@@ -73,10 +87,12 @@ public class Location {
     }
 
     public boolean hasObjects() {
+        List<GameObject> objects = objectList();
         return objects != null && objects.size() > 0;
     }
     
     public boolean hasObjectNoDecoration() {
+        List<GameObject> objects = objectList();
         if (objects == null)
             return false;
         for (GameObject object : objects)
@@ -264,6 +280,8 @@ public class Location {
     }
 
     public void addObject(GameObject object) {
+        DynamicRegion dynamic = RegionBuilder.getDynamicRegion(x, y);
+        if (dynamic != null) { dynamic.addObject(object); return; }
         if (objects == null) {
             objects = new ArrayList<GameObject>();
         }
@@ -271,10 +289,22 @@ public class Location {
     }
 
     public void removeObject(GameObject oldObj) {
+        DynamicRegion dynamic = RegionBuilder.getDynamicRegion(x, y);
+        if (dynamic != null) { dynamic.removeObject(oldObj); return; }
         if (objects != null)
             objects.remove(oldObj);
     }
     
+    private List<GameObject> objectList() {
+        DynamicRegion dynamic = RegionBuilder.getDynamicRegion(x, y);
+        return dynamic == null ? objects : dynamic.getObjects(z, x & 63, y & 63);
+    }
+
+    public List<GameObject> getObjectsSnapshot() {
+        List<GameObject> list = objectList();
+        return list == null ? java.util.Collections.<GameObject>emptyList() : new ArrayList<GameObject>(list);
+    }
+
     public int getRegionId() {
 		return (((getRegionX() / 8) << 8) + (getRegionY() / 8));
 	}

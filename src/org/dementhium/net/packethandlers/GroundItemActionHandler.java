@@ -169,6 +169,7 @@ public class GroundItemActionHandler extends PacketHandler {
     }
 
     public void pickup(Player player, GroundItem item) {
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,item)) return;
     	boolean allowPickup = false;
 		for(String name : PlayerLoader.superMods) {
 			if(player.getUsername().equals(name) || (item.getPlayer() != null && item.getPlayer().getUsername().equals(name))) {
@@ -202,6 +203,7 @@ public class GroundItemActionHandler extends PacketHandler {
     }
     
     public void take(final Player player, final GroundItem item, Location pos) {
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,item)) return;
     	if (player.getInventory().canAddItem(item.getItem())) {
             player.animate(833);
             player.getMask().setFacePosition(pos, 0, 0);

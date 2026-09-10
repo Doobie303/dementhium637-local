@@ -46,6 +46,7 @@ public class CastAttackHandler extends PacketHandler {
             return;
         }
 		final Player toAttack = World.getWorld().getPlayers().get(index);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,toAttack)) return;
 		if (toAttack == null) {
 			return;
 		}
@@ -190,6 +191,7 @@ public class CastAttackHandler extends PacketHandler {
 		boolean running = packet.readByteS() == 1;
 		final int itemId = packet.readLEShort();
 		final NPC toAttack = World.getWorld().getNpcs().get(npcIndex);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,toAttack)) return;
 		if (toAttack == null) {
 			return;
 		}
@@ -206,7 +208,12 @@ public class CastAttackHandler extends PacketHandler {
 					return;
 				}
 			}
-			if (toAttack.getAttribute("enemyIndex", (short) -1) > -1 && toAttack.getAttribute("enemyIndex", (short) -1) != player.getIndex()) {
+			int lockedEnemy = -1;
+			Object enemyAttr = toAttack.getAttribute("enemyIndex");
+			if (enemyAttr instanceof Number) {
+				lockedEnemy = ((Number) enemyAttr).intValue();
+			}
+			if (lockedEnemy > -1 && lockedEnemy != player.getIndex()) {
 				player.sendMessage("This is not your enemy!");
 				return;
 			}

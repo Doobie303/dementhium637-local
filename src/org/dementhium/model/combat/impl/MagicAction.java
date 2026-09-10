@@ -63,18 +63,6 @@ public class MagicAction extends CombatAction {
 		if (!spell.castSpell(interaction)) {
 			return false;
 		}
-		if (interaction.getSource().isPlayer()) {
-			if (interaction.getDamage() != null) {
-				interaction.getSource().getPlayer().getSkills().addExperience(Skills.CONSTITUTION, interaction.getDamage().getHit() * 0.133 * interaction.getSource().getPlayer().getPersonalCombatXpRate() / 100);
-			}
-			if (interaction.getSource().getAttribute("defensiveCast", false)) {
-				double experience = spell.getExperience(interaction) * interaction.getSource().getPlayer().getPersonalCombatXpRate() / 100;
-				interaction.getSource().getPlayer().getSkills().addExperience(Skills.MAGIC, experience / 2);
-				interaction.getSource().getPlayer().getSkills().addExperience(Skills.DEFENCE, experience / 2);
-			} else {
-				interaction.getSource().getPlayer().getSkills().addExperience(Skills.MAGIC, spell.getExperience(interaction) * interaction.getSource().getPlayer().getPersonalCombatXpRate() / 100);
-			}
-		}
 		return true;
 	}
 
@@ -86,7 +74,7 @@ public class MagicAction extends CombatAction {
 	 * @return {@code True} if the player had all the runes, {@code false} if not.
 	 */
 	public static boolean checkRunes(Mob mob, Item[] runes, boolean remove) {
-		if (mob.isNPC() || runes == null) {
+		if (mob.isNPC() || runes == null || hasInfiniteRunes(mob)) {
 			return true;
 		}
 		List<Item> toRemove = new ArrayList<Item>();
@@ -111,6 +99,15 @@ public class MagicAction extends CombatAction {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * God mode supplies rune costs without placing artificial rune stacks in the
+	 * inventory. Other spell requirements, such as Magic level, still apply.
+	 */
+	public static boolean hasInfiniteRunes(Mob mob) {
+		return mob != null && mob.isPlayer()
+				&& Boolean.TRUE.equals(mob.getAttribute("godmode"));
 	}
 	
 	/**
@@ -146,7 +143,21 @@ public class MagicAction extends CombatAction {
 
 	@Override
 	public boolean endSession() {
-		return interaction.getSpell().endSpell(interaction);
+		MagicSpell spell = interaction.getSpell();
+        if (!spell.endSpell(interaction)) return false;
+        if (interaction.getSource().isPlayer()) {
+			if (interaction.getDamage() != null) {
+				interaction.getSource().getPlayer().getSkills().addExperience(Skills.CONSTITUTION, Math.max(0, interaction.getDamage().getHit()) * 0.133 * interaction.getSource().getPlayer().getPersonalCombatXpRate() / 100);
+			}
+			if (interaction.getSource().getAttribute("defensiveCast", false)) {
+				double experience = spell.getExperience(interaction) * interaction.getSource().getPlayer().getPersonalCombatXpRate() / 100;
+				interaction.getSource().getPlayer().getSkills().addExperience(Skills.MAGIC, experience / 2);
+				interaction.getSource().getPlayer().getSkills().addExperience(Skills.DEFENCE, experience / 2);
+			} else {
+				interaction.getSource().getPlayer().getSkills().addExperience(Skills.MAGIC, spell.getExperience(interaction) * interaction.getSource().getPlayer().getPersonalCombatXpRate() / 100);
+			}
+		}
+		return true;
 	}
 
 	@Override

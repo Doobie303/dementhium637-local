@@ -1,0 +1,85 @@
+import java.util.*;
+
+/** Actual decompiled NPC-list/reset methods with binary client bit readers.
+ * Rendering, NPC definitions and movement effects are stubs; this verifies list and placement state. */
+final class ClientNpcSceneDecoder {
+    static final class Context {
+        final Map<Long,Class98_Sub39> npcs = new HashMap<Long,Class98_Sub39>();
+        final int[] indices = new int[32768];
+        final Class98_Sub39[] all = new Class98_Sub39[32768];
+        int count, total, mode, previousMode, x, y;
+        void use() {
+            Class260.aClass377_3254.values=npcs;Class325.anIntArray2726=indices;Class163.aClass98_Sub39Array3516=all;
+            Class150.anInt1211=count;Class98_Sub10_Sub20.anInt5640=total;Class151_Sub9.anInt5028=mode;Class118.anInt978=previousMode;
+            Class87.aClass246_Sub3_Sub4_Sub2_Sub2_660.anIntArray6437[0]=x;Class87.aClass246_Sub3_Sub4_Sub2_Sub2_660.anIntArray6438[0]=y;
+            Class65.anInt502=0;Class259.anInt1954=0;
+        }
+        void save() {count=Class150.anInt1211;total=Class98_Sub10_Sub20.anInt5640;mode=Class151_Sub9.anInt5028;previousMode=Class118.anInt978;}
+        void map(int nextMode) {use();Class151_Sub9.anInt5028=nextMode;Class98_Sub10_Sub13.method1043((byte)-103);save();}
+        void packet(byte[] payload,int playerX,int playerY) {
+            x=playerX;y=playerY;use();Class201.anInt1544++;
+            Class48_Sub1_Sub2.aClass98_Sub22_Sub1_5514=new Class98_Sub22_Sub1(payload.length);
+            Class48_Sub1_Sub2.aClass98_Sub22_Sub1_5514.aByteArray3992=payload;Class65.anInt496=payload.length;
+            Class98_Sub39.method1468(0);Class341.method3810((byte)112);
+            // Equivalent outer-packet removal bookkeeping, without parsing unchanged mask payloads.
+            for(int n=0;n<Class259.anInt1954;n++) {
+                long id=Class246_Sub3_Sub4_Sub3.anIntArray6451[n];Class98_Sub39 node=npcs.get(id);
+                if(node!=null&&node.aClass246_Sub3_Sub4_Sub2_Sub1_4187.anInt6406!=Class201.anInt1544)npcs.remove(id);
+            }
+            save();
+        }
+        boolean contains(int id) {for(int n=0;n<count;n++)if(indices[n]==id)return true;return false;}
+        int x(int id) {return npcs.get((long)id).aClass246_Sub3_Sub4_Sub2_Sub1_4187.anIntArray6437[0];}
+        int y(int id) {return npcs.get((long)id).aClass246_Sub3_Sub4_Sub2_Sub1_4187.anIntArray6438[0];}
+    }
+    static final class Class98_Sub10_Sub13 {
+/* RESET_METHOD */
+    }
+    static final class Class98_Sub39 {
+        final Class246_Sub3_Sub4_Sub2_Sub1 aClass246_Sub3_Sub4_Sub2_Sub1_4187;
+        Class98_Sub39(Class246_Sub3_Sub4_Sub2_Sub1 npc){aClass246_Sub3_Sub4_Sub2_Sub1_4187=npc;}
+/* RETAINED_METHOD */
+    }
+    static final class Class341 {
+/* ADD_METHOD */
+    }
+    static final class Class151_Sub9 {static int anInt5028;}
+    static final class Class118 {static int anInt978;}
+    static final class Class150 {static int anInt1211;}
+    static final class Class98_Sub10_Sub20 {static int anInt5640;}
+    static final class Class260 {static final Table aClass377_3254=new Table();}
+    static final class Table {
+        Map<Long,Class98_Sub39> values;
+        Object method3990(long id,int ignored){return values.get(id);}
+        void method3996(Class98_Sub39 node,long id,int ignored){values.put(id,node);}
+        void method3994(int ignored){values.clear();}
+    }
+    static final class Class48_Sub1_Sub2 {static Class98_Sub22_Sub1 aClass98_Sub22_Sub1_5514;}
+    static final class Class65 {static int anInt496,anInt502;}
+    static final class Class325 {static int[] anIntArray2726;}
+    static final class Class163 {static Class98_Sub39[] aClass98_Sub39Array3516;}
+    static final class Class201 {static int anInt1544;}
+    static final class Class259 {static int anInt1954;}
+    static final class Class246_Sub3_Sub4_Sub3 {static final int[] anIntArray6451=new int[32768];}
+    static final class Class76_Sub11 {static final int[] anIntArray3796=new int[32768];}
+    static final class Definition {int anInt1112=1,anInt1091=1;boolean method2302(byte ignored){return false;}}
+    static final class Class4 {static final Definitions aClass301_85=new Definitions();}
+    static final class Definitions {Definition method3538(int ignored,int id){return new Definition();}}
+    static final class Class87 {static final Class246_Sub3_Sub4_Sub2_Sub1 aClass246_Sub3_Sub4_Sub2_Sub2_660=new Class246_Sub3_Sub4_Sub2_Sub1();}
+    static final class Class246_Sub3_Sub4_Sub2_Sub1 {
+        int anInt6369,anInt6406,anInt6414;byte aByte5088;
+        final int[] anIntArray6437=new int[10],anIntArray6438=new int[10];Definition aClass141_6504;
+        void method3054(Definition definition,int ignored){aClass141_6504=definition;}
+        void method3045(byte ignored,int size){}
+        int method3034(int ignored){return 1;}
+        void method3047(int face,boolean force,int ignored){}
+        void method3049(int size,int x,boolean force,byte ignored,int y,int plane){anIntArray6437[0]=x;anIntArray6438[0]=y;aByte5088=(byte)plane;}
+        void method3050(int ignored,int speed,int direction){
+            int[] dx={-1,0,1,-1,1,-1,0,1},dy={1,1,1,0,0,-1,-1,-1};
+            anIntArray6437[0]+=dx[direction];anIntArray6438[0]+=dy[direction];
+        }
+    }
+    static final class Class98_Sub43_Sub4 {static void method1504(Class246_Sub3_Sub4_Sub2_Sub1 npc,int ignored){}}
+    static final class Class98_Sub31_Sub4 {static void method1383(Object a,Object b,int x,int c,int d,int y,byte z,Class246_Sub3_Sub4_Sub2_Sub1 npc){}}
+    static final class Class64_Sub27 {static RuntimeException method667(RuntimeException e,String where){return new IllegalStateException(where,e);}}
+}

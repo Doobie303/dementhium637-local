@@ -20,7 +20,7 @@ import java.util.List;
  */
 public final class ItemDefinition {
 
-    public static int MAX_SIZE = 20430;
+    public static int MAX_SIZE = 20431;
     private static ItemDefinition[] definitions;
 
     public static void init() throws IOException {
@@ -99,6 +99,8 @@ public final class ItemDefinition {
            // definitions[id].setExtraDefinitions(extraDefinition);
         }
         loadMiscData();
+        definitions[org.dementhium.content.InfernalCape.ID]=org.dementhium.content.InfernalCape.definition();
+        EquipmentAbsorption.apply();
         System.out.println("Loaded " + definitions.length + " item definitions.");
         channel.close();
         channel = null;
@@ -435,3 +437,4 @@ public final class ItemDefinition {
 	}
 
 }
+

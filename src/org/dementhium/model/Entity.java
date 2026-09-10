@@ -13,6 +13,7 @@ public abstract class Entity {
     protected Location location;
 
     public void setLocation(Location location) {
+        org.dementhium.model.instance.InstanceAccess.checkLocation(this,location);
         if (this.location != null) {
             this.location.getRegion().removeEntity(this);
             this.location.remove(this);
@@ -21,6 +22,7 @@ public abstract class Entity {
             this.location = location;
             location.getRegion().addEntity(this);
             location.add(this);
+            org.dementhium.model.instance.InstanceAccess.moved(this);
         }
     }
 

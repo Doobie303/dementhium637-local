@@ -35,26 +35,10 @@ public abstract class SpecialAttack {
 	 * @return {@code True} if the special attack could end,
 	 * <br>		{@code false} if we should re-try.
 	 */
-	public boolean endSpecialAttack(Interaction interaction) { //the commenceSpecialAttack is in combat.impl.specs.
-		interaction.getVictim().getDamageManager().damage(
-				interaction.getSource(), interaction.getDamage(), DamageType.MELEE);
-		if (interaction.getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(
-					interaction.getSource(), interaction.getDamage().getVenged());
-		}
-		if (interaction.getDamage().getDeflected() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getDamage().getDeflected(), interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getDamage().getRecoiled(), interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
-		interaction.getVictim().retaliate(interaction.getSource());
-		return true;
-	}
+	public boolean endSpecialAttack(Interaction interaction) {
+        org.dementhium.model.combat.SpecialHits.apply(interaction, interaction.getDamage(), getCombatType().getDamageType(), 0);
+        return true;
+    }
 	
 	/**
 	 * Gets the combat type.

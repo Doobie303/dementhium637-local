@@ -28,7 +28,7 @@ public class Item {
 
     public Item(Item item) {
         this.id = item.getId();
-        this.amount = item.getAmount();
+        this.amount = item.getHash();
     }
 
     public ItemDefinition getDefinition() {

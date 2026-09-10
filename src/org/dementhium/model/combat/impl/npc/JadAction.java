@@ -31,7 +31,7 @@ public class JadAction extends CombatAction {
    public CombatType getCombatType() {
       return CombatType.MELEE;
    }
-   
+
    /*
     * DEFLECTING NOTE (FOR CURSE PROTECTION PRAYERS):
     * The damage reflected is 10% of the damage the attack would have done if not blocked. No XP is gained from damage dealt this way.
@@ -169,7 +169,7 @@ public class JadAction extends CombatAction {
                return true;
             }
          }
-      
+
       );
       private final CombatTask task;
       private Style(CombatTask task) {
@@ -237,27 +237,15 @@ public class JadAction extends CombatAction {
          else {
             interaction.getVictim().graphics(85, 96 << 16);
          }
-         if (interaction.getDamage().getVenged() > 0) {
-            interaction.getVictim().submitVengeance(interaction.getSource(), interaction.getDamage().getVenged());
-         }
-         if (interaction.getDamage().getDeflected() > 0) {
-            //interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-               //interaction.getDamage().getDeflected(), 
-               //interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-        	 interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-         }
-         if (interaction.getDamage().getRecoiled() > 0) {
-            //interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-               //interaction.getDamage().getRecoiled(), 
-               //interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-        	 interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-         }
-         
+
+
+
+
          //NOTE: DO THIS FOR ALL OTHER CUSTOM NPC's, SO THEY TOO WON'T HAVE PROTECTION RPAYER TIMING PROBLEMS.
          interaction.setDamage(Damage.getDamage(interaction.getSource(), 
                  interaction.getVictim(), type, interaction.getDamage().getHit()));
          //END OF FIX.
-         
+
          interaction.getVictim().retaliate(interaction.getSource());
       }
       return true;

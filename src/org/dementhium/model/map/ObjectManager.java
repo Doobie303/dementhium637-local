@@ -2,6 +2,8 @@ package org.dementhium.model.map;
 
 import org.dementhium.model.Location;
 import org.dementhium.model.World;
+import org.dementhium.model.map.region.DynamicRegion;
+import org.dementhium.model.map.region.RegionBuilder;
 import org.dementhium.model.player.Player;
 import org.dementhium.net.ActionSender;
 import org.dementhium.tickable.Tick;
@@ -13,6 +15,17 @@ import java.util.List;
  * @author 'Mystic Flow
  */
 public class ObjectManager {
+    /** Exact identity/type removal; the legacy remover searches neighbouring types. */
+    public static void discardCustomObject(GameObject object) {
+        Location tile = object.getLocation();
+        if (tile.getGameObjectType(object.getType()) == object) {
+            Region.removeObject(tile.getX(), tile.getY(), tile.getZ(), object.getType());
+            for (Player player : Region.getLocalPlayers(tile))
+                ActionSender.deleteObject(player, object.getId(), tile.getX(), tile.getY(), tile.getZ(), object.getType(), object.getRotation());
+        }
+        customObjects.remove(object);
+        removedObjects.remove(object);
+    }
 
 
 	private static List<GameObject> customObjects = new ArrayList<GameObject>();
@@ -93,12 +106,15 @@ public class ObjectManager {
 	}
 
 	public static void replaceObjectTemporarily(final int x, final int y, final int height, final int newId, final int delay) {
+		final DynamicRegion map = RegionBuilder.getDynamicRegion(x, y);
+		final long revision = map == null ? 0 : map.getChunkRevision(height, x & 63, y & 63);
 		final GameObject objectRemoved = removeCustomObject(x, y, height, 10, false);
 		if (objectRemoved != null) { //nothing to replace if it's null
 			final int oldId = objectRemoved.getId();
-			addCustomObject(newId, x, y, height, 10, objectRemoved.getRotation());
+			final GameObject temporary = addCustomObject(newId, x, y, height, 10, objectRemoved.getRotation());
 			World.getWorld().submit(new Tick(delay) {
 				public void execute() {
+					if (temporary == null || Location.locate(x, y, height).getGameObjectType(temporary.getType()) != temporary || RegionBuilder.getDynamicRegion(x, y) != map || (map != null && map.getChunkRevision(height, x & 63, y & 63) != revision)) { stop(); return; }
 					removeCustomObject(x, y, height, 10);
 					refresh(addCustomObject(oldId, x, y, height, 10, objectRemoved.getRotation()));
 					stop();
@@ -154,20 +170,36 @@ public class ObjectManager {
 	}
 
 	public static void refresh(Player player) {
+		RegionBuilder.refreshObjects(player);
 		//		for (GameObject object : removedObjects) {
 			//		//	ActionSender.deleteObject(player, object.getId(), object.getLocation().getX(), object.getLocation().getY(),
 					//			//		object.getLocation().getZ(), object.getType(), object.getRotation());
 			//		}
 		for (GameObject object : customObjects) {
-			if (object.getOwner() == null) {
-				ActionSender.sendObject(player, object);
-			} else {
-				ActionSender.sendObject(object.getOwner(), object);
-			}
+			if (RegionBuilder.getDynamicRegion(object.getLocation().getX(), object.getLocation().getY()) != null) continue;
+			if (object.getOwner() == null || object.getOwner() == player) ActionSender.sendObject(player, object);
 		}
 	}
 
+	/** Drop bookkeeping without altering terrain or scheduling a respawn. */
+	public static void forgetDynamicRegion(int id) {
+		customObjects.removeIf(o -> o.getLocation().getRegionId() == id);
+		removedObjects.removeIf(o -> o.getLocation().getRegionId() == id);
+	}
+	public static void forgetDynamicChunk(int x, int y, int plane) {
+		customObjects.removeIf(o -> inChunk(o, x, y, plane));
+		removedObjects.removeIf(o -> inChunk(o, x, y, plane));
+	}
+	private static boolean inChunk(GameObject o, int x, int y, int plane) {
+		Location l = o.getLocation();
+		return l.getZ() == plane && l.getX() >= x && l.getX() < x + 8 && l.getY() >= y && l.getY() < y + 8;
+	}
+
 	public static void init() {
+        // Support all four Barrows entry corners; retain existing custom exits/bank.
+        ObjectManager.addCustomObject(2352, 3534, 9711, 0, 10, 0, false);
+        ObjectManager.addCustomObject(2352, 3534, 9677, 0, 10, 0, false);
+        ObjectManager.addCustomObject(2352, 3569, 9677, 0, 10, 0, false);
 		System.out.println("Loading objects...");
 		ObjectManager.addCustomObject(2352, 3568, 9677, 0, 10, 0, false); //climbing rope @ barrows
 		ObjectManager.addCustomObject(2352, 3568, 9711, 0, 10, 0, false); //climbing rope @ barrows
@@ -336,6 +368,7 @@ public class ObjectManager {
 		ObjectManager.addCustomObject(5782, 2424, 3521, 0 , 10, 0, false);
 		ObjectManager.addCustomObject(14859, 2423, 3521, 0 , 10, 0, false);
 		ObjectManager.addCustomObject(14859, 2422, 3521, 0 , 10, 0, false);
+		org.dementhium.content.home.HomeHub.spawnObjects();
 		System.out.println("Loaded " + customObjects.size() + " objects.");
 
 		//		Region.addObject(4411, 2418, 3123, 0, 22, 0, true);

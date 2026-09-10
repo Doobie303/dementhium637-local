@@ -1,0 +1,64 @@
+import java.util.*;
+
+/** Test-only adapters around the verbatim decompiled method1459.
+ * Packet byte/bit reads execute in the unmodified client JAR. Graphics, cache
+ * archive lookup and scene publication are replaced with recorded test effects. */
+final class ClientMapDecoder {
+    static int depth, centreX, centreY, state, transitions, resets;
+    static boolean force;
+    static final List<String> archives = new ArrayList<String>();
+    static void decode(byte[] payload) {
+        archives.clear(); transitions=0; resets=0;
+        Class48_Sub1_Sub2.aClass98_Sub22_Sub1_5514 = new Class98_Sub22_Sub1(payload.length);
+        Class48_Sub1_Sub2.aClass98_Sub22_Sub1_5514.aByteArray3992 = payload;
+        Class65.anInt496 = payload.length;
+        Class98_Sub36.method1459(-1048016408);
+    }
+    static int consumed() { return Class48_Sub1_Sub2.aClass98_Sub22_Sub1_5514.anInt3991; }
+    static int[][][] chunks() { return Class170.anIntArrayArrayArray1311; }
+    static int[] regions() { return Class121.anIntArray1006; }
+    static int[][] keys() { return Class98_Sub46_Sub17.anIntArrayArray6049; }
+
+    static final class Class98_Sub36 {
+        static int[] anIntArray4162;
+/* CLIENT_METHOD */
+    }
+    static final class Class48_Sub1_Sub2 { static Class98_Sub22_Sub1 aClass98_Sub22_Sub1_5514; }
+    static final class Class151_Sub9 { static int anInt5028; }
+    static final class Class65 { static int anInt496; }
+    static final class Class165 { static int anInt1276; }
+    static final class Class98_Sub10_Sub7 { static int anInt5572; }
+    static final class Class170 { static int[][][] anIntArrayArrayArray1311; }
+    static final class Class98_Sub10_Sub13 { static void method1043(byte ignored) { resets++; } }
+    static final class Class98_Sub27 {
+        static void method1282(byte ignored, int selected) {
+            depth=selected;
+            // Read the actual binary client's viewport table, not the server's table.
+            int tiles=Class246_Sub3_Sub4_Sub5.anIntArray6265[selected];
+            Class165.anInt1276=tiles; Class98_Sub10_Sub7.anInt5572=tiles;
+            Class170.anIntArrayArrayArray1311=new int[4][tiles>>3][tiles>>3];
+        }
+    }
+    static final class Class98_Sub46_Sub17 { static int[][] anIntArrayArray6049; }
+    static final class Class76_Sub7 { static int[] anIntArray3765; }
+    static final class Class377 { static byte[][] aByteArrayArray3182; static int[] anIntArray3178; }
+    static final class Class105 { static byte[][] aByteArrayArray3414; }
+    static final class client { static byte[][] aByteArrayArray3551; }
+    static final class Class302 { static int[] anIntArray2517; }
+    static final class Class121 { static int[] anIntArray1006; }
+    static final class Class287 { static int[] anIntArray2188; }
+    static final class Class246_Sub3_Sub4_Sub2_Sub2 { static byte[][] aByteArrayArray6533; }
+    static final class Class255 { static byte[][] aByteArrayArray3211; }
+    static final class Class234 { static final Archive aClass207_1748=new Archive(); }
+    static final class Archive {
+        int method2750(byte ignored,String name) { archives.add(name); return archives.size()-1; }
+    }
+    static final class Class251 {
+        static void method3170(int ignored,int y,boolean rebuild,int x,int nextState) {
+            centreX=x; centreY=y; force=rebuild; state=nextState; transitions++;
+        }
+    }
+    static final class Class64_Sub27 {
+        static RuntimeException method667(RuntimeException e,String where) { return new IllegalStateException(where,e); }
+    }
+}

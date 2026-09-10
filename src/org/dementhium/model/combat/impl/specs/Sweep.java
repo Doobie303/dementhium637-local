@@ -44,21 +44,16 @@ public class Sweep extends SpecialAttack {
 					MeleeFormulae.getDamage(interaction.getSource(), 
 							interaction.getVictim(), .98, 1.1, 1));
 			secondHit.setMaximum(interaction.getDamage().getMaximum());
-			CombatUtils.appendExperience(interaction.getSource().getPlayer(), 
-					secondHit.getHit(), DamageType.MELEE);
-			interaction.getSource().setAttribute("secondHit", secondHit);
+			org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), 
+					secondHit, DamageType.MELEE);
+			interaction.setSecondaryDamage(secondHit);
 		} else {
-			interaction.getSource().setAttribute("secondHit", null);
+			interaction.setSecondaryDamage(null);
 		}
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
 		}
-		if (interaction.getSource().isPlayer() && interaction.getDamage().getHit() > 0
-				&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-				 && interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()) {
-			interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-					interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-		}
+		
 		interaction.getSource().animate(ANIMATION);
 		interaction.getSource().graphics(GRAPHICS, 96 << 16);
 		interaction.getVictim().animate(interaction.isDeflected() ? 12573 : interaction.getVictim().getDefenceAnimation());
@@ -71,29 +66,10 @@ public class Sweep extends SpecialAttack {
 
 	@Override
 	public boolean endSpecialAttack(final Interaction interaction) {
-		super.endSpecialAttack(interaction);
-		Damage hit = interaction.getSource().getAttribute("secondHit");
-		if (hit == null) {
-			return true;
-		}
-		interaction.setDamage(hit);
-		int delay = 5;
-		interaction.getVictim().getDamageManager().damage(
-				interaction.getSource(), interaction.getDamage(), DamageType.MELEE, delay);
-		if (interaction.getDamage().getDeflected() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getDamage().getDeflected(), 
-					//interaction.getDamage().getDeflected(), DamageType.DEFLECT, delay);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getDamage().getRecoiled(), 
-					//interaction.getDamage().getRecoiled(), DamageType.DEFLECT, delay);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
-		return true;
-	}
+org.dementhium.model.combat.SpecialHits.apply(interaction, interaction.getDamage(), DamageType.MELEE, 0);
+        org.dementhium.model.combat.SpecialHits.apply(interaction, interaction.getSecondaryDamage(), DamageType.MELEE, 1);
+        return true;
+    }
 
 	@Override
 	public CombatType getCombatType() {

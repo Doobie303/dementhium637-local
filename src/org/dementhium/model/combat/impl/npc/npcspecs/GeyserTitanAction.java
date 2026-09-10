@@ -19,19 +19,19 @@ import org.dementhium.model.player.Player;
  *
  */
 public class GeyserTitanAction extends CombatAction {
-	
+
 	/**
 	 * Represents the attacks.
 	 * @author Emperor
 	 *
 	 */
 	private static enum Attack {
-		
+
 		/**
 		 * The melee attack.
 		 */
 		MELEE(Animation.create(7879), Graphic.create(-1), null, Graphic.create(-1)),
-		
+
 		/**
 		 * The range attack.
 		 */
@@ -41,27 +41,27 @@ public class GeyserTitanAction extends CombatAction {
 		 * The special attack.
 		 */
 		SPECIAL(Animation.create(7883), Graphic.create(1373), Projectile.create(null, null, 1376, 72, 46, 46, 1, 5, 1), Graphic.create(1377));
-		
+
 		/**
 		 * The attack animation.
 		 */
 		private final Animation anim;
-		
+
 		/**
 		 * The start graphic.
 		 */
 		private final Graphic start;
-		
+
 		/**
 		 * The projectile to send.
 		 */
 		private final Projectile projectile;
-		
+
 		/**
 		 * The end graphic.
 		 */
 		private final Graphic end;
-		
+
 		/**
 		 * Constructs a new {@code Attack} {@code Object}.
 		 * @param anim The attack animation.
@@ -76,17 +76,17 @@ public class GeyserTitanAction extends CombatAction {
 			this.end = end;
 		}
 	}
-	
+
 	/**
 	 * The current combat type.
 	 */
 	private CombatType type = CombatType.RANGE;
-	
+
 	/**
 	 * The current attack.
 	 */
 	private Attack attack = Attack.RANGE;
-	
+
 	/**
 	 * Constructs a new {@code GeyserTitanAction} {@code Object}.
 	 */
@@ -169,19 +169,9 @@ public class GeyserTitanAction extends CombatAction {
 		}
 		interaction.getVictim().getDamageManager().damage(
 				interaction.getSource(), interaction.getDamage(), type.getDamageType());
-		if (interaction.getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(interaction.getSource(), interaction.getDamage().getVenged());
-		}
-		if (interaction.getDamage().getDeflected() > 0) {
-			interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-					interaction.getDamage().getDeflected(), 
-					interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getDamage().getRecoiled() > 0) {
-			interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-					interaction.getDamage().getRecoiled(), 
-					interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
+
+
+
 		interaction.getVictim().retaliate(interaction.getSource());
 		return true;
 	}

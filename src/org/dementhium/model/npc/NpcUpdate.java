@@ -17,6 +17,15 @@ public class NpcUpdate {
 	private final Player player;
 
 	private final LinkedList<NPC> localNpcs = new LinkedList<NPC>();
+    private boolean dynamicScene;
+
+    /** Match the client's mode-1 rebuild reset and its transition back to mode 0.
+     * Call only when publishing a successfully constructed map packet. The next NPC
+     * packet starts from an empty list and sends full additions for visible NPCs. */
+    public void onMapRebuild(boolean dynamic) {
+        if (dynamic || dynamicScene) localNpcs.clear();
+        dynamicScene = dynamic;
+    }
 
 	public NpcUpdate(Player player) {
 		this.player = player;

@@ -219,7 +219,9 @@ public class WalkingQueue {
             diffY = walkPoint.diffY;
             if (diffX != 0 || diffY != 0) {
                 lastLocation = mob.getLocation();
-                mob.setLocation(mob.getLocation().transform(diffX, diffY, 0));
+                Location destination=mob.getLocation().transform(diffX,diffY,0);
+                if (!org.dementhium.model.instance.InstanceAccess.canWalk(mob,destination)) { reset(); return; }
+                mob.setLocation(destination);
    
             }
         }
@@ -236,7 +238,11 @@ public class WalkingQueue {
                 diffY += nextYDiff;
                 if (nextXDiff != 0 || nextYDiff != 0) {
                     lastLocation = mob.getLocation();
-                    mob.setLocation(mob.getLocation().transform(nextXDiff, nextYDiff, 0));
+                    Location runDestination=mob.getLocation().transform(nextXDiff,nextYDiff,0);
+                    if (!org.dementhium.model.instance.InstanceAccess.canWalk(mob,runDestination)) {
+                        reset(); this.walkDir=walkPoint==null ? -1 : (isPlayer ? walkPoint.direction.intValue() : walkPoint.direction.npcIntValue()); return;
+                    }
+                    mob.setLocation(runDestination);
                 }
                 if (runEnergy > 0) {
                     runEnergy--;

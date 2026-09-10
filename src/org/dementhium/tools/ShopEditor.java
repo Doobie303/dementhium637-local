@@ -34,16 +34,15 @@ import java.util.logging.Logger;
 /**
  * @author Stephen
  */
-@SuppressWarnings("unchecked")
 public class ShopEditor extends javax.swing.JFrame {
 
 	private static final long serialVersionUID = 4776594036924449465L;
 	
-	private DefaultListModel defaultModel = new DefaultListModel();
+	private DefaultListModel<Integer> defaultModel = new DefaultListModel<Integer>();
     private ArrayList<Shop> shops = new ArrayList<Shop>();
 
 //neverused private Shop currentShop;
-    Class[] types = new Class[]{
+    Class<?>[] types = new Class<?>[]{
             java.lang.Integer.class, java.lang.Integer.class, java.lang.Integer.class
     };
 
@@ -81,7 +80,7 @@ public class ShopEditor extends javax.swing.JFrame {
     private void initComponents() {
 
         jScrollPane1 = new javax.swing.JScrollPane();
-        jList1 = new javax.swing.JList();
+        jList1 = new javax.swing.JList<Integer>();
         jLabel1 = new javax.swing.JLabel();
         jScrollPane2 = new javax.swing.JScrollPane();
         jTable1 = new javax.swing.JTable();
@@ -149,14 +148,14 @@ public class ShopEditor extends javax.swing.JFrame {
 			 */
 			private static final long serialVersionUID = 647065144242968074L;
 			
-			Class[] types = new Class[]{
+			Class<?>[] types = new Class<?>[]{
                     java.lang.Integer.class, java.lang.Integer.class, java.lang.Integer.class
             };
             boolean[] canEdit = new boolean[]{
                     false, true, true
             };
 
-            public Class getColumnClass(int columnIndex) {
+            public Class<?> getColumnClass(int columnIndex) {
                 return types[columnIndex];
             }
 
@@ -359,7 +358,7 @@ public class ShopEditor extends javax.swing.JFrame {
     private javax.swing.JCheckBox jCheckBox1;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
-    private javax.swing.JList jList1;
+    private javax.swing.JList<Integer> jList1;
     private javax.swing.JMenu jMenu1;
     private javax.swing.JMenuBar jMenuBar1;
     private javax.swing.JMenuItem jMenuItem1;
@@ -408,7 +407,7 @@ public class ShopEditor extends javax.swing.JFrame {
                 return columnIndex > 0;
             }
 
-            public Class getColumnClass(int columnIndex) {
+            public Class<?> getColumnClass(int columnIndex) {
                 return types[columnIndex];
             }
 

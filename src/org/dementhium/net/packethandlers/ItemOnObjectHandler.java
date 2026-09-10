@@ -65,6 +65,7 @@ public class ItemOnObjectHandler extends PacketHandler {
 		World.getWorld().doPath(new DefaultPathFinder(), player, objX, objY);
 
 		final GameObject gameObject = location.getGameObject(objectId);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,gameObject)) return;
 
 		if (gameObject == null) {
 			return;
@@ -87,6 +88,7 @@ public class ItemOnObjectHandler extends PacketHandler {
 	}
 
 	protected void doObjectAction(final Player player, Message packet, GameObject object, int itemUsed, int objX, int objY, int objId, CacheObjectDefinition definition) {
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,object)) return;
 		ActionSender.sendCloseChatBox(player);
 		String name = definition.getName().toLowerCase();
 		if (player.getActivity().itemAction(player, new Item(itemUsed, 1), 0, "ItemOnObject", object)) {

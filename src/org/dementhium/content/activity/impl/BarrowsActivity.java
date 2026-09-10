@@ -1,538 +1,283 @@
 package org.dementhium.content.activity.impl;
 
-import java.util.List;
-import java.util.Random;
-import java.util.concurrent.CopyOnWriteArrayList;
-
+import java.util.*;
 import org.dementhium.content.activity.Activity;
-import org.dementhium.content.activity.impl.barrows.BarrowsConstants;
-import org.dementhium.content.activity.impl.barrows.BarrowsCrypt;
-import org.dementhium.content.activity.impl.barrows.BarrowsTunnels;
-import org.dementhium.content.activity.impl.barrows.Gate;
-import org.dementhium.content.dialogue.Dialogue;
-import org.dementhium.content.dialogue.DialogueType;
-import org.dementhium.content.dialogue.OptionAction;
-import org.dementhium.content.misc.Following;
+import org.dementhium.content.activity.impl.barrows.*;
+import org.dementhium.content.dialogue.*;
 import org.dementhium.event.EventListener.ClickOption;
-import org.dementhium.event.impl.object.BarrowsTunnelListener;
-import org.dementhium.content.activity.impl.barrows.BarrowsReward;
-import org.dementhium.model.Container;
-import org.dementhium.model.Item;
-import org.dementhium.model.Location;
-import org.dementhium.model.Mob;
-import org.dementhium.model.World;
-import org.dementhium.model.map.Directions;
-import org.dementhium.model.map.GameObject;
-import org.dementhium.model.map.Region;
-import org.dementhium.model.map.path.DefaultPathFinder;
-import org.dementhium.model.map.path.PrimitivePathFinder;
+import org.dementhium.model.*;
+import org.dementhium.model.map.*;
 import org.dementhium.model.misc.IconManager;
+import org.dementhium.model.npc.NPC;
+import org.dementhium.model.npc.impl.BarrowBrother;
 import org.dementhium.model.player.Player;
 import org.dementhium.net.ActionSender;
 import org.dementhium.tickable.Tick;
-import org.dementhium.util.Misc;
 
-/**
- * Handles the barrows activity.
- * @author Emperor
- *
- */
+/** One owner's six-brother run. A looted run remains valid until the next dig. */
 public class BarrowsActivity extends Activity<BarrowsCrypt> {
+    public static final int MAIN_INTERFACE=24;
+    private BarrowsTunnels tunnels;
+    private int generation;
 
-	/**
-	 * The main activity interface.
-	 */
-	public static final int MAIN_INTERFACE = 24;
-	
-	/**
-	 * The {@code Random} instance used.
-	 */
-	private static final Random RANDOM = new Random();
-	
-	/**
-	 * The barrows tunnels instance we're using.
-	 */
-	private BarrowsTunnels barrowsTunnels;
-	
-	/**
-	 * The DIALOGUE send to enter the tunnels.
-	 */
-	private static final Dialogue DIALOGUE = new Dialogue();
-	
-	/**
-	 * Prepare the DIALOGUE.
-	 */
-	static {
-		DIALOGUE.setType(DialogueType.DISPLAY_BOX);
-		DIALOGUE.getMessage().add("You find a hidden tunnel, do you want to enter?");
-		DIALOGUE.getActions().add(new OptionAction() {
-			@Override
-			public boolean handle(Player player) {
-				Dialogue d = new Dialogue();
-				d.setType(DialogueType.OPTION);
-				d.getMessage().add("Yeah I'm fearless!");
-				d.getMessage().add("No way, that looks scary!");
-				d.getActions().add(new OptionAction() {
-					@Override
-					public boolean handle(Player player) {
-						player.teleport(3568, 9712, 0, false);
-						player.setAttribute("newBarrowsRun", true);
-						return true;
-					}
-				});
-				d.getActions().add(new OptionAction() {
-					@Override
-					public boolean handle(Player player) {
-						return true;
-					}
-				});
-				d.send(player);
-				return false;
-			}			
-		});
-	}
-	
-	/**
-	 * Constructs a new {@code BarrowsActivity} {@code Object}.
-	 * @param player
-	 */
-	public BarrowsActivity(Player player) {
-		super(player);
-		player.setActivity(this);
-	}
-	
-	@Override
-	public boolean initializeActivity() {
-		for (BarrowsCrypt b : BarrowsConstants.BARROWS_CRYPT) {
-			//if (!getPlayer().getSettings().getBarrowsKilled()
-				//	.contains(b.getNPC().getId())) {
-				addEntity(b.duplicate());
-			//}
-		}
-		
-		int tunnelsId = RANDOM.nextInt(BarrowsConstants.TUNNEL_CONFIG.length);
-		if (getPlayer().getSettings().getTunnelId() > -1) { //incase the activity is re-initialized for a player who logged out of the activity
-			tunnelsId = getPlayer().getSettings().getTunnelId();
-		} else {
-			getPlayer().getSettings().setTunnelId(tunnelsId);
-		}
-		this.barrowsTunnels = new BarrowsTunnels(tunnelsId); //TODO: Find out what was wrong with this
-		
-		int cryptId = RANDOM.nextInt(getEntities().size());
-		if (getPlayer().getSettings().getTunnelEntranceId() > -1) { //incase the activity is re-initialized for a player who logged out of the activity
-			cryptId = getPlayer().getSettings().getTunnelEntranceId();
-		} else {
-			getPlayer().getSettings().setTunnelEntranceId(cryptId);
-		}
-		getEntities().get(cryptId).setTunnelsEntrance(true);
-		
-		/*for (BarrowsCrypt crypt : getEntities()) {
-			if (crypt.isTunnelsEntrance()) {
-				System.out.println(crypt.getNPC().getName() + "'s crypt is tunnel entrance; NPC id " + crypt.getNPC().getId() + ".");
-			}
-		}*/
-		return true;
-	}
-
-	@Override
-	public boolean commenceSession() {
-		if (!BarrowsConstants.BARROWS_AREA.isInArea(getPlayer().getLocation())) {
-			ActionSender.sendConfig(getPlayer(), 1270, BarrowsConstants.isInMiniTunnel(getPlayer()) ? 1 : 0);
-			ActionSender.sendOverlay(getPlayer(), MAIN_INTERFACE);
-			ActionSender.updateMinimap(getPlayer(), ActionSender.BLACKOUT_MAP);
-		}
-		int hash = 0;
-		for (int id : getPlayer().getSettings().getBarrowsKilled()) {
-			hash |= 1 << (id - 2025);
-		}
-		ActionSender.sendConfig(getPlayer(), 453, getPlayer().getSettings().getBarrowsKillcount() << 17 | hash);
-		return true;
-	}
-	
-	@Override
-	public boolean updateSession() {
-		if (!BarrowsConstants.isInBarrowsZone(getPlayer())) {
-			setActivityState(SessionStates.END_STATE);
-			return true;
-		}
-		return true;
-	}
-
-	@Override
-	public boolean endSession() {
-		ActionSender.sendCloseOverlay(getPlayer());
-		ActionSender.updateMinimap(getPlayer(), ActionSender.NO_BLACKOUT);
-		for (BarrowsCrypt b : getEntities()) {
-			Player owner = b.getNPC().getAttribute("barrowsOwner");
-			if (owner != null)
-				IconManager.removeIcon(owner, b.getNPC());
-			b.getNPC().instantDeath();
-		}
-		getPlayer().setActivity(Mob.DEFAULT_ACTIVITY);
-		return true;
-	}
-	
-	@Override
-	public boolean onDeath(Player player) {
-		setActivityState(SessionStates.END_STATE);
-		return false;
-	}
-	
-	@Override
-	public boolean canLogout(Player player, boolean logoutButton) {
-		stop(true);
-		return true;
-	}
-    
-	@Override
-    public boolean isCombatActivity(Mob mob, Mob victim, boolean sendMessages) {
-		if (!mob.isNPC() && !victim.isNPC()) {
-			return false;
-		}
-		Player owner = victim.getAttribute("barrowsOwner", null);
-		if (victim.isNPC() && owner != null) {
-			if (owner != mob) {
-				if (sendMessages && mob.isPlayer())
-					mob.getPlayer().sendMessage("This monster is not after you.");
-				return false;
-			}
-			return owner.equals(mob);
-		}
-		owner = mob.getAttribute("barrowsOwner", null);
-		if (mob.isNPC() && owner != null) {
-			return owner.equals(victim);
-		}
-		if (victim.isNPC() || mob.isNPC())
-			return true;
+    private boolean puzzleSolved;
+    private boolean crossing;
+    private GameObject puzzleDoor;
+    private Location puzzleOrigin;
+    private int puzzleAnswer = -1;
+    private static final int[][] ENTRY={{3534,9712},{3568,9712},{3568,9678},{3534,9678}};
+    public BarrowsActivity(Player player){super(player);player.setActivity(this);}
+    private boolean looted(){return getPlayer().getAttribute("looted_barrows_request_shake",false);}
+    public boolean initializeActivity(){
+        getEntities().clear();
+        for(BarrowsCrypt crypt:BarrowsConstants.BARROWS_CRYPT) getEntities().add(crypt.duplicate());
+        int entrance=getPlayer().getSettings().getTunnelEntranceId();
+        if(entrance<0||entrance>=6){entrance=getPlayer().getRandom().nextInt(6);getPlayer().getSettings().setTunnelEntranceId(entrance);}
+        getEntities().get(entrance).setTunnelsEntrance(true);
+        int layout=getPlayer().getSettings().getTunnelId();
+        if(layout<0||layout>=32){layout=getPlayer().getRandom().nextInt(32);getPlayer().getSettings().setTunnelId(layout);}
+        tunnels=new BarrowsTunnels(layout);
+        generation++;puzzleSolved=false;crossing=false;
+        getPlayer().removeAttribute("barrowsPuzzleOpen"); puzzleDoor=null;
+        return true;
+    }
+    public boolean commenceSession(){updateOverlay();return true;}
+    public boolean updateSession(){
+        if(!BarrowsConstants.isInBarrowsZone(getPlayer())) setActivityState(SessionStates.END_STATE);
+        // A brother left in a crypt must be summonable again on return.
+        for(BarrowsCrypt crypt:getEntities()){
+            NPC npc=crypt.getNPC();
+            if(npc.getAttribute("isSpawned",false) && !npc.isDead()
+                    && (npc.getLocation().getZ()!=getPlayer().getLocation().getZ()
+                    || npc.getLocation().distance(getPlayer().getLocation())>24)) removeBrother(npc);
+        }
+        return true;
+    }
+    private void removeBrother(NPC npc){
+        IconManager.removeIcon(getPlayer(),npc);
+        npc.getCombatExecutor().setVictim(null);
+        npc.removeAttribute("isSpawned");
+        npc.destroy();World.getWorld().getNpcs().remove(npc);
+    }
+    public boolean endSession(){
+        boolean wasCrossing = crossing;
+        generation++;crossing=false;
+        getPlayer().removeAttribute("barrows_crossing");
+        getPlayer().removeAttribute("barrowsPuzzleOpen");
+        if (wasCrossing && !Boolean.TRUE.equals(getPlayer().getAttribute("stunned"))) getPlayer().removeAttribute("cantMove");
+        for(BarrowsCrypt crypt:getEntities())removeBrother(crypt.getNPC());
+        ActionSender.sendCloseOverlay(getPlayer());
+        ActionSender.updateMinimap(getPlayer(),ActionSender.NO_BLACKOUT);
+        getPlayer().setActivity(Mob.DEFAULT_ACTIVITY);return true;
+    }
+    public boolean onDeath(Player player){setActivityState(SessionStates.END_STATE);return false;}
+    public boolean canLogout(Player player,boolean button){stop(true);return true;}
+    public boolean isCombatActivity(Mob source,Mob target,boolean messages){
+        if(!source.isNPC()&&!target.isNPC())return false;
+        Player owner=target.getAttribute("barrowsOwner");
+        if(owner!=null && owner!=source){if(messages&&source.isPlayer())source.getPlayer().sendMessage("This monster is not after you.");return false;}
+        owner=source.getAttribute("barrowsOwner");
+        return owner==null||owner==target;
+    }
+    public void updateOverlay(){
+        Player p=getPlayer();int mask=0;
+        for(int id:BarrowsRules.BROTHERS)if(p.getSettings().getBarrowsKilled().contains(id))mask|=1<<(id-2025);
+        ActionSender.sendConfig(p,453,(p.getSettings().getBarrowsKillcount()<<17)|mask);
+        if(!BarrowsConstants.BARROWS_AREA.isInArea(p.getLocation())){
+            ActionSender.sendConfig(p,1270,BarrowsConstants.isInMiniTunnel(p)?1:0);
+            ActionSender.sendBConfig(p,1043,-1); // Do not replay a previous face on door/kill refresh.
+            ActionSender.sendOverlay(p,MAIN_INTERFACE);
+            ActionSender.updateMinimap(p,ActionSender.BLACKOUT_MAP);
+        }
+    }
+    private void resetRun(){
+        for(BarrowsCrypt crypt:getEntities())removeBrother(crypt.getNPC());
+        Player p=getPlayer();
+        p.getSettings().getBarrowsKilled().clear();
+        Arrays.fill(p.getSettings().getKilledBrothers(),false);
+        p.getSettings().setBarrowsKillcount(0);
+        p.getSettings().setBarrowsPotential(0);
+        p.getSettings().setTunnelId(-1);p.getSettings().setTunnelEntranceId(-1);
+        p.removeAttribute("newBarrowsRun");p.removeAttribute("canLootBarrowsChest");
+        p.removeAttribute("looted_barrows_request_shake");
+        ActionSender.resetCamera(p);
+        initializeActivity();updateOverlay();
+    }
+    public void enterTunnels(){
+        if(getPlayer().getActivity()!=this)return;
+        int[] entry=ENTRY[Math.floorMod(getPlayer().getSettings().getTunnelId()/8,4)];
+        getPlayer().teleport(entry[0],entry[1],0,false);
+        getPlayer().setAttribute("newBarrowsRun",true);updateOverlay();
+    }
+    public void leaveTunnels(){
+        int index=getPlayer().getSettings().getTunnelEntranceId();
+        if(index<0||index>=6)return;
+        getPlayer().teleport(BarrowsConstants.CRYPT_TELEPORT_LOCATIONS[index],false);
+        ActionSender.resetCamera(getPlayer());updateOverlay();
+    }
+    /** Called only by the death of a live NPC, never by encounter cleanup. */
+    public void recordKill(NPC npc){
+        Player p=getPlayer();
+        if(looted())return;
+        int index=BarrowsRules.index(npc.getId());
+        if(index>=0){
+            if(npc.getAttribute("barrowsOwner")!=p || !owns(npc)
+                    || p.getSettings().getBarrowsKilled().contains(npc.getId()))return;
+            p.getSettings().getBarrowsKilled().add(npc.getId());
+            p.getSettings().getKilledBrothers()[index]=true;
+            npc.removeAttribute("isSpawned");IconManager.removeIcon(p,npc);
+            if(index==p.getSettings().getTunnelEntranceId())p.setAttribute("canLootBarrowsChest",true);
+        }else{
+            if(!BarrowsConstants.TUNNELS.isInArea(p.getLocation())||!BarrowsRules.tunnelMonster(npc.getId()))return;
+            p.getSettings().setBarrowsPotential(BarrowsRules.addPotential(p.getSettings().getBarrowsPotential(),
+                    org.dementhium.cache.format.CacheNPCDefinition.forID(npc.getId()).combatLevel));
+        }
+        p.getSettings().setBarrowsKillcount(p.getSettings().getBarrowsKillcount()+1);
+        updateOverlay();
+    }
+    public boolean owns(NPC npc){
+        for(BarrowsCrypt crypt:getEntities())if(crypt.getNPC()==npc)return true;
         return false;
     }
-	
-	@Override
-	public boolean objectAction(final Player player, GameObject object, ClickOption actionId) {
-		int id = object.getId();
-		
-		if (id == 6707 || id == 6703 || id == 6702 || id == 6704 || id == 6705 || id == 6706) { //staircases
-			for (int i = 0; i < BarrowsConstants.CRYPT_AREA.length; i++) {
-				if (BarrowsConstants.CRYPT_AREA[i].isInArea(getPlayer().getLocation())) {
-					Location l = BarrowsConstants.HILL_AREA[i].getSouthWest();
-					getPlayer().teleport(l.getX() + RANDOM.nextInt(4), l.getY() + RANDOM.nextInt(4), l.getZ(), false);
-					//getPlayer().sendMessage("You leave the crypt.");
-					ActionSender.sendCloseOverlay(player);
-					ActionSender.updateMinimap(player, ActionSender.NO_BLACKOUT);
-					return true;
-				}
-			}
-			return false;
-		}
-		
-        if (id == 10284) { //closed chest
-        	boolean canOpenChest = true;
-            for (int i = 0; i < player.getSettings().getKilledBrothers().length; i++) {
-                if (!player.getSettings().getKilledBrothers()[i]) {
-                	canOpenChest = false;
-                	break;
-                }
-            }
-        	if (player.getAttribute("canLootBarrowsChest", Boolean.FALSE) == Boolean.TRUE
-        			|| canOpenChest) {
-                if (player.getCombatExecutor().getLastAttacker() != null) {
-                    player.sendMessage("You can't open this while being under attack!");
-                    return true;
-                }
-                player.getMask().setFacePosition(object.getLocation(), object.getDefinition().getSizeX(), object.getDefinition().getSizeY());
-                ActionSender.sendObject(player, 6775, 3551, 9695, 0, 10, 0);
-        	} else if (player.getAttribute("newBarrowsRun", false)) {
-        		boolean sendMessage = true;
-        		for (BarrowsCrypt crypt : getEntities()) {
-        			if (crypt.isTunnelsEntrance() && !player.getSettings().getBarrowsKilled().contains(crypt.getNPC().getId())
-        					&& !crypt.getNPC().getAttribute("isSpawned", false)) {
-        				sendMessage = false;
-						crypt.getNPC().setDead(false);
-						crypt.getNPC().setLocation(getBrotherSpawnLocation(getPlayer()));
-						crypt.getNPC().turnTo(getPlayer(), false);
-						crypt.getNPC().setAttribute("activity", "BarrowsActivity");
-						crypt.getNPC().getCombatExecutor().setVictim(getPlayer());
-						crypt.getNPC().setAttribute("barrowsOwner", getPlayer());
-						crypt.getNPC().forceText("You dare steal from us!");
-						crypt.getNPC().setAttribute("isSpawned", true);
-						World.getWorld().getNpcs().add(crypt.getNPC());
-						IconManager.iconOnMob(player, crypt.getNPC(), 1, 65535);
-						return true;
-        			}
-        		}
-        		if (sendMessage)
-        			player.sendMessage("The chest is locked."); //wrong message
-               /* if (player.getAttribute(Barrows.FIGHTING_ATTRIBUTE) == null) {
-                    Brother brother = player.getAttribute(Barrows.TUNNEL_CRYPT);
-                    NPC spawnedBrother = new BarrowBrother(brother.getNpcId(), player.getLocation().transform(-1, 0, 0));
-                    spawnedBrother.loadEntityVariables();
-                    World.getWorld().getNpcs().add(spawnedBrother);
-                    spawnedBrother.getCombatExecutor().setVictim(player);
-                    player.setAttribute(Barrows.FIGHTING_ATTRIBUTE, spawnedBrother);
-                }*/
-            }
-            return true;
+    private boolean spawnBrother(BarrowsCrypt crypt){
+        Player p=getPlayer();NPC npc=crypt.getNPC();
+        if(looted()||p.getSettings().getBarrowsKilled().contains(npc.getId())||npc.getAttribute("isSpawned",false))return false;
+        Location place=p.getLocation();
+        for(int[] d:new int[][]{{1,0},{-1,0},{0,1},{0,-1}}){
+            Location candidate=place.transform(d[0],d[1],0);
+            if((Region.getClippingMask(candidate.getX(),candidate.getY(),candidate.getZ())&0x1280100)==0){place=candidate;break;}
         }
-        
-        if (id == 6775) { //opened chest
-        	boolean canOpenChest = true;
-            for (int i = 0; i < player.getSettings().getKilledBrothers().length; i++) {
-                if (!player.getSettings().getKilledBrothers()[i] == true) {
-                	canOpenChest = false;
-                	break;
-                }
+        npc.setDead(false);npc.setHp(npc.getMaximumHitPoints());npc.setLocation(place);
+        npc.setAttribute("activity","BarrowsActivity");npc.setAttribute("barrowsOwner",p);
+        npc.setAttribute("isSpawned",true);npc.setUnrespawnable(true);
+        npc.getCombatExecutor().setVictim(p);npc.turnTo(p,false);
+        npc.forceText("You dare disturb my rest!");World.getWorld().getNpcs().add(npc);
+        IconManager.iconOnMob(p,npc,1,65535);return true;
+    }
+    private void chest(GameObject object){
+        Player p=getPlayer();
+        if(looted()){p.sendMessage("The chest is empty.");return;}
+        if(!BarrowsConstants.TUNNELS.isInArea(p.getLocation())
+                || p.getLocation().distance(object.getLocation())>3)return;
+        int index=p.getSettings().getTunnelEntranceId();
+        if(index<0||index>=getEntities().size())return;
+        // Searching triggers the missing brother, but does not require killing all six.
+        if(spawnBrother(getEntities().get(index)))return;
+        // Mark first: another click can never generate this run's reward again.
+        p.setAttribute("looted_barrows_request_shake",true);
+        BarrowsReward.open(p,BarrowsRules.rewards(p.getRandom(),p.getSettings().getBarrowsKilled(),p.getSettings().getBarrowsPotential()));
+        ActionSender.sendObject(p,6775,3551,9695,0,10,0);
+    }
+    public boolean objectAction(final Player player,final GameObject object,ClickOption option){
+        int id=object.getId();
+        if(id==10284||id==6775){chest(object);return true;}
+        if(id>=6702&&id<=6707){
+            for(int i=0;i<6;i++)if(BarrowsConstants.CRYPT_AREA[i].isInArea(player.getLocation())){
+                Location l=BarrowsConstants.HILL_AREA[i].getSouthWest();
+                player.teleport(l.transform(1,1,0),false);
+                ActionSender.sendCloseOverlay(player);ActionSender.updateMinimap(player,ActionSender.NO_BLACKOUT);return true;
             }
-            if (player.getAttribute("canLootBarrowsChest", Boolean.FALSE) == Boolean.TRUE
-            		|| canOpenChest) {
-                player.removeAttribute("canLootBarrowsChest");
-        		player.removeAttribute("newBarrowsRun");
-                Container rewards = new Container(28, false);
-                for (int[] data : BarrowsTunnelListener.COMMON_REWARDS) {
-                    if (player.getRandom().nextDouble() > 0.40) {
-                        int itemId = data[0];
-                        int amount = Misc.random(data[1], data[2]);
-                        rewards.add(new Item(itemId, amount));
-                    }
-                }
-                int chance = 2;
-                chance += Math.round(player.getSettings().getBarrowsKillcount()/1.5);
-                for (int i = 0; i < player.getSettings().getKilledBrothers().length; i++) {
-                    if (player.getSettings().getKilledBrothers()[i]) {
-                        player.getSettings().getKilledBrothers()[i] = false;
-                        chance += 4;
-                    }
-                }
-                int random = player.getRandom().nextInt(110);
-                if (random <= (chance > 40 ? 40 : chance)
-                		|| (Misc.random(4) == 4 && random <= chance)) {
-                    int item = BarrowsTunnelListener.BARROW_REWARDS[player.getRandom().nextInt(BarrowsTunnelListener.BARROW_REWARDS.length)];
-                    rewards.add(new Item(item, 1));
-                }
-                BarrowsReward.open(player, rewards);
-                ActionSender.sendObject(player, 10284, 3551, 9695, 0, 10, 0);
-                player.setAttribute("looted_barrows_request_shake", Boolean.TRUE);
-                
-        		for (BarrowsCrypt b : getEntities()) {
-        			b.getNPC().instantDeath();
-        		}
-        		for (int i = 0; i < player.getSettings().getKilledBrothers().length; i++) {
-        			player.getSettings().getKilledBrothers()[i] = false;
-        		}
-        		player.getSettings().getBarrowsKilled().clear();
-        		player.getSettings().setBarrowsKillcount(0);
-        		player.getSettings().setTunnelId(-1);
-        		player.getSettings().setTunnelEntranceId(-1);
-        		int hash = 0;
-        		for (int id2 : player.getSettings().getBarrowsKilled()) {
-        			hash |= 1 << (id2 - 2025);
-        		}
-        		ActionSender.sendConfig(player, 453, player.getSettings().getBarrowsKillcount() << 17 | hash);
-        		for (BarrowsCrypt b : getEntities()) {
-        			Player owner = b.getNPC().getAttribute("barrowsOwner");
-        			if (owner != null)
-        				IconManager.removeIcon(owner, b.getNPC());
-        			b.getNPC().instantDeath();
-        		}
-            } else
-            	player.sendMessage("The chest is empty."); //wrong message
-            return true;
         }
-        
-		if (id == 6823 || id == 6771 || id == 6821 || id == 6773 || id == 6822 || id == 6772) { //Sarcophagi
-			for (int i = 0; i < BarrowsConstants.CRYPT_AREA.length; i++) {
-				if (BarrowsConstants.CRYPT_AREA[i].isInArea(getPlayer().getLocation())/* && getEntities().contains(BarrowsConstants.BARROWS_CRYPT[i])*/) {
-					BarrowsCrypt b = getEntities().get(getEntities().indexOf(BarrowsConstants.BARROWS_CRYPT[i]));
-					if (b.isTunnelsEntrance()) {
-						DIALOGUE.send(player);
-						return true;
-					}
-					if (getPlayer().getSettings().getBarrowsKilled().contains(b.getNPC().getId())
-							|| b.getNPC().getAttribute("isSpawned", false)) {
-						getPlayer().sendMessage("You don't find anything.");
-						return true;
-					}
-					/*for (NPC n : Region.getLocalNPCs(player.getLocation())) {
-						if (n != null && n.getId() == b.getNPC().getId() && n.getAttribute("barrowsOwner", null) == getPlayer()) {
-							getPlayer().sendMessage("You don't find anything.");
-							return true;
-						}
-					}*/
-					b.getNPC().setDead(false);
-					b.getNPC().setLocation(getBrotherSpawnLocation(getPlayer()));
-					b.getNPC().turnTo(getPlayer(), false);
-					b.getNPC().setAttribute("activity", "BarrowsActivity");
-					b.getNPC().getCombatExecutor().setVictim(getPlayer());
-					b.getNPC().setAttribute("barrowsOwner", getPlayer());
-					b.getNPC().forceText("You dare disturb my rest!");
-					b.getNPC().setAttribute("isSpawned", true);
-					World.getWorld().getNpcs().add(b.getNPC());
-					IconManager.iconOnMob(player, b.getNPC(), 1, 65535);
-					return true;
-				}
-			}
-		} else { //gates
-			int hash = id << 16 | object.getLocation().getX() << 14 | object.getLocation().getY() << 12;
-			final Gate gate = barrowsTunnels.getGates().get(hash);
-			//System.out.println("Hash: " + hash);
-			if (gate != null) {
-				//if (gate.isClosed()) {
-				//	player.sendMessage("The door seems to be locked.");
-					//return true;
-				}
-				if (RANDOM.nextInt(15) < 2) {
-					for (BarrowsCrypt crypt : getEntities()) {
-						if (!crypt.getNPC().isDead() && !player.getSettings().getBarrowsKilled().contains(crypt.getNPC().getId())
-								&& !crypt.getNPC().getAttribute("isSpawned", false)) {
-							crypt.getNPC().setDead(false);
-							crypt.getNPC().setLocation(getBrotherSpawnLocation(getPlayer()));
-							crypt.getNPC().turnTo(getPlayer(), false);
-							crypt.getNPC().setAttribute("activity", "BarrowsActivity");
-							crypt.getNPC().getCombatExecutor().setVictim(getPlayer());
-							crypt.getNPC().setAttribute("barrowsOwner", getPlayer());
-							crypt.getNPC().forceText("You dare disturb my rest!");
-							crypt.getNPC().setAttribute("isSpawned", true);
-							World.getWorld().getNpcs().add(crypt.getNPC());
-							IconManager.iconOnMob(player, crypt.getNPC(), 1, 65535);
-							return true;
-						}
-					}
-				}
-				player.setAttribute("cantMove", true);
-				player.getMask().setFacePosition(gate.getLocation(), 1, 1);
-				final GameObject o = object;
-		        GameObject secondO = null;
-		        for (int i = -2; i < 3; i++) {
-		            for (int j = -2; j < 3; j++) {
-		                secondO = object.getLocation().transform(i, j, 0).getGameObject(object.getLocation().transform(i, j, 0));
-		                if (secondO != null && !object.equals(secondO) 
-		                		&& secondO.getId() >= 6713 && secondO.getId() <= 6750) {
-		                	i = 3;
-		                	j = 3;
-		                	break;
-		                }
-		            }
-		        }
-				final GameObject secondDoor = secondO;
-				int hashSecondDoor = secondDoor != null ? (secondDoor.getId() << 16 | secondDoor.getLocation().getX() << 14 | secondDoor.getLocation().getY() << 12)
-						: -1;
-				final Gate secondGate = hash == -1 ? null : barrowsTunnels.getGates().get(hashSecondDoor);
-				for (Player p : Region.getLocalPlayers(gate.getLocation())) {
-					ActionSender.deleteObject(p, o.getId(), o.getLocation().getX(), o.getLocation().getY(), player.getLocation().getZ(), o.getType(), o.getRotation());
-					ActionSender.sendObject(p, gate.getToReplace());
-					if (secondDoor != null && secondGate != null) {
-						ActionSender.deleteObject(p, secondDoor.getId(), secondDoor.getLocation().getX(), secondDoor.getLocation().getY(), player.getLocation().getZ(), secondDoor.getType(), secondDoor.getRotation());
-						ActionSender.sendObject(p, secondGate.getToReplace());
-					}
-				}
-				World.getWorld().submit(new Tick(1) {
-					boolean walked = false;
-					@Override
-					public void execute() {
-						if (!walked) {
-							int x = o.getLocation().getX();
-							int y = o.getLocation().getY();
-							if (o.getRotation() == 0 && player.getLocation().getX() >= x) {
-								x--;
-							} else if (o.getRotation() == 2 && player.getLocation().getX() <= x) {
-								x++;
-							} else if (o.getRotation() == 1 && player.getLocation().getY() <= y) {
-								y++;
-							} else if (o.getRotation() == 3 && player.getLocation().getY() >= y) {
-								y--;
-							}
-							player.requestWalk(x, y); //this is not clipped so wrong doors make you walk to the weirdest locations
-							walked = true;
-							return;
-						}
-						player.setAttribute("cantMove", false);
-						for (Player p : Region.getLocalPlayers(gate.getLocation())) {
-							ActionSender.deleteObject(p, gate.getToReplace().getId(), 
-									gate.getToReplace().getLocation().getX(), gate.getToReplace().getLocation().getY(), 
-									player.getLocation().getZ(), gate.getToReplace().getType(), 
-									gate.getToReplace().getRotation());
-							ActionSender.sendObject(p, o);
-							if (secondDoor != null && secondGate != null) {
-								ActionSender.deleteObject(p, secondGate.getToReplace().getId(), 
-										secondGate.getToReplace().getLocation().getX(), secondGate.getToReplace().getLocation().getY(), 
-										player.getLocation().getZ(), secondGate.getToReplace().getType(), 
-										secondGate.getToReplace().getRotation());
-								ActionSender.sendObject(p, secondDoor);
-							}
-						}
-						ActionSender.sendConfig(player, 1270, BarrowsConstants.isInMiniTunnel(player) ? 1 : 0);
-						/*boolean isInMiniTunnel = BarrowsConstants.isInMiniTunnel(getPlayer());
-						boolean wasInMiniTunnel = getPlayer().getAttribute("miniTunnel", false);
-						if (isInMiniTunnel && !wasInMiniTunnel) {
-							ActionSender.sendConfig(getPlayer(), 1270, 1);
-							getPlayer().setAttribute("miniTunnel", true);
-						} else if (!isInMiniTunnel && wasInMiniTunnel) {
-							ActionSender.sendConfig(getPlayer(), 1270, 0);
-							getPlayer().setAttribute("miniTunnel", false);
-						}*/
-						stop();
-					}
-				});
-			}
-		return false;
-	}
-	
-	private Location getBrotherSpawnLocation(Player player) {
-		List<Location> closeLocs = Following.getExternTiles(player, true);
-		int areaCount = 3; //0 included, so 4
-		int index = 0;
-		List<Location> closeLocs2 = new CopyOnWriteArrayList<Location>(closeLocs);
-		for (Location l : closeLocs) {
-            int clippingMask = Region.getClippingMask(l.getX(), l.getY(), player.getLocation().getZ());
-            if (((clippingMask & 0x1280180) != 0 && (clippingMask & 0x1280108) != 0
-                    && (clippingMask & 0x1280120) != 0 && (clippingMask & 0x1280102) != 0)
-                    || !World.getWorld().doPath(new DefaultPathFinder(), player, l.getX(), l.getY(), false, false).isRouteFound()) {
-            	closeLocs2.remove(index);
-            	areaCount--;
-            	index--;
+        if(id==6823||id==6771||id==6821||id==6773||id==6822||id==6772){
+            for(int i=0;i<6;i++)if(BarrowsConstants.CRYPT_AREA[i].isInArea(player.getLocation())){
+                final BarrowsCrypt crypt=getEntities().get(i);
+                if(crypt.isTunnelsEntrance()){
+                    Dialogue d=new Dialogue();d.setType(DialogueType.OPTION);
+                    d.getMessage().add("Yes, enter the hidden tunnel.");d.getMessage().add("No, stay here.");
+                    final int run=generation;final Location origin=player.getLocation();
+                    d.getActions().add(new OptionAction(){public boolean handle(Player p){
+                        if(run==generation&&p.getActivity()==BarrowsActivity.this&&p.getLocation().equals(origin))enterTunnels();
+                        return true;
+                    }});
+                    d.getActions().add(new OptionAction(){public boolean handle(Player p){return true;}});d.send(player);
+                }else if(!spawnBrother(crypt))player.sendMessage("You don't find anything.");
+                return true;
             }
-            index++;
-		}
-		if (closeLocs2.isEmpty())
-			return player.getLocation();
-		Location closeLoc = closeLocs2.get(Misc.random(areaCount));
-		closeLoc = Location.locate(closeLoc.getX(), closeLoc.getY(), player.getLocation().getZ());
-		return closeLoc;
-	}
-	
-	@Override
-	public boolean itemAction(Player player, Item item, int actionId, String action, Object... params) {
-		if (item.getId() == 952) {
-			player.animate(830);
-			for (int i = 0; i < BarrowsConstants.HILL_AREA.length; i++) {
-				if (BarrowsConstants.HILL_AREA[i].isInArea(getPlayer().getLocation())) {
-					final Location l = BarrowsConstants.CRYPT_TELEPORT_LOCATIONS[i];
-					World.getWorld().submit(new Tick(1) {
-						@Override
-						public void execute() {
-							stop();
-							if (getPlayer().getFamiliar() != null) {
-								getPlayer().sendMessage("You'll have to dismiss your familiar if you want to enter this area.");
-							} else {
-								getPlayer().teleport(l.getX(), l.getY(), l.getZ(), false);
-								getPlayer().sendMessage("You've broken into a crypt!");
-								ActionSender.sendOverlay(getPlayer(), MAIN_INTERFACE);
-								ActionSender.updateMinimap(getPlayer(), ActionSender.BLACKOUT_MAP);
-							}
-						}
-					});
-					return true;
-				}
-			}
-			World.getWorld().submit(new Tick(1) {
-				@Override
-				public void execute() {
-					stop();
-					getPlayer().sendMessage("You find nothing.");
-				}
-			});
-			return true;
-		}
-		return false;
-	}
-
+        }
+        Gate gate=tunnels.get(id,object.getLocation().getX(),object.getLocation().getY(),object.getLocation().getZ());
+        if(gate==null)return false;
+        if(crossing||player.isDead()||!BarrowsConstants.TUNNELS.isInArea(player.getLocation()))return true;
+        if(gate.isClosed()){player.sendMessage("The door seems to be locked.");return true;}
+        if(tunnels.isPuzzleGate(gate)&&!puzzleSolved){showPuzzle(object);return true;}
+        cross(object,gate);return true;
+    }
+    private void showPuzzle(final GameObject object) {
+        if (getPlayer().getLocation().distance(object.getLocation()) > 2) return;
+        int base = 6713 + 6 * getPlayer().getRandom().nextInt(4);
+        List<Integer> options = new ArrayList<Integer>(Arrays.asList(base, base + 1, base + 2));
+        Collections.shuffle(options, getPlayer().getRandom());
+        int[] children = {2, 3, 5};
+        puzzleDoor = object;
+        puzzleOrigin = getPlayer().getLocation();
+        puzzleAnswer = children[options.indexOf(base)];
+        ActionSender.sendInterface(getPlayer(), 25);
+        for (int i = 0; i < 3; i++) {
+            ActionSender.sendModelOnInterface(getPlayer(), 25, 6 + i, base + 3 + i);
+            ActionSender.sendModelOnInterface(getPlayer(), 25, children[i], options.get(i));
+        }
+        getPlayer().setAttribute("barrowsPuzzleOpen", true);
+    }
+    public void answerPuzzle(int child) {
+        Player p = getPlayer();
+        if (child != 2 && child != 3 && child != 5) return;
+        if (!p.getAttribute("barrowsPuzzleOpen", false) || puzzleDoor == null
+                || p.getActivity() != this || p.isDead() || !p.getLocation().equals(puzzleOrigin)) return;
+        GameObject door = puzzleDoor;
+        boolean correct = child == puzzleAnswer;
+        puzzleDoor = null;
+        ActionSender.sendCloseInterface(p);
+        if (correct) {
+            puzzleSolved = true;
+            p.sendMessage("You hear the door unlock.");
+            Gate gate = tunnels.get(door.getId(), door.getLocation().getX(), door.getLocation().getY(), 0);
+            if (gate != null && !gate.isClosed()) cross(door, gate);
+        } else {
+            int old = p.getSettings().getTunnelId();
+            int layout = (old / 4) * 4 + ((old + 1 + p.getRandom().nextInt(3)) % 4);
+            p.getSettings().setTunnelId(layout);
+            tunnels = new BarrowsTunnels(layout);
+            p.sendMessage("You hear the doors rearranging around you.");
+        }
+    }
+    private void cross(final GameObject object,final Gate gate){
+        final Player p=getPlayer();
+        if (crossing || p.getAttribute("cantMove", false)
+                || p.getAttribute("freezeTime", -1) > World.getTicks()) return;
+        if(p.getLocation().getZ()!=0||p.getLocation().distance(object.getLocation())>2)return;
+        final Location origin=p.getLocation();
+        final Location destination=BarrowsRules.crossingDestination(object,origin);
+        if(!BarrowsConstants.TUNNELS.isInArea(destination)||origin.distance(destination)>2.5)return;
+        crossing=true;p.setAttribute("barrows_crossing",true);p.setAttribute("cantMove",true);
+        p.getWalkingQueue().reset();p.getMask().setFacePosition(object.getLocation(),1,1);
+        ActionSender.deleteObject(p,object.getId(),object.getLocation().getX(),object.getLocation().getY(),0,object.getType(),object.getRotation());
+        ActionSender.sendObject(p,gate.getToReplace());
+        final int run=generation;
+        World.getWorld().submit(new Tick(1){public void execute(){
+            stop();
+            if(run!=generation)return;
+            crossing=false;p.removeAttribute("barrows_crossing");
+            if(!Boolean.TRUE.equals(p.getAttribute("stunned")))p.removeAttribute("cantMove");
+            if(!p.isOnline())return;
+            ActionSender.deleteObject(p,gate.getToReplace().getId(),gate.getToReplace().getLocation().getX(),
+                    gate.getToReplace().getLocation().getY(),0,gate.getToReplace().getType(),gate.getToReplace().getRotation());
+            ActionSender.sendObject(p,object);
+            if(p.isDead()||p.getActivity()!=BarrowsActivity.this||!p.getLocation().equals(origin))return;
+            p.teleport(destination,false);updateOverlay();
+            if(!looted()&&p.getRandom().nextInt(15)<2){
+                List<BarrowsCrypt> remaining=new ArrayList<BarrowsCrypt>();
+                for(BarrowsCrypt crypt:getEntities())if(!p.getSettings().getBarrowsKilled().contains(crypt.getNPC().getId()))remaining.add(crypt);
+                if(!remaining.isEmpty())spawnBrother(remaining.get(p.getRandom().nextInt(remaining.size())));
+            }
+        }});
+    }
+    public boolean itemAction(Player p,Item item,int actionId,String action,Object...params){
+        if(item.getId()!=952)return false;
+        p.animate(830);
+        for(int i=0;i<6;i++)if(BarrowsConstants.HILL_AREA[i].isInArea(p.getLocation())){
+            if(p.getFamiliar()!=null){p.sendMessage("You'll have to dismiss your familiar if you want to enter this area.");return true;}
+            if(looted())resetRun();
+            p.teleport(BarrowsConstants.CRYPT_TELEPORT_LOCATIONS[i],false);updateOverlay();return true;
+        }
+        p.sendMessage("You find nothing.");return true;
+    }
 }

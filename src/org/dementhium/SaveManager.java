@@ -3,9 +3,11 @@ package org.dementhium;
 import java.io.IOException;
 
 import org.dementhium.io.XMLHandler;
+import org.dementhium.content.clans.ClanManager;
 import org.dementhium.model.World;
 import org.dementhium.model.player.Player;
 import org.dementhium.util.Misc;
+import org.dementhium.util.handlers.DisplayNamesHandler;
 
 public class SaveManager extends Thread {
 
@@ -32,8 +34,8 @@ public class SaveManager extends Thread {
 			});
 			try {
 				if (Misc.isVPS()) {
-					XMLHandler.toXML("data/xml/clans.xml", World.getWorld().getClanManager().getClans());
-					XMLHandler.toXML("data/xml/DisplayNames.xml", World.getWorld().getDisplayNamesHandler().getDisplayNames());
+					XMLHandler.toXML("data/xml/clans.xml", ClanManager.getClans());
+					XMLHandler.toXML("data/xml/DisplayNames.xml", DisplayNamesHandler.getDisplayNames());
 					World.getWorld().getOffencesHandler().save();
 					World.getWorld().getRightsHandler().save();
 				}

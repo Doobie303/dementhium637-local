@@ -38,6 +38,10 @@ public class DescentOfDragons extends SpecialAttack {
 		RangeData data = new RangeData(true);
 		data.setWeapon(RangeWeapon.get(interaction.getSource().getPlayer().getEquipment().getSlot(3)));
 		data.setAmmo(Ammunition.get(interaction.getSource().getPlayer().getEquipment().getSlot(13)));
+        if (data.getWeapon() == null || data.getAmmo() == null) return false;
+        int ammoSlot = data.getWeapon().getAmmunitionSlot();
+        if (ammoSlot >= 0 && (interaction.getSource().getPlayer().getEquipment().get(ammoSlot) == null
+                || interaction.getSource().getPlayer().getEquipment().get(ammoSlot).getAmount() < 2)) return false;
 		if (data.getAmmo() == null || !data.getWeapon().getAmmunition().contains(data.getAmmo().getItemId()) 
 				|| interaction.getSource().getPlayer().getEquipment().get(13).getAmount() < 2) {
 			interaction.getSource().getPlayer().sendMessage("You do not have enough ammo left.");
@@ -61,25 +65,11 @@ public class DescentOfDragons extends SpecialAttack {
 		interaction.getSource().animate(data.getWeapon().getAnimationId());
 		interaction.getSource().graphics(data.getAmmo().getDarkBowGraphics());
 		sendProjectiles(interaction.getSource(), interaction.getVictim(), data.getAmmo());
-		CombatUtils.dropArrows(interaction.getSource().getPlayer(), interaction.getVictim(), interaction.getRangeData());
-		interaction.setRangeData(data);
-		if (interaction.getSource().isPlayer()) {
-			if ((interaction.getRangeData().getDamage() != null
-					&& interaction.getRangeData().getDamage().getHit() > 0)
-					|| (interaction.getRangeData().getDamage2() != null
-							&& interaction.getRangeData().getDamage2().getHit() > 0)) {
-				if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-						&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()
-						&& interaction.getRangeData().getWeapon().getItemId() == interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getId())
-					interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-							interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-				else if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS) != null
-						&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-						&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS).getDefinition().doesPoison())
-					interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-							interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS).getDefinition().getPoisonAmount());
-			}
-		}
+		
+		data.setDropAmmo(data.getAmmo().getItemId() != 4740 && data.getAmmo().getItemId() != 15243);
+        interaction.setRangeData(data);
+        CombatUtils.dropArrows(interaction.getSource().getPlayer(), interaction.getVictim(), data);
+		
 		return true;
 	}
 
@@ -98,46 +88,10 @@ public class DescentOfDragons extends SpecialAttack {
 	
 	@Override
 	public boolean endSpecialAttack(Interaction interaction) {
-		interaction.getVictim().graphics(
-		        Boolean.TRUE.equals(interaction.getSource().getAttribute("dragonArrows")) ? 1100 : 1103, 96);
-		interaction.getVictim().getDamageManager().damage(
-				interaction.getSource(), interaction.getRangeData().getDamage(), 
-				DamageType.RANGE);
-		if (interaction.getRangeData().getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(
-					interaction.getSource(), interaction.getRangeData().getDamage().getVenged());
-		}
-		if (interaction.getRangeData().getDamage().getDeflected() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getRangeData().getDamage().getDeflected(), 
-					//interaction.getRangeData().getDamage().getDeflected(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getRangeData().getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getRangeData().getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getRangeData().getDamage().getRecoiled(), 
-					//interaction.getRangeData().getDamage().getRecoiled(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getRangeData().getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
-		int delay = 18;
-		interaction.getVictim().getDamageManager().damage(
-				interaction.getSource(), interaction.getRangeData().getDamage2(), 
-				DamageType.RANGE, delay);
-		if (interaction.getRangeData().getDamage2().getDeflected() > 0) {
-			interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					interaction.getRangeData().getDamage2().getDeflected(), 
-					interaction.getRangeData().getDamage2().getDeflected(), 
-					DamageType.DEFLECT, delay);
-		}
-		if (interaction.getRangeData().getDamage2().getRecoiled() > 0) {
-			interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					interaction.getRangeData().getDamage2().getRecoiled(), 
-					interaction.getRangeData().getDamage2().getRecoiled(), 
-					DamageType.DEFLECT, delay);
-		}
-		interaction.getVictim().retaliate(interaction.getSource());
-		return true;
-	}
+org.dementhium.model.combat.SpecialHits.apply(interaction, interaction.getRangeData().getDamage(), DamageType.RANGE, 0);
+        org.dementhium.model.combat.SpecialHits.apply(interaction, interaction.getRangeData().getDamage2(), DamageType.RANGE, 1);
+        return true;
+    }
 
 	/**
 	 * Sends the projectiles.

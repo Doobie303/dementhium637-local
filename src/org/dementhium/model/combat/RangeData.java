@@ -14,6 +14,11 @@ public class RangeData {
 	 * If the mob is a player.
 	 */
 	private final boolean player;
+    boolean ammunitionConsumed;
+    int ammunitionToDrop;
+    private int ammunitionCount = 1;
+    public void setAmmunitionCount(int count) { ammunitionCount = Math.max(1, count); }
+    public int getAmmunitionCount() { return Math.max(ammunitionCount, damage2 == null ? 1 : 2); }
 	
 	/**
 	 * The range weapon used.

@@ -60,6 +60,7 @@ public class CombatExecutor {
 	 * Updates the combat.
 	 */
 	public void tick() {
+        if (victim!=null && (!NPCCombatContext.validPair(mob,victim) || !org.dementhium.model.instance.InstanceAccess.canInteract(mob,victim))) reset();
 		if (ticks > 0) {
 			ticks--;
 		}
@@ -80,6 +81,12 @@ public class CombatExecutor {
 				if (mob.isPlayer() && victim.isPlayer()) {
 					Player player = mob.getPlayer();
 					if (player.getActivity() instanceof DuelActivity) {
+                        DuelActivity duel=(DuelActivity)player.getActivity();
+                        if(!duel.isCombatActivity(player,victim,true)||!duel.getDuelConfigurations().weaponAllowed(player,player.getEquipment().getSlot(3))
+                            || (duel.getDuelConfigurations().getRule(Rules.FUN_WEAPONS)&&combatAction.getCombatType()!=CombatType.MELEE)
+                            || (duel.getDuelConfigurations().getRule(Rules.SPECIAL_ATTACKS)&&player.getSettings().isUsingSpecial())) {
+                            player.getSettings().setUsingSpecial(false);reset();return;
+                        }
 						boolean noMelee = ((DuelActivity) mob.getActivity()).getDuelConfigurations().getRule(Rules.MELEE);
 						boolean noMagic = ((DuelActivity) mob.getActivity()).getDuelConfigurations().getRule(Rules.MAGIC);
 						boolean noRange = ((DuelActivity) mob.getActivity()).getDuelConfigurations().getRule(Rules.RANGE);
@@ -121,11 +128,17 @@ public class CombatExecutor {
 							}
 						}
 						currentActions.add(new Runnable() {
-							private final CombatAction action = combatAction;
+							private final CombatAction action = mob.isNPC()&&!mob.isFamiliar()?combatAction.newSession():combatAction;
 							private final Interaction interaction = new Interaction(mob, victim);
+                            private final long sourceRevision=mob.getInstanceRevision();
+                            private final long victimRevision=victim.getInstanceRevision();
 							@Override
 							public void run() {
-								action.setInteraction(interaction);
+								if (!interaction.isNPCContextCurrent() || sourceRevision!=interaction.getSource().getInstanceRevision() || victimRevision!=interaction.getVictim().getInstanceRevision()
+                                        || !org.dementhium.model.instance.InstanceAccess.canInteract(interaction.getSource(),interaction.getVictim())) {
+                                    currentActions.remove(this); return;
+                                }
+                                action.setInteraction(interaction);
 								action.execute();
 								if (interaction.getState() == CycleState.FINISHED) {
 									currentActions.remove(this);
@@ -166,7 +179,8 @@ public class CombatExecutor {
 	/**
 	 * Resets the combat.
 	 */
-	public void reset() {
+	public void cancelPending() { reset(); currentActions.clear(); }
+    public void reset() {
 		victim = null;
 		mob.getWalkingQueue().reset();
 		mob.setAttribute("spellId", -1);
@@ -214,6 +228,7 @@ public class CombatExecutor {
 	 * @param victim the victim to set
 	 */
 	public void setVictim(Mob victim) {
+        if (victim!=null && (!NPCCombatContext.validPair(mob,victim) || !org.dementhium.model.instance.InstanceAccess.canInteract(mob,victim))) { reset(); return; }
 		this.victim = victim;
 	}
 
@@ -236,7 +251,7 @@ public class CombatExecutor {
 	 * @param cooldownTicks The ticks to cool down.
 	 */
 	public void setTicks(int cooldownTicks) {
-		setTicks(cooldownTicks, mob.getAttribute("miasamicTime", -1) > World.getTicks() 
+		setTicks(cooldownTicks, mob.getAttribute("miasmicTime", -1) > World.getTicks() 
 				&& combatAction.getCombatType() != CombatType.MAGIC);
 	}
 

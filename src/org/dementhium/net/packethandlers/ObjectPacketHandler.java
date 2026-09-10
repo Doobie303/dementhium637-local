@@ -93,14 +93,29 @@ public class ObjectPacketHandler extends PacketHandler {
 		if (gameObj == null) {
 			if (objectId == 6775 && player.getActivity() instanceof BarrowsActivity) {
 				gameObj = new GameObject(6775, x, y, player.getLocation().getZ(), 10, 0);
-			} else if (Dungeoneering.handleObject(player, gameObj, objectId, forId(packet.getOpcode()), false)
-					&& player.getActivity() instanceof DungeoneeringActivity) {
-				gameObj = new GameObject(objectId, x, y, player.getLocation().getZ(), 10, 0);
 			} else {
 				return;
 			}
 		}
 		final GameObject gameObject = gameObj;
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,gameObject)) return;
+        final org.dementhium.content.instance.InstanceExamples example =
+                org.dementhium.content.instance.InstanceExamples.get(player);
+        if (example != null) {
+            // Example scenes consume their own clicks before ordinary object scripts can run.
+            if (!WalkingHandler.canMove(player)) return;
+            PathState examplePath = findObjectPath(player, gameObject);
+            if (examplePath == null || !examplePath.isRouteFound()) {
+                player.sendMessage("I can't reach that!"); return;
+            }
+            final boolean firstOption = packet.getOpcode() == OPTION_1;
+            player.getActionManager().stopAction();
+            World.getWorld().submitAreaEvent(player, new CoordinateEvent(player, x, y,
+                    gameObject.getDefinition().getSizeX(), gameObject.getDefinition().getSizeY()) {
+                @Override public void execute() { example.interact(player, gameObject, firstOption); }
+            });
+            return;
+        }
 		if (gameObject.getId() != objectId) {
 			return;
 		}
@@ -183,6 +198,7 @@ public class ObjectPacketHandler extends PacketHandler {
 	}
 
 	private void handleObject(final Player player, int objectClicked, final GameObject gameObject, Location location, CacheObjectDefinition definition, Message packet) {
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,gameObject)) return;
 		int transformX = 0, transformY = 0;
 		if (gameObject.getType() == 0) {
 			switch (gameObject.getRotation()) {
@@ -204,16 +220,12 @@ public class ObjectPacketHandler extends PacketHandler {
 		//player.resetTurnTo();
 		player.getMask().setFacePosition(location.transform(transformX, transformY, 0), definition.getSizeX(), definition.getSizeY());
 		String name = definition.getName().toLowerCase();
+		if (org.dementhium.content.home.HomeHub.handleObject(player, gameObject)) return;
 		if (name.equals("bank booth") || name.equals("bank chest")) {
-			if (player.getAttribute("fromBank") != null) {
-				ActionSender.sendInterfaceConfig(player, 667, 49, true);
-				ActionSender.sendInterfaceConfig(player, 667, 50, true);
-				player.getBonuses().refreshEquipScreen();
-				ActionSender.sendInterface(player, 667);
-			} else {
-				player.getBank().openBank();
-				player.removeAttribute("fromBank");
-			}
+			// A bank interaction must always open the bank.  Reusing the
+			// equipment-screen marker here can trap the client on interface 667
+			// when that marker survives a movement/interface-close race.
+			player.getBank().openBank();
 			return;
 		} else if (name.equals("furnace")) {
 			Smithing.furnaceInteraction(player);
@@ -315,13 +327,19 @@ public class ObjectPacketHandler extends PacketHandler {
 				return;
 			}
 			switch (gameObject.getId()) {
-			/*case 9356:
-				if (player.getFamiliar() == null)
-					ActivityManager.getSingleton().register(new FightCavesActivity(player));
-				else
-					player.sendMessage("You can't bring your familiar into this minigame.");
-				break;*/
+			case 9356:
+			case 9357:
+				if (org.dementhium.content.minigames.FightCaves.handleEntranceObject(player, gameObject.getId())) {
+					return;
+				}
+				break;
 			case 3203: //duel forfeit
+                if(!(player.getActivity() instanceof org.dementhium.content.activity.impl.DuelActivity))return;
+                org.dementhium.content.activity.impl.DuelActivity duel=(org.dementhium.content.activity.impl.DuelActivity)player.getActivity();
+                if(duel.getCurrentState()!=org.dementhium.content.activity.impl.DuelActivity.State.FIGHTING)return;
+                if(duel.getDuelConfigurations().getRule(org.dementhium.content.activity.impl.duel.DuelConfigurations.Rules.FORFEIT)){
+                    player.sendMessage("Forfeiting is disabled for this duel.");return;
+                }
 				DialogueManager.send2OptionDialogueWithLongTitle(player, new int[]{748, -1}, "Yes", "No");
 				ActionSender.sendString(player, "Do you wish to forfeit?", 718, 0); //inter 554 will do as well?
 				break;
@@ -411,10 +429,10 @@ public class ObjectPacketHandler extends PacketHandler {
 				player.sendMessage("YOU TELEPORT TO THE WILDERNESS! ITEMS LOST ON DEATH!");
                 break;*/
 			 case 2274:
-			    TeleportHandler.telePlayer(player, 2344, 3691, 0, 0, 2, true, false);
+			    TeleportHandler.telePlayer(player, Mob.DEFAULT.getX(), Mob.DEFAULT.getY(), Mob.DEFAULT.getZ(), 0, 2, true, false);
                 break;
 			 case 38700:
-				 player.teleport(2344, 3691, 0, false);	
+				 player.teleport(Mob.DEFAULT, false);
 				 break;
 			 case 45077:
 				 player.teleport(3657, 5114, 0, false);

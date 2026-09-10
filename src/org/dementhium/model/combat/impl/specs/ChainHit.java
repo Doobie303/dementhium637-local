@@ -47,6 +47,10 @@ public class ChainHit extends SpecialAttack {
 		RangeData data = new RangeData(true);
 		data.setWeapon(RangeWeapon.get(interaction.getSource().getPlayer().getEquipment().getSlot(3)));
 		data.setAmmo(Ammunition.get(interaction.getSource().getPlayer().getEquipment().getSlot(3)));
+        if (data.getWeapon() == null || data.getAmmo() == null) return false;
+        int ammoSlot = data.getWeapon().getAmmunitionSlot();
+        if (ammoSlot >= 0 && (interaction.getSource().getPlayer().getEquipment().get(ammoSlot) == null
+                || interaction.getSource().getPlayer().getEquipment().get(ammoSlot).getAmount() < 1)) return false;
 		if (data.getAmmo() == null || !data.getWeapon().getAmmunition().contains(data.getAmmo().getItemId())) {
 			interaction.getSource().getPlayer().sendMessage("You do not have enough ammo left.");
 			interaction.getSource().getCombatExecutor().reset();
@@ -66,7 +70,7 @@ public class ChainHit extends SpecialAttack {
 				}
 				e.setDamage(Damage.getDamage(interaction.getSource(), e.getVictim(), CombatType.RANGE, RangeFormulae.getDamage(interaction.getSource(), e.getVictim())));
 				e.getDamage().setMaximum(maximum);
-				CombatUtils.appendExperience(interaction.getSource().getPlayer(), e.getDamage().getHit(), DamageType.RANGE);
+				org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), e.getDamage(), DamageType.RANGE);
 			}
 			if (toRemove != null) {
 				targets.remove(toRemove);
@@ -80,46 +84,11 @@ public class ChainHit extends SpecialAttack {
 		interaction.setTicks((int) Math.floor(interaction.getSource().getLocation().distance(interaction.getVictim().getLocation()) * 0.3));
 		interaction.getSource().animate(ANIMATION);
 		interaction.getSource().graphics(GRAPHICS);
-		CombatUtils.dropArrows(interaction.getSource().getPlayer(), interaction.getVictim(), interaction.getRangeData());
-		interaction.setRangeData(data);
 		
-		if (interaction.getSource().isMulti() && interaction.getVictim().isMulti()) {
-			List<ExtraTarget> targets = interaction.getTargets();
-			for (ExtraTarget e : targets) {
-				if (interaction.getSource().isPlayer()) {
-					if (e.getDamage() != null
-							&& e.getDamage().getHit() > 0) {
-						if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-								&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()
-								&& interaction.getRangeData().getWeapon().getItemId() == interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getId())
-							e.getVictim().getPoisonManager().poison(interaction.getSource(), 
-									interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-						else if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS) != null
-								&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-								&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS).getDefinition().doesPoison())
-							e.getVictim().getPoisonManager().poison(interaction.getSource(), 
-									interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS).getDefinition().getPoisonAmount());
-					}
-				}
-			}
-		}
-		if (interaction.getSource().isPlayer()) {
-			if ((interaction.getRangeData().getDamage() != null
-					&& interaction.getRangeData().getDamage().getHit() > 0)
-					|| (interaction.getRangeData().getDamage2() != null
-							&& interaction.getRangeData().getDamage2().getHit() > 0)) {
-				if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-						&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()
-						&& interaction.getRangeData().getWeapon().getItemId() == interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getId())
-					interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-							interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-				else if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS) != null
-						&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-						&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS).getDefinition().doesPoison())
-					interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-							interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS).getDefinition().getPoisonAmount());
-			}
-		}
+		data.setDropAmmo(data.getAmmo().getItemId() != 4740 && data.getAmmo().getItemId() != 15243);
+        interaction.setRangeData(data);
+        CombatUtils.dropArrows(interaction.getSource().getPlayer(), interaction.getVictim(), data);
+		
 		return true;
 	}
 
@@ -137,76 +106,32 @@ public class ChainHit extends SpecialAttack {
 	}
 
 	@Override
-	public boolean endSpecialAttack(final Interaction interaction) {
-		interaction.getVictim().getDamageManager().damage(
-				interaction.getSource(), interaction.getRangeData().getDamage(), 
-				DamageType.RANGE);
-		if (interaction.getRangeData().getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(
-					interaction.getSource(), interaction.getRangeData().getDamage().getVenged());
-		}
-		if (interaction.getRangeData().getDamage().getDeflected() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getRangeData().getDamage().getDeflected(), 
-					//interaction.getRangeData().getDamage().getDeflected(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getRangeData().getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getRangeData().getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getRangeData().getDamage().getRecoiled(), 
-					//interaction.getRangeData().getDamage().getRecoiled(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getRangeData().getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
-		if (interaction.getTargets() != null && interaction.getTargets().size() > 0) {
-			final ExtraTarget first = interaction.getTargets().get(0);
-			if (first != null && interaction.getSource().getPlayer().getSpecialAmount() >= getSpecialEnergyAmount()) {
-				//int speed = (int) (46 + (interaction.getVictim().getLocation().distance(first.getVictim().getLocation()) * 5));
-				ProjectileManager.sendProjectile(Projectile.create(interaction.getVictim(), first.getVictim(), PROJECTILE_ID, 40, 36, 32, 46, 5, 0));
-				World.getWorld().submit(new Tick(1) {
-					private ExtraTarget last = first;
-					private int index = 1;
-					@Override
-					public void execute() {
-						last.getVictim().getDamageManager().damage(
-								interaction.getSource(), last.getDamage(), 
-								DamageType.RANGE);
-						if (last.getDamage().getVenged() > 0) {
-							last.getVictim().submitVengeance(
-									interaction.getSource(), last.getDamage().getVenged());
-						}
-						if (last.getDamage().getDeflected() > 0) {
-							//interaction.getSource().getDamageManager().damage(last.getVictim(),
-									//last.getDamage().getDeflected(), 
-									//last.getDamage().getDeflected(), DamageType.DEFLECT);
-							interaction.getSource().getDamageManager().miscDamage(last.getDamage().getDeflected(), DamageType.DEFLECT);
-						}
-						if (last.getDamage().getRecoiled() > 0) {
-							//interaction.getSource().getDamageManager().damage(last.getVictim(),
-									//last.getDamage().getRecoiled(), 
-									//last.getDamage().getRecoiled(), DamageType.DEFLECT);
-							interaction.getSource().getDamageManager().miscDamage(last.getDamage().getRecoiled(), DamageType.DEFLECT);
-						}
-						//TODO: enable last.getVictim().retaliate(interaction.getSource());
-						interaction.getSource().getPlayer().setSpecialAmount(interaction.getSource().getPlayer().getSpecialAmount() - getSpecialEnergyAmount());
-						if (index == interaction.getTargets().size() || interaction.getSource().getPlayer().getSpecialAmount() < getSpecialEnergyAmount()) {
-							stop();
-							return;
-						}
-						ExtraTarget e = interaction.getTargets().get(index++);
-						if (e == null) {
-							stop();
-							return;
-						}
-						//int speed = (int) (46 + (last.getVictim().getLocation().distance(e.getVictim().getLocation()) * 5));
-						ProjectileManager.sendProjectile(Projectile.create(last.getVictim(), e.getVictim(), PROJECTILE_ID, 40, 36, 32, 46, 5, 0));
-						last = e;
-					}			
-				});
-			}
-		}
-		interaction.getVictim().retaliate(interaction.getSource());
-		return true;
-	}
+    public boolean endSpecialAttack(final Interaction interaction) {
+        Damage primary=interaction.getRangeData().getDamage();
+        if(primary==null || primary.isResolved())return true;
+        org.dementhium.model.combat.SpecialHits.apply(interaction,primary,DamageType.RANGE,0);
+        if(!primary.isResolved() || interaction.getTargets()==null || interaction.getTargets().isEmpty())return true;
+        final List<ExtraTarget> targets=new java.util.ArrayList<ExtraTarget>(interaction.getTargets());
+        org.dementhium.model.combat.SpecialEffects.submit(interaction.getSource(),new Tick(1) {
+            int index;
+            org.dementhium.model.Mob previous=interaction.getVictim();
+            public void execute() {
+                if(index>=targets.size()){stop();return;}
+                ExtraTarget next=targets.get(index++);
+                Interaction bounce=new Interaction(interaction.getSource(),next.getVictim());
+                if(!org.dementhium.model.combat.SpecialEffects.current(bounce,next.getDamage(),true)
+                        || !interaction.getSource().isMulti() || !next.getVictim().isMulti()
+                        || !next.getVictim().isAttackable(interaction.getSource())
+                        || interaction.getSource().getPlayer().getSpecialAmount()<getSpecialEnergyAmount()){stop();return;}
+                interaction.getSource().getPlayer().deductSpecial(getSpecialEnergyAmount());
+                ProjectileManager.sendProjectile(Projectile.create(previous,next.getVictim(),PROJECTILE_ID,40,36,32,46,5,0));
+                org.dementhium.model.combat.SpecialHits.apply(bounce,next.getDamage(),DamageType.RANGE,0);
+                previous=next.getVictim();
+                if(index>=targets.size())stop();
+            }
+        });
+        return true;
+    }
 
 	@Override
 	public CombatType getCombatType() {

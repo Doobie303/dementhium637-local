@@ -29,10 +29,10 @@ public class BloodBurst extends MagicSpell {
 			interaction.setTargets(new ArrayList<ExtraTarget>());
 			interaction.getTargets().add(new ExtraTarget(interaction.getVictim()));
 		} else {
-			interaction.setTargets(CombatUtils.getTargetList(interaction.getSource(), interaction.getVictim(), 1, 8));
+			interaction.setTargets(CombatUtils.getTargetList(interaction.getSource(), interaction.getVictim(), 1, 9));
 		}
 		interaction.getSource().animate(1979);
-		int toHeal = 0;
+
 		int maximum = (int) MagicFormulae.getMaximumDamage(interaction.getSource().getPlayer(), interaction.getVictim(), this);
 		for (ExtraTarget m : interaction.getTargets()) {
 			if (m.getVictim().isPlayer()) {
@@ -41,19 +41,9 @@ public class BloodBurst extends MagicSpell {
 			m.setDamage(Damage.getDamage(interaction.getSource(), m.getVictim(), CombatType.MAGIC, 
 				MagicFormulae.getDamage(interaction.getSource().getPlayer(), m.getVictim(), this)));
 			m.getDamage().setMaximum(maximum);
-			if (m.getDamage().getHit() > 0) {
-				if (m.getVictim().isPlayer()) {
-					ActionSender.sendMessage(m.getVictim().getPlayer(), "Your lifepoints have been drained.");
-				}
-				toHeal += m.getDamage().getHit();
-			}
 			Interaction inter = new Interaction(interaction.getSource(), m.getVictim());
 			inter.setDamage(m.getDamage());
 			interaction.getSource().preCombatTick(inter);
-		}
-		if (toHeal > 0) {
-			interaction.getSource().heal((int) (toHeal * 0.25));
-			ActionSender.sendMessage(interaction.getSource().getPlayer(), "You drain some of your opponents' lifepoints.");
 		}
 		return true;
 	}
@@ -73,34 +63,28 @@ public class BloodBurst extends MagicSpell {
 
 	@Override
 	public boolean endSpell(Interaction interaction) {
+        int toHeal = 0;
 		for (ExtraTarget m : interaction.getTargets()) {
 			if (m.getDamage().getHit() > -1) {
 				m.getVictim().graphics(376, 0);
 				m.getVictim().getDamageManager().damage(
 						interaction.getSource(), m.getDamage(), DamageType.MAGE);
+                toHeal += m.getDamage().getHit();
 			} else {
 				m.getVictim().graphics(85, 96);
 			}
-			if (m.getDamage().getVenged() > 0) {
-				m.getVictim().submitVengeance(interaction.getSource(), m.getDamage().getVenged());
-			}
-			if (m.getDamage().getDeflected() > 0) {
-				//interaction.getSource().getDamageManager().damage(m.getVictim(), 
-						//m.getDamage().getDeflected(), 
-						//m.getDamage().getDeflected(), DamageType.DEFLECT);
-				interaction.getSource().getDamageManager().miscDamage(m.getDamage().getDeflected(), DamageType.DEFLECT);
-			}
-			if (m.getDamage().getRecoiled() > 0) {
-				//interaction.getSource().getDamageManager().damage(m.getVictim(), 
-						//m.getDamage().getRecoiled(), 
-						//m.getDamage().getRecoiled(), DamageType.DEFLECT);
-				interaction.getSource().getDamageManager().miscDamage(m.getDamage().getRecoiled(), DamageType.DEFLECT);
-			}
+
+
+
 			m.getVictim().retaliate(interaction.getSource());
+		}
+		if (toHeal > 0) {
+			interaction.getSource().heal((int) (toHeal * 0.25));
+			ActionSender.sendMessage(interaction.getSource().getPlayer(), "You drain some of your opponents' lifepoints.");
 		}
 		return true;
 	}
-	
+
 	@Override
 	public double getExperience(Interaction interaction) {
 		double total = 0;
@@ -128,7 +112,7 @@ public class BloodBurst extends MagicSpell {
 	public int getBaseDamage() {
 		return 30;
 	}
-	
+
 	@Override
 	public int getAutocastConfig() {
 		return 75;
@@ -138,7 +122,7 @@ public class BloodBurst extends MagicSpell {
 	public Item[] getRequiredRunes() {
 		return new Item[] { new Item(565, 2), new Item(562, 4), new Item(560, 2) };
 	}
-	
+
 	@Override
 	public int getRequiredLevel() {
 		return 68;

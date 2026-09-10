@@ -42,6 +42,10 @@ public class SnapShot extends SpecialAttack {
 		RangeData data = new RangeData(true);
 		data.setWeapon(RangeWeapon.get(interaction.getSource().getPlayer().getEquipment().getSlot(3)));
 		data.setAmmo(Ammunition.get(interaction.getSource().getPlayer().getEquipment().getSlot(13)));
+        if (data.getWeapon() == null || data.getAmmo() == null) return false;
+        int ammoSlot = data.getWeapon().getAmmunitionSlot();
+        if (ammoSlot >= 0 && (interaction.getSource().getPlayer().getEquipment().get(ammoSlot) == null
+                || interaction.getSource().getPlayer().getEquipment().get(ammoSlot).getAmount() < 2)) return false;
 		if (data.getAmmo() == null || !data.getWeapon().getAmmunition().contains(data.getAmmo().getItemId())
 				|| interaction.getSource().getPlayer().getEquipment().get(13).getAmount() < 2) {
 			interaction.getSource().getPlayer().sendMessage("You do not have enough ammo left.");
@@ -56,9 +60,9 @@ public class SnapShot extends SpecialAttack {
 		data.getDamage().setMaximum(maximum);
 		Damage secondHit = Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.RANGE,RangeFormulae.getDamage(interaction.getSource(), interaction.getVictim(), 0.95, 1.0, 1.02));
 		secondHit.setMaximum(maximum);
-		CombatUtils.appendExperience(interaction.getSource().getPlayer(), 
-				secondHit.getHit(), DamageType.RANGE);
-		interaction.getSource().setAttribute("secondHit", secondHit);
+		org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), 
+				secondHit, DamageType.RANGE);
+		interaction.setSecondaryDamage(secondHit);
 		int speed = (int) (27 + (interaction.getSource().getLocation().distance(interaction.getVictim().getLocation()) * 5));
 		int speed2 = (int) (32 + (interaction.getSource().getLocation().distance(interaction.getVictim().getLocation()) * 10));
 		ProjectileManager.sendProjectile(Projectile.create(interaction.getSource(), interaction.getVictim(), PROJECTILE_ID, 40, 36, 20, speed, 15, 11));
@@ -66,25 +70,12 @@ public class SnapShot extends SpecialAttack {
 		interaction.setTicks((int) Math.floor(interaction.getSource().getLocation().distance(interaction.getVictim().getLocation()) * 0.3));
 		interaction.getSource().animate(ANIMATION);
 		interaction.getSource().graphics(GRAPHICS);
-		CombatUtils.dropArrows(interaction.getSource().getPlayer(), interaction.getVictim(), interaction.getRangeData());
-		interaction.setRangeData(data);
-		if (interaction.getSource().isPlayer()) {
-			if ((interaction.getRangeData().getDamage() != null
-					&& interaction.getRangeData().getDamage().getHit() > 0)
-					|| (interaction.getRangeData().getDamage2() != null
-							&& interaction.getRangeData().getDamage2().getHit() > 0)) {
-				if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-						&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()
-						&& interaction.getRangeData().getWeapon().getItemId() == interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getId())
-					interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-							interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-				else if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS) != null
-						&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-						&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS).getDefinition().doesPoison())
-					interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-							interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_ARROWS).getDefinition().getPoisonAmount());
-			}
-		}
+		
+		data.setDropAmmo(data.getAmmo().getItemId() != 4740 && data.getAmmo().getItemId() != 15243);
+        data.setAmmunitionCount(2);
+        interaction.setRangeData(data);
+        CombatUtils.dropArrows(interaction.getSource().getPlayer(), interaction.getVictim(), data);
+		
 		return true;
 	}
 
@@ -103,48 +94,10 @@ public class SnapShot extends SpecialAttack {
 
 	@Override
 	public boolean endSpecialAttack(final Interaction interaction) {
-		interaction.getVictim().getDamageManager().damage(
-				interaction.getSource(), interaction.getRangeData().getDamage(), 
-				DamageType.RANGE);
-		if (interaction.getRangeData().getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(
-					interaction.getSource(), interaction.getRangeData().getDamage().getVenged());
-		}
-		if (interaction.getRangeData().getDamage().getDeflected() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getRangeData().getDamage().getDeflected(), 
-					//interaction.getRangeData().getDamage().getDeflected(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getRangeData().getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getRangeData().getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getRangeData().getDamage().getRecoiled(), 
-					//interaction.getRangeData().getDamage().getRecoiled(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getRangeData().getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
-		interaction.getVictim().retaliate(interaction.getSource());
-		Damage d = interaction.getSource().getAttribute("secondHit");
-		if (d == null) {
-			return true;
-		}
-		int delay = 1;
-		interaction.getVictim().getDamageManager().damage(
-				interaction.getSource(), d, 
-				DamageType.RANGE, delay);
-		if (d.getVenged() > 0) {
-			interaction.getVictim().submitVengeance(
-					interaction.getSource(), d.getVenged());
-		}
-		if (d.getDeflected() > 0) {
-			interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					d.getDeflected(), d.getDeflected(), DamageType.DEFLECT, delay);
-		}
-		if (d.getRecoiled() > 0) {
-			interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					d.getRecoiled(), d.getRecoiled(), DamageType.DEFLECT, delay);
-		}
-		return true;
-	}
+org.dementhium.model.combat.SpecialHits.apply(interaction, interaction.getRangeData().getDamage(), DamageType.RANGE, 0);
+        org.dementhium.model.combat.SpecialHits.apply(interaction, interaction.getSecondaryDamage(), DamageType.RANGE, 1);
+        return true;
+    }
 
 	@Override
 	public CombatType getCombatType() {

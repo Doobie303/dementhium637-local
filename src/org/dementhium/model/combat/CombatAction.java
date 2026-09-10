@@ -8,6 +8,7 @@ import org.dementhium.util.misc.CycleState;
  *
  */
 public abstract class CombatAction {
+    public CombatAction newSession(){return this;}
 	
 	/**
 	 * The current interaction.
@@ -33,6 +34,7 @@ public abstract class CombatAction {
 	 * @param stop If the interaction should be reset.
 	 */
 	public void execute() {
+		if(!interaction.isNPCContextCurrent()){stop();return;}
 		switch (interaction.getState()) {
 		case COMMENCE:
 			if (commenceSession()) {

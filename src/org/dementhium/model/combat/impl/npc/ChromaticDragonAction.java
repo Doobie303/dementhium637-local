@@ -14,10 +14,12 @@ import org.dementhium.model.misc.DamageManager.DamageType;
  *
  */
 public class ChromaticDragonAction extends CombatAction {
+    @Override public CombatAction newSession(){return new ChromaticDragonAction();}
 
     /**
      * The bite melee attack animation.
      */
+    private DamageType damageType;
     private static final Animation BITE_ANIMATION = Animation.create(12252);
 
     /**
@@ -29,7 +31,7 @@ public class ChromaticDragonAction extends CombatAction {
      * The dragonfire attack graphics.
      */
     private static final Graphic DRAGONFIRE_GFX = Graphic.create(2465);
-    
+
     /**
      * Constructs a new {@code ChromaticDragonAction} {@code Object}.
      */
@@ -41,7 +43,7 @@ public class ChromaticDragonAction extends CombatAction {
 	public boolean commenceSession() {
 		interaction.getSource().getCombatExecutor().setTicks(interaction.getSource().getAttackDelay());
 		if (interaction.getSource().getRandom().nextInt(10) < 3) {
-			interaction.getSource().setAttribute("damageType", DamageType.RED_DAMAGE);
+			damageType = DamageType.RED_DAMAGE;
 			interaction.getSource().animate(DRAGONFIRE_ANIMATION);
 			interaction.getSource().graphics(DRAGONFIRE_GFX);
 			interaction.setDamage(Damage.getDamage(interaction.getSource(), 
@@ -50,7 +52,7 @@ public class ChromaticDragonAction extends CombatAction {
 			interaction.getDamage().setMaximum(594);
 			return true;
 		}
-		interaction.getSource().setAttribute("damageType", DamageType.MELEE);
+		damageType = DamageType.MELEE;
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
 		}
@@ -78,21 +80,10 @@ public class ChromaticDragonAction extends CombatAction {
 	public boolean endSession() {
 		interaction.getVictim().getDamageManager().damage(
 				interaction.getSource(), interaction.getDamage(), 
-				(DamageType) interaction.getSource().getAttribute("damageType"));
-		if (interaction.getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(
-					interaction.getSource(), interaction.getDamage().getVenged());
-		}
-		if (interaction.getDamage().getDeflected() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getDamage().getDeflected(), interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(),
-					//interaction.getDamage().getRecoiled(), interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-		}
+				damageType);
+
+
+
 		interaction.getVictim().retaliate(interaction.getSource());
 		return true;
 	}

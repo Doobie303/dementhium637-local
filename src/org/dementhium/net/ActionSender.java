@@ -275,7 +275,7 @@ public class ActionSender { // 2370 -( 2380, 9360+, 9570+
 	public static void closeInventoryInterface(Player p) {
 		if (p == null || p.getConnection() == null)
 			return;
-		boolean fullscreen = p.getConnection().getDisplayMode() == 2;
+		boolean fullscreen = p.getConnection().getDisplayMode() >= 2;
 		sendCloseInterface(p, fullscreen ? 746 : 548, fullscreen ? 84 : 197);
 	}
 
@@ -941,6 +941,15 @@ public class ActionSender { // 2370 -( 2380, 9360+, 9570+
 		player.write(bldr.toMessage());
 	}
 
+	/** Update one client varbit without overwriting other bits in its varp. */
+	public static void sendVarbit(Player player, int id, int value) {
+		if (value >= 0 && value <= 255) {
+			player.write(new MessageBuilder(38).writeByteC(value).writeShortA(id).toMessage());
+		} else {
+			player.write(new MessageBuilder(112).writeLEShortA(id).writeInt(value).toMessage());
+		}
+	}
+
 	public static void sendConfig(Player player, int id, int value) {
 		MessageBuilder bldr;
 		if (value < 0 || value >= 128) {
@@ -982,7 +991,15 @@ public class ActionSender { // 2370 -( 2380, 9360+, 9570+
 		// player.write(bldr.toMessage());
 	}
 
-	public static void sendSprite(Player player, int interId, int childId,
+	/** Raw model packet, verified against the 639 client's opcode 4 decoder. */
+    public static void sendModelOnInterface(Player player, int interfaceId, int childId, int modelId) {
+        MessageBuilder packet = new MessageBuilder(4);
+        packet.writeLEShort(modelId);
+        packet.writeInt(interfaceId << 16 | childId);
+        player.write(packet.toMessage());
+    }
+
+    public static void sendSprite(Player player, int interId, int childId,
 			int spriteId) {
 		MessageBuilder bldr = new MessageBuilder(4);
 		bldr.writeLEShort(spriteId);
@@ -1102,6 +1119,7 @@ public class ActionSender { // 2370 -( 2380, 9360+, 9570+
 	}
 
 	public static void sendCloseInterface(Player player) {
+        player.removeAttribute("barrowsPuzzleOpen");
 		int winId = player.getConnection().getDisplayMode() < 2 ? 548 : 746;
 		int slotId = player.getConnection().getDisplayMode() < 2 ? 18 : 9;
 		sendCloseInterface(player, winId, slotId);
@@ -1121,6 +1139,7 @@ public class ActionSender { // 2370 -( 2380, 9360+, 9570+
 			ActionSender.sendInterface(player, 0, 548, 197, childId);
 			break;
 		case 2:
+		case 3:
 			ActionSender.sendInterface(player, 0, 746, 84, childId);
 			break;
 		}
@@ -1169,90 +1188,26 @@ public class ActionSender { // 2370 -( 2380, 9360+, 9570+
 	}
 
 	public static void sendDynamicRegion(final Player player) {
-		MessageBuilder bldr = new MessageBuilder(31, PacketType.VAR_SHORT);
-		int regionX = player.getLocation().getRegionX();
-		int regionY = player.getLocation().getRegionY();
-		bldr.writeByteA(1); // loading type
-		bldr.writeByteA(player.getViewportDepth()); // map size
-		bldr.writeShortA(regionY);
-		bldr.writeLEShort(regionX);
-		bldr.writeByteA(1); // force reload
-		int mapHash = Location.VIEWPORT_SIZES[player.getViewportDepth()] >> 4;
-		int[] realRegionIds = new int[4 * mapHash * mapHash];
-		int realRegionIdsCount = 0;
-		bldr.startBitAccess();
-		for (int plane = 0; plane < 4; plane++) {
-			for (int thisRegionX = (regionX - mapHash); thisRegionX <= ((regionX + mapHash)); thisRegionX++) { // real
-																												// x
-																												// calcs
-				for (int thisRegionY = (regionY - mapHash); thisRegionY <= ((regionY + mapHash)); thisRegionY++) { // real
-																													// y
-																													// calcs
-					int regionId = (((thisRegionX / 8) << 8) + (thisRegionY / 8));
-					DynamicRegion dynamicRegion = RegionBuilder
-							.getDynamicRegion(regionId);
-					int realRegionX;
-					int realRegionY;
-					int realPlane;
-					int rotation;
-					if (dynamicRegion != null) { // generated map
-						int[] regionCoords = dynamicRegion.getRegionCoords()[plane][thisRegionX
-								- ((thisRegionX / 8) * 8)][thisRegionY
-								- ((thisRegionY / 8) * 8)];
-						realRegionX = regionCoords[0];
-						realRegionY = regionCoords[1];
-						realPlane = regionCoords[2];
-						rotation = regionCoords[3];
-					} else { // real map
-						// base region + difference * 8 so gets real region
-						// coords
-						realRegionX = thisRegionX;
-						realRegionY = thisRegionY;
-						realPlane = plane;
-						rotation = 0;// no rotation
-					}
-					// invalid region, not built region
-					if (realRegionX == 0 || realRegionY == 0)
-						bldr.writeBits(1, 0);
-					else {
-						bldr.writeBits(1, 1);
-						bldr.writeBits(26, (rotation << 1) | (realPlane << 24)
-								| (realRegionX << 14) | (realRegionY << 3));
-						int realRegionId = (((realRegionX / 8) << 8) + (realRegionY / 8));
-						boolean found = false;
-						for (int index = 0; index < realRegionIdsCount; index++)
-							if (realRegionIds[index] == realRegionId) {
-								found = true;
-								break;
-							}
-						if (!found)
-							realRegionIds[realRegionIdsCount++] = realRegionId;
-					}
+        org.dementhium.net.message.Message packet;
+        try {
+            packet = org.dementhium.model.map.region.DynamicMapPacket.build(player.getLocation(), player.getViewportDepth());
+        } catch (IllegalStateException failure) {
+            player.sendMessage("This map could not be loaded. Please try again later.");
+            System.err.println(failure.getMessage());
+            return;
+        }
+        player.getRegion().setSceneRevision(RegionBuilder.sceneRevision(player.getLocation(), player.getViewportDepth()));
+        player.getRegion().setLastMapRegion(player.getLocation());
+        player.getRegion().setDidMapRegionChange(false);
+        
+        player.getGni().onMapRebuild(true);
+        player.write(packet);
+        player.getActionManager().stopNonWalkableActions();
+        ObjectManager.refresh(player);
+        GroundItemManager.refresh(player);
+    }
 
-				}
-			}
-		}
-		bldr.finishBitAccess();
-		for (int index = 0; index < realRegionIdsCount; index++) {
-			int regionId = realRegionIds[index];
-			int[] xteas = MapXTEA.getKey(regionId);
-			if (xteas == null)
-				xteas = new int[4];
-			for (int keyIndex = 0; keyIndex < 4; keyIndex++)
-				bldr.writeInt(xteas[keyIndex]);
-			if (!LandscapeParser.parseLandscape(regionId, xteas)) {
-				player.teleport(Mob.DEFAULT, false);
-			}
-		}
-		player.getRegion().setLastMapRegion(player.getLocation());
-		player.getRegion().setDidMapRegionChange(false);
-		player.write(bldr.toMessage());
-		player.getActionManager().stopNonWalkableActions();
-		//ObjectManager.refresh(player);
-		//GroundItemManager.refresh(player);
-	}
-
-	public static void updateMapRegion(final Player player, boolean loggedin) {
+    public static void updateMapRegion(final Player player, boolean loggedin) {
 		MessageBuilder bldr = new MessageBuilder(80, PacketType.VAR_SHORT);
 		if (!loggedin) {
 			player.getGpi().loginData(bldr);
@@ -1274,8 +1229,10 @@ public class ActionSender { // 2370 -( 2380, 9360+, 9570+
 				player.teleport(Mob.DEFAULT, false);
 			}
 		}
-		player.getRegion().setLastMapRegion(player.getLocation());
+		player.getRegion().setSceneRevision(RegionBuilder.sceneRevision(player.getLocation(), player.getViewportDepth()));
+        player.getRegion().setLastMapRegion(player.getLocation());
 		player.getRegion().setDidMapRegionChange(false);
+        player.getGni().onMapRebuild(false);
 		player.write(bldr.toMessage());
 		player.getActionManager().stopNonWalkableActions();
 		ObjectManager.refresh(player);

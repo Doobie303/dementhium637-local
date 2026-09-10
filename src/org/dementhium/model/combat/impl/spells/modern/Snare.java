@@ -24,17 +24,14 @@ public class Snare extends MagicSpell {
 		interaction.getSource().animate(710);
 		interaction.getSource().graphics(177, 96 << 16);
 		interaction.setEndGraphic(Graphic.create(180, 96 << 16));
-		if (interaction.getDamage().getHit() > -1 && interaction.getVictim().getAttribute("freezeImmunity", -1) < World.getTicks()) {
-			interaction.getVictim().setAttribute("freezeTime", World.getTicks() + 16);
-			interaction.getVictim().setAttribute("freezeImmunity", World.getTicks() + 21);
-		}
+        org.dementhium.model.combat.CombatStatus.freezeOnImpact(interaction.getDamage(), interaction.getVictim(), 16);
 		return true;
 	}
 
 	@Override
 	public boolean endSpell(Interaction interaction) {
 		if (interaction.getVictim() instanceof Impling) {
-			interaction.getVictim().graphics(interaction.getEndGraphic());
+			org.dementhium.model.combat.CombatStatus.resolveImplingBinding(interaction);
 			return true;
 		}
 		return super.endSpell(interaction);

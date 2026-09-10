@@ -68,6 +68,7 @@ public class NpcOption extends PacketHandler {
 	private void option3(final Player player, Message packet) {
 		int index = packet.readShort();
 		final NPC npc = World.getWorld().getNpcs().get(index);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) return;
 		if (npc == null) {
 			return;
 		}
@@ -85,6 +86,7 @@ public class NpcOption extends PacketHandler {
 		World.getWorld().submitAreaEvent(player, new CoordinateEvent(player, locationToWalk.getX(), locationToWalk.getX(), npc.getDefinition().getCacheDefinition().size, npc.getDefinition().getCacheDefinition().size) {
 			@Override
 			public void execute() {
+                if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) return;
 				int id = npc.getId();
 				if (id > 6564 && id < 6604 || id > 13295 && id < 13299) {
 					for (GraveStone grave : GraveStoneManager.getGravestones().values()) {
@@ -135,6 +137,7 @@ public class NpcOption extends PacketHandler {
 					World.getWorld().submit(new Tick(2) {
 						@Override
 						public void execute() {
+                    if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) { stop(); return; }
 							player.teleportWithAnimAndGfx(Location.locate(3066, 4822, 0), true, false);
 							player.getSkullManager().appendSkullWithoutCombat();
 							stop();
@@ -151,6 +154,7 @@ public class NpcOption extends PacketHandler {
 
 						@Override
 						public void execute() {
+                    if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) { stop(); return; }
 							player.teleportWithAnimAndGfx(Location.locate(2901, 4822, 0), true, false); 
 							stop();
 						}
@@ -164,6 +168,7 @@ public class NpcOption extends PacketHandler {
 	private void option4(final Player player, Message packet) {
 		int index = packet.readShort();
 		final NPC npc = World.getWorld().getNpcs().get(index);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) return;
 		if (npc == null) {
 			return;
 		}
@@ -181,6 +186,7 @@ public class NpcOption extends PacketHandler {
 		World.getWorld().submitAreaEvent(player, new CoordinateEvent(player, locationToWalk.getX(), locationToWalk.getX(), npc.getDefinition().getCacheDefinition().size, npc.getDefinition().getCacheDefinition().size) {
 			@Override
 			public void execute() {
+                if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) return;
 				int id = npc.getId();
 				if (npc.isFamiliar() && (id == 6822 || id == 6823)) {
 					if (player != npc.getFamiliar().getOwner()) {
@@ -245,6 +251,7 @@ public class NpcOption extends PacketHandler {
 		int index = packet.readShort();
 		packet.readByteA();
 		final NPC npc = World.getWorld().getNpcs().get(index);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) return;
 		if (npc == null) {
 			return;
 		}
@@ -262,6 +269,7 @@ public class NpcOption extends PacketHandler {
 		World.getWorld().submitAreaEvent(player, new CoordinateEvent(player, locationToWalk.getX(), locationToWalk.getX(), npc.getDefinition().getCacheDefinition().size, npc.getDefinition().getCacheDefinition().size) {
 			@Override
 			public void execute() {
+                if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) return;
 				Fishing fishing = Fishing.isAction(player, npc, 2);
 				if (fishing != null) {
 					fishing.execute();
@@ -339,30 +347,14 @@ public class NpcOption extends PacketHandler {
 					if (player.getEquipment().get(2) == null || player.getEquipment().get(2).getId() != 4250) {
 						DialogueManager.handle(player, npc);
 					} else {
-						if (player.getAttribute("fromBank") != null) {
-							ActionSender.sendInterfaceConfig(player, 667, 49, true);
-							ActionSender.sendInterfaceConfig(player, 667, 50, true);
-							player.getBonuses().refreshEquipScreen();
-							ActionSender.sendInterface(player, 667);
-						} else {
-							player.getBank().openBank();
-							player.removeAttribute("fromBank");
-						}
+						player.getBank().openBank();
 					}
 					break;
 				case 7605: //quick banker at home
 					if (!player.getCanUseQuickBankerAtHome()) {
 						DialogueManager.handle(player, npc);
 					} else {
-						if (player.getAttribute("fromBank") != null) {
-							ActionSender.sendInterfaceConfig(player, 667, 49, true);
-							ActionSender.sendInterfaceConfig(player, 667, 50, true);
-							player.getBonuses().refreshEquipScreen();
-							ActionSender.sendInterface(player, 667);
-						} else {
-							player.getBank().openBank();
-							player.removeAttribute("fromBank");
-						}
+						player.getBank().openBank();
 					}
 					break;
 				case 498: //Bankers
@@ -372,15 +364,7 @@ public class NpcOption extends PacketHandler {
 				case 3046:
 				case 6200:
 				case 13455: //nex banker
-					if (player.getAttribute("fromBank") != null) {
-						ActionSender.sendInterfaceConfig(player, 667, 49, true);
-						ActionSender.sendInterfaceConfig(player, 667, 50, true);
-						player.getBonuses().refreshEquipScreen();
-						ActionSender.sendInterface(player, 667);
-					} else {
-						player.getBank().openBank();
-						player.removeAttribute("fromBank");
-					}
+					player.getBank().openBank();
 					break;
 				default:
 					System.out.println("Unhandled npc option 2: " + npc.getId());
@@ -430,6 +414,7 @@ public class NpcOption extends PacketHandler {
 		in.readByteS();
 		int index = in.readLEShort();
 		final NPC npc = World.getWorld().getNpcs().get(index);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) return;
 		if (npc == null) {
 			return;
 		}
@@ -448,6 +433,7 @@ public class NpcOption extends PacketHandler {
 		World.getWorld().submitAreaEvent(player, new CoordinateEvent(player, locationToWalk.getX(), locationToWalk.getX(), npc.getDefinition().getCacheDefinition().size, npc.getDefinition().getCacheDefinition().size) {
 			@Override
 			public void execute() {
+                if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) return;
 				Impling impling = Impling.forId(npc.getId());
 				if (impling != null) {
 					ImpetuousImpulses.getSingleton().catchImpling(player, npc, impling);
@@ -565,6 +551,7 @@ public class NpcOption extends PacketHandler {
 		int index = in.readShort();
 		in.readByte();
 		NPC npc = World.getWorld().getNpcs().get(index);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) return;
 		if (npc == null) {
 			return;
 		}
@@ -589,7 +576,12 @@ public class NpcOption extends PacketHandler {
 				return;
 			}
 		}*/
-		if (npc.getAttribute("enemyIndex", (short) -1) > -1 && npc.getAttribute("enemyIndex", (short) -1) != player.getIndex()) {
+		int lockedEnemy = -1;
+		Object enemyAttr = npc.getAttribute("enemyIndex");
+		if (enemyAttr instanceof Number) {
+			lockedEnemy = ((Number) enemyAttr).intValue();
+		}
+		if (lockedEnemy > -1 && lockedEnemy != player.getIndex()) {
 			player.sendMessage("This is not your enemy!");
 			return;
 		}
@@ -604,6 +596,7 @@ public class NpcOption extends PacketHandler {
 			World.getWorld().submit(new Tick(3) {
 				@Override
 				public void execute() {
+                    if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) { stop(); return; }
 					stop();
 					p.setCanAnimate(true);
 					p.animate(1500);
@@ -613,6 +606,7 @@ public class NpcOption extends PacketHandler {
 			World.getWorld().submit(new Tick(5) {
 				@Override
 				public void execute() {
+                    if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) { stop(); return; }
 					stop();
 					p.setCanAnimate(true);
 					p.animate(1501);
@@ -622,6 +616,7 @@ public class NpcOption extends PacketHandler {
 			World.getWorld().submit(new Tick(8) {
 				@Override
 				public void execute() {
+                    if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) { stop(); return; }
 					stop();
 					p.setCanAnimate(true);
 					p.animate(1502);
@@ -631,6 +626,7 @@ public class NpcOption extends PacketHandler {
 			World.getWorld().submit(new Tick(9) {
 				@Override
 				public void execute() {
+                    if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) { stop(); return; }
 					stop();
 					p.setCanAnimate(true);
 					p.getMask().setAppearanceUpdate(true);

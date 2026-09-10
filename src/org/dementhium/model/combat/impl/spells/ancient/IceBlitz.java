@@ -1,6 +1,7 @@
 package org.dementhium.model.combat.impl.spells.ancient;
 
 import org.dementhium.model.Item;
+import org.dementhium.model.combat.CombatStatus;
 import org.dementhium.model.Mob;
 import org.dementhium.model.World;
 import org.dementhium.model.combat.Interaction;
@@ -22,22 +23,16 @@ public class IceBlitz extends MagicSpell {
 		MagicFormulae.setDamage(interaction);
 		interaction.getSource().animate(1978);
 		interaction.getSource().graphics(366, 124 << 16);
-		if (interaction.getDamage().getHit() > -1 && interaction.getVictim().getAttribute("freezeImmunity", -1) < World.getTicks()) {
-			int delay = 25;
-			interaction.getVictim().getCombatExecutor().reset();
-			if (interaction.getVictim().isPlayer()) {
-				ActionSender.sendMessage(interaction.getVictim().getPlayer(), "You have been frozen.");
-				if (interaction.isDeflected() || interaction.getVictim().getPlayer().getPrayer().usingPrayer(0, 17)) {
-					delay *= 0.5;
-				}
-			}
-			interaction.getVictim().getWalkingQueue().reset();
-			interaction.getVictim().setAttribute("freezeTime", World.getTicks() + delay);
-			interaction.getVictim().setAttribute("freezeImmunity", World.getTicks() + delay + 4);
-		}
+		
 		interaction.setEndGraphic(Graphic.create(367));
 		return true;
 	}
+
+    @Override
+    public boolean endSpell(Interaction interaction) {
+        CombatStatus.freezeOnImpact(interaction.getDamage(), interaction.getVictim(), 25);
+        return super.endSpell(interaction);
+    }
 
 	@Override
 	public double getExperience(Interaction interaction) {

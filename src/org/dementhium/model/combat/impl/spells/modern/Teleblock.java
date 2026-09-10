@@ -27,13 +27,24 @@ public class Teleblock extends MagicSpell {
 		interaction.getSource().animate(10503);
 		interaction.getSource().graphics(1841, 0);
 		interaction.setEndGraphic(Graphic.create(1843, 96 << 30));
-		if (interaction.getDamage().getHit() > -1 && interaction.getVictim().getAttribute("teleblockImmunity", -1) < World.getTicks()) {
-			interaction.getVictim().setAttribute("teleblock", World.getTicks() + 550);
-			interaction.getVictim().setAttribute("teleblockImmunity", World.getTicks() + 450);
-		}
 		return true;
 	}
 
+    @Override
+    public boolean endSpell(Interaction interaction) {
+        Mob victim=interaction.getVictim();
+        int now=World.getTicks();
+        if (interaction.getDamage().getHit() >= 0 && !victim.isDead()
+                && !Boolean.TRUE.equals(victim.getAttribute("godmode"))
+                && victim.getAttribute("hitImmunity",-1) <= now
+                && victim.getAttribute("teleblock",0) <= now
+                && victim.getAttribute("teleblockImmunity",0) <= now) {
+            // Preserve the custom 550-tick duration; reapplication cannot extend an active block.
+            victim.setAttribute("teleblock",now+550);
+            victim.setAttribute("teleblockImmunity",now+550);
+        }
+        return super.endSpell(interaction);
+    }
 	@Override
 	public double getExperience(Interaction interaction) {
 		double xp = 42.5;

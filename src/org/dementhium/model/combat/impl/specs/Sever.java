@@ -39,21 +39,20 @@ public class Sever extends SpecialAttack {
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
 		}
-		if (interaction.getSource().isPlayer() && interaction.getDamage().getHit() > 0
-				&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-				 && interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()) {
-			interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-					interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-		}
+		
 		interaction.getSource().animate(ANIMATION);
 		interaction.getSource().graphics(GRAPHICS, 96 << 16);
-		if (interaction.getVictim().isPlayer() && interaction.getDamage().getHit() > 0) {
-			interaction.getVictim().getPlayer().getPrayer().closeOnPrayers(0, new int[] {16, 17, 18, 19});
-			interaction.getVictim().getPlayer().getPrayer().closeOnPrayers(1, new int[] {6, 7, 8, 9});
-			interaction.getVictim().getPlayer().getPrayer().recalculatePrayer();
-			interaction.getVictim().getPlayer().getMask().setAppearanceUpdate(true);
-			interaction.getVictim().getPlayer().setAttribute("restrict protection", 20);
-		}
+        if(interaction.getVictim().isPlayer()) {
+            final org.dementhium.model.player.Player victim=interaction.getVictim().getPlayer();
+            interaction.getDamage().onImpact(actual -> {
+                victim.getPrayer().closeOnPrayers(0,new int[]{16,17,18,19});
+                victim.getPrayer().closeOnPrayers(1,new int[]{6,7,8,9});
+                victim.getPrayer().recalculatePrayer();
+                victim.getMask().setAppearanceUpdate(true);
+                victim.setAttribute("protectionDisabledUntil",org.dementhium.model.World.getTicks()+8);
+            });
+        }
+
 		interaction.getVictim().animate(interaction.isDeflected() ? 12573 : interaction.getVictim().getDefenceAnimation());
 		if (interaction.isDeflected()) {
 			interaction.getVictim().graphics(2230);

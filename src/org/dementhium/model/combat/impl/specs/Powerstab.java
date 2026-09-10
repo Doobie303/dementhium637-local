@@ -28,12 +28,12 @@ public class Powerstab extends SpecialAttack {
 	 * The special attack animation used.
 	 */
 	private static final short ANIMATION = 3157;
-	
+
 	/**
 	 * The graphics id.
 	 */
 	private static final short GRAPHICS = 1225;
-	
+
 	@Override
 	public boolean commenceSpecialAttack(Interaction interaction) {
 		if (interaction.getSource().isMulti() && interaction.getVictim().isMulti()) {
@@ -51,12 +51,7 @@ public class Powerstab extends SpecialAttack {
 			e.setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, 
 					MeleeFormulae.getDamage(interaction.getSource(), interaction.getVictim())));
 			e.getDamage().setMaximum(maximum);
-			if (interaction.getSource().isPlayer() && e.getDamage().getHit() > 0
-					&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-					 && interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()) {
-				e.getVictim().getPoisonManager().poison(interaction.getSource(), 
-						interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-			}
+
 			if (e.isDeflected()) {
 				e.getVictim().graphics(2230);
 			}
@@ -64,38 +59,27 @@ public class Powerstab extends SpecialAttack {
 			Interaction inter = new Interaction(interaction.getSource(), e.getVictim());
 			inter.setDamage(e.getDamage());
 			interaction.getSource().preCombatTick(inter);
-			CombatUtils.appendExperience(interaction.getSource().getPlayer(), 
-					e.getDamage().getHit(), DamageType.MELEE);
+			org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), 
+					e.getDamage(), DamageType.MELEE);
 		}
 		interaction.getSource().animate(ANIMATION);
 		interaction.getSource().graphics(GRAPHICS);
 		return true;
 	}
-	
+
 	@Override
 	public boolean tick(Interaction interaction) {
 		return true;
 	}
-	
+
 	@Override
 	public boolean endSpecialAttack(Interaction interaction) {
 		for (ExtraTarget e : interaction.getTargets()) {
 			e.getVictim().getDamageManager().damage(
 					interaction.getSource(), e.getDamage(), DamageType.MELEE);
-			if (e.getDamage().getVenged() > 0) {
-				e.getVictim().submitVengeance(
-						interaction.getSource(), e.getDamage().getVenged());
-			}
-			if (e.getDamage().getDeflected() > 0) {
-				//interaction.getSource().getDamageManager().damage(e.getVictim(),
-						//e.getDamage().getDeflected(), e.getDamage().getDeflected(), DamageType.DEFLECT);
-				interaction.getSource().getDamageManager().miscDamage(e.getDamage().getDeflected(), DamageType.DEFLECT);
-			}
-			if (e.getDamage().getRecoiled() > 0) {
-				//interaction.getSource().getDamageManager().damage(e.getVictim(),
-						//e.getDamage().getRecoiled(), e.getDamage().getRecoiled(), DamageType.DEFLECT);
-				interaction.getSource().getDamageManager().miscDamage(e.getDamage().getRecoiled(), DamageType.DEFLECT);
-			}
+
+
+
 			e.getVictim().retaliate(interaction.getSource());
 		}
 		return true;
@@ -105,7 +89,7 @@ public class Powerstab extends SpecialAttack {
 	public CombatType getCombatType() {
 		return CombatType.MELEE;
 	}
-	
+
 	@Override
 	public int getSpecialEnergyAmount() {
 		return 600;

@@ -1,6 +1,7 @@
 package org.dementhium;
 
 import org.dementhium.io.XMLHandler;
+import org.dementhium.content.clans.ClanManager;
 import org.dementhium.model.World;
 import org.dementhium.model.player.Player;
 import org.dementhium.util.Constants;
@@ -30,11 +31,25 @@ public class DementhiumShutdownHook extends Thread {
     /**
      * If the shutdown hook is/has running/runned.
      */
-    public boolean activated = false;
+    public volatile boolean activated = false;
 
     @Override
     public void run() {
-        activated = true;
+        // The same monitor protects World.run; no tick or session transition overlaps saving.
+        synchronized (World.getWorld()) {
+            org.dementhium.model.instance.InstanceManager instances = org.dementhium.model.instance.InstanceManager.getSingleton();
+            instances.beginCycle();
+            try {
+                activated = true;
+                if (!instances.shutdown()) {
+                    System.err.println("Some instances could not finish shutdown cleanup; saved positions still use ordinary-world exits.");
+                }
+                saveWorld();
+            } finally { instances.endCycle(); }
+        }
+    }
+
+    private void saveWorld() {
         System.out.println("Shutting down "+Constants.SERVER_NAME+"...");
         int failCount = 0;
         System.out.println("Preparing players for shutdown...");
@@ -66,7 +81,7 @@ public class DementhiumShutdownHook extends Thread {
         System.out.println("Saving clans...");
         try {
             XMLHandler.toXML(OffencesHandler.DIRECTORY + "clans.xml",
-                    World.getWorld().getClanManager().getClans());
+                    ClanManager.getClans());
             System.out.println("Clans succesfully saved.");
         } catch (Throwable e) {
             e.printStackTrace();
@@ -74,7 +89,7 @@ public class DementhiumShutdownHook extends Thread {
         System.out.println("Saving DisplayNames...");
         try {
             XMLHandler.toXML(DisplayNamesHandler.DIRECTORY + "DisplayNames.xml",
-                    World.getWorld().getDisplayNamesHandler().getDisplayNames());
+                    DisplayNamesHandler.getDisplayNames());
             System.out.println("DisplayNames succesfully saved.");
         } catch (Throwable e) {
             e.printStackTrace();

@@ -98,7 +98,7 @@ public class Familiar extends NPC {
 	}
 	
 	public boolean isAttackable(Mob attacker) {
-		if (attacker == null || attacker.isDead() || this == null || isDead())
+		if (attacker == null || attacker.isDead() || isDead())
 			return false;
 		if (attacker.isPlayer()) {
 			if (attacker.getPlayer().equals(owner)) {
@@ -174,7 +174,7 @@ public class Familiar extends NPC {
 	 * Whether the owner of the familiar can cast attack on victim.
 	 */
 	public boolean canCastAttack(Mob victim) {
-		if (victim == null || victim.isDead() || this == null || isDead())
+		if (victim == null || victim.isDead() || isDead())
 			return false;
 		if (isBeastOfBurden()) {
 			owner.sendMessage("Your familiar is a beast of burden and will only fight when being attacked."); 

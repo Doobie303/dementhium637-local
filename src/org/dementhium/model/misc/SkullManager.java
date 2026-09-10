@@ -152,46 +152,19 @@ public class SkullManager {
 	 * Removes a skull from this player.
 	 * Used for death and commands.
 	 */
-	public void removeSkull() {
-		int i = 0;
-		for(Player other : victims) {
-			List<Player> othersAttackerList = new CopyOnWriteArrayList<Player>(other.getSkullManager().getAttackers());
-			if (other != null) {
-				for (Player othersAttackers : othersAttackerList) {
-					if (othersAttackers != null) {
-						if (othersAttackers.getUsername().equals(player.getUsername())) {
-							othersAttackerList.remove(i);
-							other.getSkullManager().attackers = othersAttackerList;
-						}
-						i++;
-					}
-				}
-			}
-			i = 0;
-		}
-		i = 0;
-		for(Player other : attackers) {
-			List<Player> othersVictimList = new CopyOnWriteArrayList<Player>(other.getSkullManager().getVictims());
-			if (other != null) {
-				for (Player othersVictims : othersVictimList) {
-					if (othersVictims != null) {
-						if (othersVictims.getUsername().equals(player.getUsername())) {
-							othersVictimList.remove(i);
-							other.getSkullManager().victims = othersVictimList;
-						}
-						i++;
-					}
-				}
-			}
-			i = 0;
-		}
-		victims.clear();
-		attackers.clear();
-		player.setAttribute("skulled", false);
-		skullTicks = -1;
-		player.getMask().setAppearanceUpdate(true);
-	}
-	
+    public void removeSkull() {
+        for (Player other : new ArrayList<Player>(victims)) {
+            if (other != null) other.getSkullManager().attackers.removeIf(p -> p == null || p.getUsername().equals(player.getUsername()));
+        }
+        for (Player other : new ArrayList<Player>(attackers)) {
+            if (other != null) other.getSkullManager().victims.removeIf(p -> p == null || p.getUsername().equals(player.getUsername()));
+        }
+        victims.clear();
+        attackers.clear();
+        player.setAttribute("skulled",false);
+        skullTicks=-1;
+        player.getMask().setAppearanceUpdate(true);
+    }
 	/**
 	 * Gets the amount of ticks left.
 	 * The skullTicks will remain the same (if no new tick is set); it's the World.getTicks() 
@@ -199,9 +172,8 @@ public class SkullManager {
 	 * @return The amount of skullTicks.
 	 */
 	public int getTicks() {
-		if (skullTicks != -1 && (skullTicks < World.getTicks())) {
-			skullTicks = -1;
-			player.getMask().setAppearanceUpdate(true);
+		if (skullTicks != -1 && (skullTicks <= World.getTicks())) {
+            removeSkull();
 		}	
 		return skullTicks;
 	}
@@ -220,7 +192,7 @@ public class SkullManager {
 	 * @return {@code True} if so, {@code false} if not.
 	 */
 	public boolean isSkulled() {
-		return skullTicks > World.getTicks();
+		return getTicks() > World.getTicks();
 	}
 
 	/**

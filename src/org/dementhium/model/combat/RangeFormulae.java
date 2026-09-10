@@ -37,11 +37,10 @@ public class RangeFormulae {
      */
     public static int getDamage(Mob source, Mob victim, double accuracyMultiplier,
                                 double hitMultiplier, double defenceMultiplier) {
-        double accuracy = CombatExecutor.getGaussian(0.5, source.getRandom(), getAccuracy(source, accuracyMultiplier));
-        double defence = CombatExecutor.getGaussian(0.5, victim.getRandom(), getDefence(source, victim, defenceMultiplier));
-        double mod = accuracy / (accuracy + defence);
+        double accuracy = CombatRolls.roll(source.getRandom(), getAccuracy(source, accuracyMultiplier * EquipmentEffects.multiplier(source, victim, CombatType.RANGE)));
+        double defence = CombatRolls.roll(victim.getRandom(), getDefence(source, victim, defenceMultiplier));
                 if (accuracy > defence) {
-            return (int) CombatExecutor.getGaussian(mod, source.getRandom(), getRangeDamage(source, hitMultiplier));
+            return (int) CombatRolls.roll(source.getRandom(), getRangeDamage(source, hitMultiplier * EquipmentEffects.multiplier(source, victim, CombatType.RANGE)));
         }
         return 0;
     }
@@ -58,11 +57,10 @@ public class RangeFormulae {
      */
     public static int getDamage(Mob source, Mob victim, double accuracyMultiplier,
                                 int damage, double defenceMultiplier) {
-        double accuracy = CombatExecutor.getGaussian(0.5, source.getRandom(), getAccuracy(source, accuracyMultiplier));
-        double defence = CombatExecutor.getGaussian(0.5, victim.getRandom(), getDefence(source, victim, defenceMultiplier));
-        double mod = accuracy / (accuracy + defence);
+        double accuracy = CombatRolls.roll(source.getRandom(), getAccuracy(source, accuracyMultiplier * EquipmentEffects.multiplier(source, victim, CombatType.RANGE)));
+        double defence = CombatRolls.roll(victim.getRandom(), getDefence(source, victim, defenceMultiplier));
                 if (accuracy > defence) {
-            return (int) CombatExecutor.getGaussian(mod, source.getRandom(), damage);
+            return (int) CombatRolls.roll(source.getRandom(), damage);
         }
         return 0;
     }
@@ -75,19 +73,13 @@ public class RangeFormulae {
      * @return The maximum range damage.
      */
     public static int getRangeDamage(Mob source, double hitMultiplier) {
-        int style = 0;
-        if (source.isPlayer() && source.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_ACCURATE) {
-            style = 3;
-        }
-        int strLvl = source.isPlayer() ? source.getPlayer().getSkills().getLevel(Skills.RANGED) : source.getNPC().getDefinition().getRangeLevel();
-        int strBonus = source.isPlayer() ? source.getPlayer().getBonuses().getBonus(Bonuses.RANGED) : source.getNPC().getDefinition().getBonuses()[12];
-        double strMult = 1.0;
-        strMult += source.isPlayer() ? source.getPlayer().getPrayer().getRangeModifier() : source.getNPC().getRangeModifier();
-        if (source.isPlayer() && source.getPlayer().getEquipment().voidSet(2)) {
-            hitMultiplier += 0.2;
-        }
-        double cumulativeStr = strLvl * strMult + style;
-        return (int) ((14 + cumulativeStr + (strBonus / 8) + ((cumulativeStr * strBonus) / 64)) * hitMultiplier);
+        int stance = source.isPlayer() && source.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_ACCURATE ? 3 : 0;
+        int level = source.isPlayer() ? source.getPlayer().getSkills().getLevel(Skills.RANGED) : source.getNPC().getCombatLevel(org.dementhium.model.player.Skills.RANGED);
+        int bonus = source.isPlayer() ? source.getPlayer().getBonuses().getBonus(Bonuses.RANGED) : source.getNPC().getDefinition().getBonuses()[12];
+        double modifier = source.isPlayer() ? source.getPlayer().getPrayer().getRangeStrengthModifier() : source.getNPC().getRangeModifier();
+        // Period evidence disputes the advertised 10% damage. Retain 20% pending exact calibration.
+        if (source.isPlayer() && source.getPlayer().getEquipment().voidSet(2)) hitMultiplier *= 1.2;
+        return CombatFormula.maximumHit(CombatFormula.effectiveLevel(level, modifier, stance, 1), bonus, hitMultiplier);
     }
 
     /**
@@ -98,19 +90,13 @@ public class RangeFormulae {
      * @return The maximum range accuracy.
      */
     public static double getAccuracy(Mob source, double accuracyMultiplier) {
-        int style = 0;
-        if (source.isPlayer() && source.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_ACCURATE) {
-            style = 3;
-        }
-        int attLvl = source.isPlayer() ? source.getPlayer().getSkills().getLevel(Skills.RANGED) : source.getNPC().getDefinition().getRangeLevel();
-        int attBonus = source.isPlayer() ? source.getPlayer().getBonuses().getBonus(Bonuses.RANGED_ATTACK) : source.getNPC().getDefinition().getBonuses()[4];
-        double attMult = 1.0;
-        attMult += source.isPlayer() ? source.getPlayer().getPrayer().getRangeModifier() : source.getNPC().getRangeModifier();
-        if (source.isPlayer() && source.getPlayer().getEquipment().voidSet(2)) {
-            accuracyMultiplier += 0.1;
-        }
-        double cumulativeAtt = attLvl * attMult + style;
-        return ((14 + cumulativeAtt + (attBonus / 8) + ((cumulativeAtt * attBonus) / 64)) * 1.2) * accuracyMultiplier;
+        int stance = source.isPlayer() && source.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_ACCURATE ? 3 : 0;
+        int level = source.isPlayer() ? source.getPlayer().getSkills().getLevel(Skills.RANGED) : source.getNPC().getCombatLevel(org.dementhium.model.player.Skills.RANGED);
+        int bonus = source.isPlayer() ? source.getPlayer().getBonuses().getBonus(Bonuses.RANGED_ATTACK) : source.getNPC().getDefinition().getBonuses()[4];
+        double modifier = source.isPlayer() ? source.getPlayer().getPrayer().getRangeAccuracyModifier() : source.getNPC().getRangeModifier();
+        int effective = CombatFormula.effectiveLevel(level, modifier, stance,
+                source.isPlayer() && source.getPlayer().getEquipment().voidSet(2) ? 1.1 : 1);
+        return CombatFormula.accuracyRoll(effective, bonus, accuracyMultiplier);
     }
 
     /**
@@ -122,20 +108,8 @@ public class RangeFormulae {
      * @return The maximum range defence.
      */
     public static double getDefence(Mob source, Mob victim, double defenceMultiplier) {
-        int style = 0;
-        if (victim.isPlayer()) {
-            if (victim.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_DEFENSIVE) {
-                style = 3;
-            } else if (victim.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_CONTROLLED) {
-                style = 1;
-            }
-        }
-        int type = Bonuses.RANGED_ATTACK;
-        int defLvl = victim.isNPC() ? victim.getNPC().getDefinition().getDefenceLevel() : victim.getPlayer().getSkills().getLevel(Skills.DEFENCE);
-        int defBonus = victim.isNPC() ? victim.getNPC().getDefinition().getDefenceBonus(type) : victim.getPlayer().getBonuses().getDefence(type);
-        double defMult = 1.0;
-        defMult += victim.isPlayer() ? victim.getPlayer().getPrayer().getDefenceModifier() : victim.getNPC().getDefenceModifier();
-        double cumulativeDef = defLvl * defMult + style;
-        return (14 + cumulativeDef + (defBonus / 8) + ((cumulativeDef * defBonus) / 64)) * defenceMultiplier;
+        int bonus = victim.isPlayer() ? victim.getPlayer().getBonuses().getBonus(Bonuses.RANGED_DEFENCE)
+                : victim.getNPC().getDefinition().getDefenceBonus(Bonuses.RANGED_ATTACK);
+        return CombatFormula.accuracyRoll(CombatFormula.defenceLevel(victim), bonus, defenceMultiplier);
     }
 }

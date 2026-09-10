@@ -42,12 +42,13 @@ public class GraveStoneManager {
      * @return {@code True} if the player created a grave stone, {@code false} if not.
      */
     public static boolean appendDeath(Player player, Mob killer) {
-        Mob lastHitter = player.getCombatExecutor().getLastAttacker(); //last hit could be 0 (in multi)..
+        if (player.getAttribute("deathItemsApplied",false)) return false;
+        player.setAttribute("deathItemsApplied",true);
+        killer = player.getAttribute("pvpDeathKiller",killer);
+        Mob lastHitter = player.getAttribute("pvpDeathLastHitter",player.getCombatExecutor().getLastAttacker()); //last hit could be 0 (in multi)..
+        if (lastHitter != null && lastHitter.isFamiliar()) lastHitter = lastHitter.getFamiliar().getOwner();
+        if (killer != null && killer.isFamiliar()) killer = killer.getFamiliar().getOwner();
         if (lastHitter != null && killer != null) {
-            if (lastHitter.isFamiliar())
-            	lastHitter = lastHitter.getFamiliar().getOwner();
-            if (killer.isFamiliar())
-            	killer = killer.getFamiliar().getOwner();
             if (killer.isPlayer() && lastHitter.isPlayer() && !lastHitter.getPlayer().getUsername().equals(killer.getPlayer().getUsername())) {
             	if (!killer.getPlayer().isOnline())
             		killer = lastHitter;
@@ -155,10 +156,16 @@ public class GraveStoneManager {
             }
             player.setRewardItemsDroppedOnDeath(null);
         }
-        if (killer != null && killer.isPlayer()) {
-        	sendDeathMessage(player, killer, lastHitter);
-        	if (lastHitter != null && lastHitter.isPlayer())
-        		killer.getPlayer().handlePkStatistics(player, lastHitter.getPlayer());
+        if (killer != null && killer.isPlayer() && killer != player) {
+            // Optional reward/UI errors must never interrupt the rest of death cleanup.
+            try {
+                sendDeathMessage(player, killer, lastHitter);
+                killer.getPlayer().handlePkStatistics(player,
+                    lastHitter != null && lastHitter.isPlayer() ? lastHitter.getPlayer() : null);
+            } catch (RuntimeException failure) {
+                System.err.println("[PvP reward failure] " + player.getUsername());
+                failure.printStackTrace();
+            }
         }
         return false;
     }

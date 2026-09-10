@@ -116,7 +116,7 @@ public final class RS2LoginDecoder extends ReplayingDecoder<LoginState> {
                     for (int i = 0; i < 24; i++) {
                         decryptedPayload.readByte();
                     }
-                    BufferUtils.readRS2String(decryptedPayload); // settings
+                    session.readClientSettings(BufferUtils.readRS2String(decryptedPayload)); // settings
                     decryptedPayload.readInt();
                     for (int i = 0; i < 34; i++) {
                         decryptedPayload.readInt();
@@ -190,7 +190,7 @@ public final class RS2LoginDecoder extends ReplayingDecoder<LoginState> {
                     for (int i = 0; i < 24; i++) {
                         decryptedPayload.readByte();
                     }
-                    BufferUtils.readRS2String(decryptedPayload);
+                    session.readClientSettings(BufferUtils.readRS2String(decryptedPayload));
                     decryptedPayload.readInt();
                     decryptedPayload.skipBytes(decryptedPayload.readByte() & 0xff);
                     session.setInLobby(false);
@@ -214,3 +214,4 @@ public final class RS2LoginDecoder extends ReplayingDecoder<LoginState> {
     }
 
 }
+

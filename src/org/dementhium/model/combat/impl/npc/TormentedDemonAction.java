@@ -29,12 +29,13 @@ import org.dementhium.tickable.Tick;
  *
  */
 public class TormentedDemonAction extends CombatAction {
-	
+    @Override public CombatAction newSession(){TormentedDemonAction session=new TormentedDemonAction();session.type=type;return session;}
+
 	/**
 	 * The current combat type used.
 	 */
 	private CombatType type = CombatType.RANGE;
-	
+
 	/**
 	 * The tormented demon's attacks.
 	 * @author Emperor
@@ -46,27 +47,27 @@ public class TormentedDemonAction extends CombatAction {
 				Projectile.create(null, null, 1887, 46, 32, 56, 75, 3, 11), Graphic.create(-1)),
 		MAGIC(Animation.create(10918), Graphic.create(-1), 
 				Projectile.create(null, null, 1884, 46, 32, 56, 75, 3, 11), Graphic.create(1883, 96 << 16));
-		
+
 		/**
 		 * The attack animation.
 		 */
 		private final Animation anim;
-		
+
 		/**
 		 * The start graphic.
 		 */
 		private final Graphic start;
-		
+
 		/**
 		 * The projectile to send.
 		 */
 		private final Projectile projectile;
-		
+
 		/**
 		 * The end graphic.
 		 */
 		private final Graphic end;
-		
+
 		/**
 		 * Constructs a new {@code Attack} {@code Object}.
 		 * @param anim The attack animation.
@@ -81,12 +82,12 @@ public class TormentedDemonAction extends CombatAction {
 			this.end = end;
 		}
 	}
-	
+
 	/**
 	 * The current attack.
 	 */
 	private Attack attack;
-	
+
 	/**
 	 * Constructs a new {@code TormentedDemonAction} {@code Object}.
 	 * @param demon The tormented demon using this combat action.
@@ -147,27 +148,9 @@ public class TormentedDemonAction extends CombatAction {
 		} else {
 			interaction.getVictim().graphics(85, 96 << 16);
 		}
-		if (interaction.getDamage().getVenged() > 0) {
-			interaction.getVictim().submitVengeance(interaction.getSource(), interaction.getDamage().getVenged());
-		}
-		if (interaction.getDamage().getDeflected() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-					//interaction.getDamage().getDeflected(), 
-					//interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-			interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-		}
-		if (interaction.getDamage().getRecoiled() > 0) {
-			//interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-					//interaction.getDamage().getRecoiled(), 
-					//interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-			
-			//NOTE: DO THIS FOR ALL OTHER CUSTOM NPC's, SO THEY TOO WON'T HAVE PROTECTION RPAYER TIMING PROBLEMS.
-	         interaction.setDamage(Damage.getDamage(interaction.getSource(), 
-	                 interaction.getVictim(), type, interaction.getDamage().getHit()));
-	         //END OF FIX.
-	         
-	         interaction.getVictim().retaliate(interaction.getSource());
-		}
+
+
+
 		return true;
 	}
 
@@ -216,11 +199,11 @@ public class TormentedDemonAction extends CombatAction {
 					}
 					p.getDamageManager().damage(demon, p.getRandom().nextInt(damage), 269, DamageType.MAGE);
 				}
-				
+
 			}			
 		});
 	}
-	
+
 	@Override
 	public CombatType getCombatType() {
 		return type;
@@ -233,7 +216,7 @@ public class TormentedDemonAction extends CombatAction {
 	public void setType(CombatType combatType) {
 		this.type = combatType;
 	}
-	
-	
+
+
 
 }

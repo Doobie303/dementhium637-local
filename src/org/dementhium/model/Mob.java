@@ -33,10 +33,18 @@ import org.dementhium.net.ActionSender;
 import org.dementhium.tickable.Tick;
 
 public abstract class Mob extends Entity {
+    private long instanceRevision;
+    private long combatRevision;
+    private long stunRevision;
+    public long getCombatRevision() { return combatRevision; }
+    /** Invalidates pending combat across a player teleport, death or connection transition. */
+    public void markCombatTransition() { combatRevision++; }
+    public long getInstanceRevision() { return instanceRevision; }
+    public void markInstanceTransition() { instanceRevision++; }
 	
     public final static int[] VIEWPORT_SIZES = {104, 120, 136, 168};
 
-    public static final Location DEFAULT = Location.locate(2344, 3691, 0);//Location.locate(2344, 3691, 0);
+    public static final Location DEFAULT = Location.locate(2337, 3803, 0); // Neitiznot home, clear arrival lane.
 
     /**
      * The mob's default activity.
@@ -83,6 +91,20 @@ public abstract class Mob extends Entity {
     }
 
     public boolean isMulti() {
+        if (isPlayer() && Boolean.TRUE.equals(getAttribute("inFightCaves"))) {
+            return true;
+        }
+        if (isNPC() && (Boolean.TRUE.equals(getAttribute("fightcaves"))
+                || "FightCavesActivity".equals(getAttribute("activity")))) {
+            return true;
+        }
+        if (getLocation() != null) {
+            int x = getLocation().getX();
+            int y = getLocation().getY();
+            if (x >= 2365 && x <= 2445 && y >= 5055 && y <= 5135) {
+                return true;
+            }
+        }
         if (World.getWorld().getAreaManager().getAreaByName("CastleWarsArea").contains(getLocation()) 
         		&& (activity != null && activity.getActivityId() == 0) 
         		|| (isFamiliar() && getFamiliar().getOwner().getActivity() != null && getFamiliar().getOwner().getActivity().getActivityId() == 0)) {
@@ -487,7 +509,7 @@ public abstract class Mob extends Entity {
             if (location.getX() > x)
                 dir = 3;
             if (location.getX() < x)
-                dir = 4;
+                dir = 1;
             if (location.getY() > y)
                 dir = 2;
             if (location.getY() < y)
@@ -503,16 +525,37 @@ public abstract class Mob extends Entity {
         setAttribute("cantMove", Boolean.TRUE);
     }
 
+    /** Invalidates an outstanding movement when its encounter ends. */
+    public void cancelForceMovement() {
+        forceWalk = null;
+        mask.setForceMovementUpdate(false);
+        setCanAnimate(true);
+        if (!Boolean.TRUE.equals(getAttribute("stunned"))) {
+            removeAttribute("cantMove");
+        }
+    }
     public void setForceWalk(final int x, final int y, final int speed1, final int speed2, final int dir, final int cycles, final boolean removeAttribute, final boolean teleport) {
-        this.forceWalk = new int[]{x, y, speed1, speed2, dir, cycles};
-        World.getWorld().submit(new Tick(forceWalk[5]) {
+        final Location origin = location;
+        final int[] movement = new int[]{x, y, speed1, speed2, dir, cycles};
+        this.forceWalk = movement;
+        // Client durations use 50 Hz frames; a server tick lasts 30 frames.
+        World.getWorld().submit(new Tick(Math.max(cycles, (speed2 + 29) / 30)) {
             @Override
             public void execute() {
-                teleport(Location.locate(forceWalk[0], forceWalk[1], location.getZ()), false);
+                stop();
+                if (forceWalk != movement) {
+                    return; // A newer movement owns the destination and movement lock.
+                }
+                if (!isDead() && (!isPlayer() || getPlayer().isOnline())
+                        && location.equals(origin)) {
+                    teleport(Location.locate(x, y, origin.getZ()), false);
+                }
                 setCanAnimate(true);
                 if (removeAttribute) {
                     removeAttribute("busy");
-                    removeAttribute("cantMove");
+                    if (!Boolean.TRUE.equals(getAttribute("stunned"))) {
+                        removeAttribute("cantMove");
+                    }
                 }
                 stop();
             }
@@ -528,10 +571,13 @@ public abstract class Mob extends Entity {
         }
         setAttribute("stunned", Boolean.TRUE);
         setAttribute("cantMove", Boolean.TRUE);
+        final long stun=++stunRevision;
+        final long npcLife=isNPC()&&!isFamiliar()?getNPC().getCombatGeneration():0;
         World.getWorld().submit(new Tick(cycles) {
             @Override
             public void execute() {
                 stop();
+                if(stun!=stunRevision || isNPC()&&!isFamiliar()&&npcLife!=getNPC().getCombatGeneration())return;
                 removeAttribute("stunned");
                 removeAttribute("cantMove");
             }
@@ -543,22 +589,7 @@ public abstract class Mob extends Entity {
 	 * @param source The mob who will be receiving the hit.
 	 */
 	public void submitVengeance(final Mob source, final int hit) {
-		if (isNPC()) {
-			//TODO: NPC vengeance.
-			return;
-		}
-		if (!getAttribute("vengeance", false)) {
-			return;
-		}
-		setAttribute("vengeance", false);
-		forceText("Taste vengeance!");
-		World.getWorld().submit(new Tick(1) {
-			@Override
-			public void execute() {
-				source.getDamageManager().damage(getPlayer(), hit, -1, DamageType.RED_DAMAGE);
-				stop();
-			}
-		});
+		org.dementhium.model.combat.CombatReflection.vengeance(this, source, hit);
 	}
 
     public DamageManager getDamageManager() {
@@ -567,6 +598,19 @@ public abstract class Mob extends Entity {
 
     public PoisonManager getPoisonManager() {
         return poisonManager;
+    }
+
+    /** Cancel mob-local callbacks when an instance-owned NPC is removed. */
+    public void cancelTicks() {
+        Map<String, Tick> pending = new HashMap<String, Tick>(ticks);
+        ticks.clear();
+        RuntimeException failure = null;
+        for (Tick tick : pending.values()) {
+            try { tick.stop(); } catch (RuntimeException e) {
+                if (failure == null) failure = e; else failure.addSuppressed(e);
+            }
+        }
+        if (failure != null) throw failure;
     }
 
     public void submitTick(String identifier, Tick tick, boolean replace) {

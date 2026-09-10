@@ -30,12 +30,12 @@ public class SteelTitanAction extends CombatAction {
 	 *
 	 */
 	private static enum Attack {
-		
+
 		/**
 		 * The melee attack.
 		 */
 		MELEE(Animation.create(8183), Graphic.create(-1), null, Graphic.create(1446)),
-		
+
 		/**
 		 * The range attack.
 		 */
@@ -50,27 +50,27 @@ public class SteelTitanAction extends CombatAction {
 		 * The special attack.
 		 */
 		SPECIAL(Animation.create(8196), Graphic.create(-1), null, Graphic.create(1449));
-		
+
 		/**
 		 * The attack animation.
 		 */
 		private final Animation anim;
-		
+
 		/**
 		 * The start graphic.
 		 */
 		private final Graphic start;
-		
+
 		/**
 		 * The projectile to send.
 		 */
 		private final Projectile projectile;
-		
+
 		/**
 		 * The end graphic.
 		 */
 		private final Graphic end;
-		
+
 		/**
 		 * Constructs a new {@code Attack} {@code Object}.
 		 * @param anim The attack animation.
@@ -90,12 +90,12 @@ public class SteelTitanAction extends CombatAction {
 	 * The current combat type.
 	 */
 	private CombatType type = CombatType.RANGE;
-	
+
 	/**
 	 * The current attack.
 	 */
 	private Attack attack = Attack.RANGE;
-	
+
 	/**
 	 * Constructs a new {@code SteelTitanAction} {@code Object}.
 	 */
@@ -195,19 +195,9 @@ public class SteelTitanAction extends CombatAction {
 			} else {
 				e.getVictim().graphics(85, 96 << 16);
 			}
-			if (e.getDamage().getVenged() > 0) {
-				e.getVictim().submitVengeance(interaction.getSource(), e.getDamage().getVenged());
-			}
-			if (e.getDamage().getDeflected() > 0) {
-				interaction.getSource().getDamageManager().damage(e.getVictim(), 
-						e.getDamage().getDeflected(), 
-						e.getDamage().getDeflected(), DamageType.DEFLECT);
-			}
-			if (e.getDamage().getRecoiled() > 0) {
-				interaction.getSource().getDamageManager().damage(e.getVictim(), 
-						e.getDamage().getRecoiled(), 
-						e.getDamage().getRecoiled(), DamageType.DEFLECT);
-			}
+
+
+
 		}
 		interaction.getVictim().retaliate(interaction.getSource());
 		type = CombatType.values()[interaction.getSource().getRandom().nextInt(2)];

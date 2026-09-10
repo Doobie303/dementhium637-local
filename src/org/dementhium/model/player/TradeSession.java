@@ -21,6 +21,7 @@ public class TradeSession {
     private Container traderItemsOffered = new Container(28, false);
     private Container partnerItemsOffered = new Container(28, false);
     private boolean traderDidAccept, partnerDidAccept;
+    private boolean closed;
 
     /*
       * Some info for the future,
@@ -76,138 +77,81 @@ public class TradeSession {
         partnerDidAccept = false;
         traderDidAccept = false;
         ActionSender.sendInterface(p, 334);
-        ActionSender.sendString(p, "<col=00FFFF>Trading with:<br><col=00FFFF>" + Misc.formatPlayerNameForDisplay(p.equals(trader) ? partner.getDisplayName() : trader.getDisplayName()), 334, 54);
+        // Component 53 already supplies "Trading with:"; component 54 is the name only.
+        ActionSender.sendString(p, Misc.formatPlayerNameForDisplay(p.equals(trader) ? partner.getDisplayName() : trader.getDisplayName()), 334, 54);
         ActionSender.sendString(p, "Are you sure you want to make this trade?", 334, 34);
     }
 
     public void offerItem(Player pl, int slot, int amt) {
-        if (currentState.equals(TradeState.STATE_ONE)) {
-            if (pl.equals(trader)) {
-                if (pl.getInventory().getContainer().get(slot) == null) {
-                    return;
-                }
-                Item item = new Item(pl.getInventory().getContainer().get(slot).getId(), amt);
-                if (item != null) {
-                    if (!item.getDefinition().isTradeable() && pl.getRights() < 2 && partner.getRights() < 2) {
-                        pl.sendMessage("You can't trade this item.");
-                        return;
-                    }
-                    if (pl.getInventory().getContainer().getItemCount(item.getId()) < amt) {
-                        if (ItemDefinition.forId(item.getId()).isNoted()
-                                || ItemDefinition.forId(item.getId()).isStackable()) {
-                            amt = pl.getInventory().lookup(item.getId()).getAmount();
-                        } else {
-                            amt = pl.getInventory().getContainer().getItemCount(item.getId());
-                        }
-                        item.setAmount(amt);
-
-                    }
-                    if (0 >= amt) {
-                        return;
-                    }
-                    if (traderItemsOffered.getFreeSlots() < amt && !pl.getInventory().getContainer().get(slot).getDefinition().isNoted() && !pl.getInventory().getContainer().get(slot).getDefinition().isStackable()) {
-                        item.setAmount(traderItemsOffered.getFreeSlots());
-                    }
-                    traderItemsOffered.add(item);
-                    pl.getInventory().getContainer().remove(new Item(pl.getInventory().getContainer().get(slot).getId(), amt));
-                    pl.getInventory().refresh();
-                    resetAccept();
-                }
-            } else if (pl.equals(partner)) {
-                Item inventoryItem = pl.getInventory().getContainer().get(slot);
-                Item item = inventoryItem != null ? new Item(inventoryItem.getId(), amt) : null;
-                if (item != null) {
-                    if (!item.getDefinition().isTradeable() && pl.getRights() < 2 && trader.getRights() < 2) {
-                        pl.sendMessage("You can't trade this item.");
-                        return;
-                    }
-                    if (pl.getInventory().getContainer().getItemCount(item.getId()) < amt) {
-                        if (ItemDefinition.forId(item.getId()).isNoted()
-                                || ItemDefinition.forId(item.getId()).isStackable()) {
-                            amt = pl.getInventory().lookup(item.getId()).getAmount();
-                        } else {
-                            amt = pl.getInventory().getContainer().getItemCount(item.getId());
-                        }
-                        item.setAmount(amt);
-
-                    }
-                    if (0 >= amt) {
-                        return;
-                    }
-                    if (partnerItemsOffered.getFreeSlots() < amt && !pl.getInventory().getContainer().get(slot).getDefinition().isNoted() && !pl.getInventory().getContainer().get(slot).getDefinition().isStackable()) {
-                        item.setAmount(partnerItemsOffered.getFreeSlots());
-                    }
-                    partnerItemsOffered.add(item);
-                    pl.getInventory().getContainer().remove(item);
-                    pl.getInventory().refresh();
-                    resetAccept();
-                }
-            }
-            refreshScreen();
+        if (closed || currentState != TradeState.STATE_ONE || !isParticipant(pl) || amt <= 0) return;
+        Item selected = pl.getInventory().get(slot);
+        if (selected == null) return;
+        if (DegradingHandler.isDegradedForTrade(selected)) {
+            pl.sendMessage("You can't trade degraded items.");
+            return;
         }
+        if (!selected.getDefinition().isTradeable() && pl.getRights() < 2 && getPartner(pl).getRights() < 2) {
+            pl.sendMessage("You can't trade this item.");
+            return;
+        }
+        if (!transfer(pl.getInventory().getContainer(), getPlayerItemsOffered(pl), slot, amt, true)) {
+            pl.sendMessage("There is not enough space in the trade offer.");
+            return;
+        }
+        pl.getInventory().refresh();
+        resetAccept();
+        refreshScreen();
     }
 
     public void removeItem(Player pl, int slot, int amt) {
-        if (currentState.equals(TradeState.STATE_ONE)) {
-            if (pl.equals(trader)) {
-            	if (traderItemsOffered.get(slot) == null) {
-            		return;
-            	}
-                Item item = new Item(traderItemsOffered.get(slot).getId(), amt);
-                if (item != null) {
-                    if (traderItemsOffered.getItemCount(item.getId()) < amt) {
-                        if (ItemDefinition.forId(item.getId()).isNoted()
-                                || ItemDefinition.forId(item.getId()).isStackable()) {
-                            amt = traderItemsOffered.lookup(item.getId()).getAmount();
-                        } else {
-                            amt = traderItemsOffered.getItemCount(item.getId());
-                        }
-                        item.setAmount(amt);
-
-                    }
-                    if (0 >= amt) {
-                        return;
-                    }
-                    if (pl.getInventory().getFreeSlots() < amt && !traderItemsOffered.get(slot).getDefinition().isNoted() && !traderItemsOffered.get(slot).getDefinition().isStackable()) {
-                        item.setAmount(pl.getInventory().getFreeSlots());
-                    }
-                    trader.getInventory().getContainer().add(new Item(traderItemsOffered.get(slot).getId(), item.getAmount()));
-                    trader.getInventory().refresh();
-                    traderItemsOffered.remove(item);
-                    ActionSender.sendTradeModified(partner, true, slot);
-                    resetAccept();
-                }
-            } else if (pl.equals(partner)) {
-            	if (partnerItemsOffered.get(slot) == null) {
-            		return;
-            	}
-                Item item = new Item(partnerItemsOffered.get(slot).getId(), amt);
-                if (item != null) {
-                    if (partnerItemsOffered.getItemCount(item.getId()) < amt) {
-                        if (ItemDefinition.forId(item.getId()).isNoted()
-                                || ItemDefinition.forId(item.getId()).isStackable()) {
-                            amt = partnerItemsOffered.lookup(item.getId()).getAmount();
-                        } else {
-                            amt = partnerItemsOffered.getItemCount(item.getId());
-                        }
-                        item.setAmount(amt);
-
-                    }
-                    if (0 >= amt) {
-                        return;
-                    }
-                    if (pl.getInventory().getFreeSlots() < amt && !partnerItemsOffered.get(slot).getDefinition().isNoted() && !partnerItemsOffered.get(slot).getDefinition().isStackable()) {
-                        item.setAmount(pl.getInventory().getFreeSlots());
-                    }
-                    partner.getInventory().getContainer().add(new Item(partnerItemsOffered.get(slot).getId(), item.getAmount()));
-                    partner.getInventory().refresh();
-                    partnerItemsOffered.remove(item);
-                    ActionSender.sendTradeModified(trader, true, slot);
-                    resetAccept();
-                }
-            }
-            refreshScreen();
+        if (closed || currentState != TradeState.STATE_ONE || !isParticipant(pl) || amt <= 0) return;
+        if (!transfer(getPlayerItemsOffered(pl), pl.getInventory().getContainer(), slot, amt, false)) {
+            pl.sendMessage("Not enough space in your inventory.");
+            return;
         }
+        pl.getInventory().refresh();
+        ActionSender.sendTradeModified(getPartner(pl), true, slot);
+        resetAccept();
+        refreshScreen();
+    }
+
+    private boolean isParticipant(Player player) {
+        return player == trader || player == partner;
+    }
+
+    /** Prepare both images before publishing either; selected slot is consumed first. */
+    private static boolean transfer(Container source, Container destination, int slot, int requested, boolean offering) {
+        Item selected = source.get(slot);
+        if (selected == null || requested <= 0) return false;
+        Container remaining = source.deepCopy();
+        Container result = destination.deepCopy();
+        Container moved = new Container(source.getSize(), false);
+        boolean stack = selected.getDefinition().isStackable() || selected.getDefinition().isNoted();
+        int limit = requested;
+        if (!stack) limit = Math.min(limit, destination.getFreeSlots());
+        else {
+            Item existing = destination.lookup(selected.getId());
+            if (existing != null) limit = (int)Math.min((long)limit, Integer.MAX_VALUE - (long)existing.getAmount());
+            else if (destination.getFreeSlots() == 0) return false;
+        }
+        int transferred = 0;
+        for (int n = 0; n <= source.getSize() && transferred < limit; n++) {
+            int index = n == 0 ? slot : n - 1;
+            if (n > 0 && index == slot) continue;
+            Item item = remaining.get(index);
+            if (item == null || item.getId() != selected.getId() || item.getHealth() != selected.getHealth()
+                    || item.getAmount() <= 0 || (offering && DegradingHandler.isDegradedForTrade(item))) continue;
+            int count = Math.min(limit - transferred, item.getAmount());
+            Item portion = new Item(item); portion.setAmount(count);
+            if (!moved.forceAdd(portion)) return false;
+            if (count == item.getAmount()) remaining.set(index, null);
+            else { Item rest = new Item(item); rest.setAmount(item.getAmount() - count); remaining.set(index, rest); }
+            transferred += count;
+        }
+        if (transferred == 0 || !result.tryAddAll(moved)) return false;
+        source.replaceWith(remaining);
+        destination.replaceWith(result);
+        return true;
     }
 
     private void refreshScreen() {
@@ -273,6 +217,7 @@ public class TradeSession {
     }
 
     public void acceptPressed(Player pl) {
+        if (closed || !isParticipant(pl)) return;
         if (!traderDidAccept && pl.equals(trader)) {
             traderDidAccept = true;
         } else if (!partnerDidAccept && pl.equals(partner)) {
@@ -349,6 +294,8 @@ public class TradeSession {
     }
 
     public void tradeFailed(Player playerWhoEndedTrade) {
+        if (closed) return;
+        closed = true;
         trader.getInventory().addAllDropable(traderItemsOffered);
         partner.getInventory().addAllDropable(partnerItemsOffered);
         if (playerWhoEndedTrade != null/* && currentState.equals(TradeState.STATE_TWO)*/) {
@@ -368,6 +315,7 @@ public class TradeSession {
     }
 
     public void endSession() {
+        closed = true;
         traderItemsOffered = partnerItemsOffered = null;
         trader.setTradeSession(null);
         partner.setTradePartner(null); 
@@ -379,106 +327,32 @@ public class TradeSession {
     }
 
     private boolean continueTrade() {
-        if (!trader.getInventory().getContainer().hasSpaceFor(partnerItemsOffered)) {
-            trader.getMask().setFacePosition(null, 1, 1);
-            if (trader.getMask().getInteractingEntity() != null) {
-                trader.resetTurnTo();
-            }
-            partner.getMask().setFacePosition(null, 1, 1);
-            if (partner.getMask().getInteractingEntity() != null) {
-                partner.resetTurnTo();
-            }
-        	ActionSender.sendMessage(partner, "The other player does not have enough space in their inventory.");
-            ActionSender.sendMessage(trader, "You do not have enough space in your inventory.");
-            tradeFailed(null);
-            return false;
-        } else if (!partner.getInventory().getContainer().hasSpaceFor(traderItemsOffered)) {
-            trader.getMask().setFacePosition(null, 1, 1);
-            if (trader.getMask().getInteractingEntity() != null) {
-                trader.resetTurnTo();
-            }
-            partner.getMask().setFacePosition(null, 1, 1);
-            if (partner.getMask().getInteractingEntity() != null) {
-                partner.resetTurnTo();
-            }
-        	ActionSender.sendMessage(trader, "The other player does not have enough space in their inventory.");
-            ActionSender.sendMessage(partner, "You do not have enough space in your inventory.");
-            tradeFailed(null);
+        if (!trader.getInventory().getContainer().hasSpaceFor(partnerItemsOffered)
+                || !partner.getInventory().getContainer().hasSpaceFor(traderItemsOffered)) {
+            ActionSender.sendMessage(trader, "There is not enough inventory space to complete this trade.");
+            ActionSender.sendMessage(partner, "There is not enough inventory space to complete this trade.");
+            resetAccept();
             return false;
         }
-        boolean stopTrade1 = false;
-        boolean stopTrade2 = false;
-        for (Item item : partnerItemsOffered.toArray()) {
-        	if (item != null) {
-            	int amount = item.getAmount();
-            	int playerAmount = trader.getInventory().getContainer().getNumberOf(item);
-    			if ((amount + playerAmount) < 0) {
-    				stopTrade1 = true;
-    			}
-        	}
-        }
-        for (Item item : traderItemsOffered.toArray()) {
-        	if (item != null) {
-            	int amount = item.getAmount();
-            	int playerAmount = partner.getInventory().getContainer().getNumberOf(item);
-    			if ((amount + playerAmount) < 0) {
-    				stopTrade2 = true;
-    			}
-        	}
-        }
-        if (stopTrade1) {
-            trader.getMask().setFacePosition(null, 1, 1);
-            if (trader.getMask().getInteractingEntity() != null) {
-                trader.resetTurnTo();
-            }
-            partner.getMask().setFacePosition(null, 1, 1);
-            if (partner.getMask().getInteractingEntity() != null) {
-                partner.resetTurnTo();
-            }
-        	ActionSender.sendMessage(partner, "The other player does not have enough space in their inventory.");
-            ActionSender.sendMessage(trader, "You do not have enough space in your inventory.");
-            tradeFailed(null);
-            return false;
-        }
-        if (stopTrade2) {
-            trader.getMask().setFacePosition(null, 1, 1);
-            if (trader.getMask().getInteractingEntity() != null) {
-                trader.resetTurnTo();
-            }
-            partner.getMask().setFacePosition(null, 1, 1);
-            if (partner.getMask().getInteractingEntity() != null) {
-                partner.resetTurnTo();
-            }
-        	ActionSender.sendMessage(trader, "The other player does not have enough space in their inventory.");
-            ActionSender.sendMessage(partner, "You do not have enough space in your inventory.");
-            tradeFailed(null);
-            return false;
-        }
-    	return true;
+        return true;
     }
-    
+
     private boolean giveItems() {
-        if (!trader.getInventory().getContainer().hasSpaceFor(partnerItemsOffered)) {
-            ActionSender.sendMessage(partner, "The other player does not have enough space in their inventory.");
-            ActionSender.sendMessage(trader, "You do not have enough space in your inventory.");
-            tradeFailed(null);
+        Container traderResult = trader.getInventory().getContainer().deepCopy();
+        Container partnerResult = partner.getInventory().getContainer().deepCopy();
+        if (!traderResult.tryAddAll(partnerItemsOffered) || !partnerResult.tryAddAll(traderItemsOffered)) {
+            ActionSender.sendMessage(trader, "There is not enough inventory space to complete this trade.");
+            ActionSender.sendMessage(partner, "There is not enough inventory space to complete this trade.");
+            openFirstTradeScreen(trader);
+            openFirstTradeScreen(partner);
+            currentState = TradeState.STATE_ONE;
+            resetAccept();
             return false;
-        } else if (!partner.getInventory().getContainer().hasSpaceFor(traderItemsOffered)) {
-            ActionSender.sendMessage(trader, "The other player does not have enough space in their inventory.");
-            ActionSender.sendMessage(partner, "You do not have enough space in your inventory.");
-            tradeFailed(null);
-            return false;
         }
-        for (Item itemAtIndex : traderItemsOffered.toArray()) {
-            if (itemAtIndex != null) {
-                partner.getInventory().addDropable(new Item(itemAtIndex.getId(), itemAtIndex.getAmount()));
-            }
-        }
-        for (Item itemAtIndex : partnerItemsOffered.toArray()) {
-            if (itemAtIndex != null) {
-                trader.getInventory().addDropable(new Item(itemAtIndex.getId(), itemAtIndex.getAmount()));
-            }
-        }
+        trader.getInventory().getContainer().replaceWith(traderResult);
+        partner.getInventory().getContainer().replaceWith(partnerResult);
+        // Logging expects compact offers. It cannot veto or repeat a completed exchange.
+        traderItemsOffered.shift(); partnerItemsOffered.shift();
         Logger.writeTradeLog(trader, partner, traderItemsOffered, partnerItemsOffered);
         endSession();
         partner.getInventory().refresh();

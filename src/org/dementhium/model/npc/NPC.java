@@ -49,6 +49,35 @@ import org.dementhium.util.Constants;
 import org.dementhium.util.Misc;
 
 public class NPC extends Mob {
+    private org.dementhium.model.instance.GameInstance owningInstance;
+    public org.dementhium.model.instance.GameInstance getOwningInstance() { return owningInstance; }
+    public void attachInstance(org.dementhium.model.instance.GameInstance instance) {
+        if (instance == null || owningInstance != null || isFamiliar() || !instance.owns(this))
+            throw new IllegalStateException("NPC must be claimed by one instance");
+        owningInstance = instance;
+    }
+    /** Ordinary NPC callbacks inherit the instance lifetime when explicitly owned. */
+    private void submitWorldTick(Tick tick) {
+        final long generation=combatGeneration;
+        Tick owned=isFamiliar()?tick:new Tick(1){
+            @Override public void execute(){
+                if(generation!=combatGeneration){tick.stop();stop();return;}
+                if(!tick.run())stop();
+            }
+        };
+        if (owningInstance == null) World.getWorld().submit(owned);
+        else owningInstance.submitNpcTask(this, owned);
+    }
+    @Override
+    public void destroy() {
+        resetCombatState();
+        if (owningInstance != null) {
+            cancelTicks();
+            owningInstance.onNpcRemoved(this);
+        }
+        super.destroy();
+    }
+
 
     public static final int[] UNRESPAWNABLE_NPCS = { //Nex is 13447 and others like 13448 (with prayer above head etc.) and glacies
             2746, 2025, 2026, 2027, 2028, 2029, 2030, 1532, 1533, 1534, 1535, 
@@ -135,7 +164,41 @@ public class NPC extends Mob {
         loadEntityVariables();
     }
 
+    private NPCCombatStats combatStats;
+    private long combatGeneration;
+    private boolean returningHome;
+    private final java.util.Set<Runnable> combatResetListeners=new java.util.LinkedHashSet<Runnable>();
+    public void addCombatResetListener(Runnable listener){combatResetListeners.add(listener);}
+    public void removeCombatResetListener(Runnable listener){combatResetListeners.remove(listener);}
+    private boolean deathRewardComplete;
+    public boolean isDeathRewardComplete(){return deathRewardComplete;}
+    public boolean isDying(){return isNex() && Boolean.TRUE.equals(getAttribute("nex_wrath_pending"));}
+    public long getCombatGeneration(){return combatGeneration;}
+    public boolean isReturningHome(){return returningHome;}
+    public NPCCombatStats getCombatStats(){if(combatStats==null)combatStats=new NPCCombatStats(this);return combatStats;}
+    public int getCombatLevel(int skill){return isFamiliar()?getCombatStats().base(skill):getCombatStats().get(skill);}
+    public boolean canDrainCombatStats(){return !isFamiliar()&&!isDead()&&!isHidden()&&!getAttribute("statDrainImmune",isNex());}
+    public void resetCombatState(){
+        if(isFamiliar())return;
+        combatGeneration++;
+        getCombatExecutor().cancelPending();
+        for(Runnable listener:new java.util.ArrayList<Runnable>(combatResetListeners))listener.run();
+        combatResetListeners.clear();
+        getPoisonManager().removePoison();
+        cancelForceMovement();
+        for(String status:new String[]{"freezeTime","freezeImmunity","miasmicTime","miasmicImmunity","stunned","cantMove"})removeAttribute(status);
+        if(combatStats!=null)combatStats.reset();
+    }
     public void tick() {
+        // Corpse callbacks own loot/removal/respawn; leash recovery must not cancel them.
+        if(isDead() || isDying())return;
+        if(!isFamiliar()) {
+            if(combatStats!=null)combatStats.tick();
+            if(returningHome) {
+                if(originalLoc==null || location.equals(originalLoc)) {returningHome=false;setHp(getMaxHp());if(combatStats!=null)combatStats.reset();}
+                else {World.getWorld().doPath(new DefaultPathFinder(),this,originalLoc.getX(),originalLoc.getY());return;}
+            }
+        }
         if (getCombatExecutor().getVictim() == null && getRandom().nextDouble() > 0.85 && mask.getInteractingEntity() == null && doesWalk && !isDead()) {
         	int moveX = originalLoc.getX() + Misc.random(-3, 3), moveY = originalLoc.getY() + Misc.random(-3, 3);
             requestClippedWalk(moveX, moveY);
@@ -147,6 +210,10 @@ public class NPC extends Mob {
         if (originalLoc != null && location.getDistance(originalLoc) > /*14*/12
         		&& getAttribute("activity") != "FightCavesActivity") {
             resetCombat();
+            if(!isFamiliar()&&!returningHome){
+                resetCombatState();getDamageManager().clearEnemyHits();getCombatExecutor().setLastAttacker(null);
+                returningHome=true;
+            }
             World.getWorld().doPath(new DefaultPathFinder(), this, originalLoc.getX(), originalLoc.getY());
             /*if (location.getDistance(originalLoc) > /*17*/ /*12
             		&& getAttribute("mysteriousTeleport") != Boolean.TRUE
@@ -276,28 +343,38 @@ public class NPC extends Mob {
     }
 
 
-    public void hit(int damage) {
-        if (getHitPoints() <= 0) {
-            sendDead();
+	public void hit(int damage) {
+		if (isDying()) return;
+		if (getHitPoints() <= 0) {
+			if (isNex() && Boolean.TRUE.equals(getAttribute("nex_wrath_pending"))) {
+				return;
+			}
+			sendDead();
             return;
         }
         if (damage > getHitPoints()) {
             damage = getHitPoints();
         }
         this.hitpoints = getHitPoints() - damage;
-        if (getHitPoints() <= 0) {
-           if (isNex()) {
-                mask.setSwitchId(Nex.WRATH_NEX);
-                forceText("Taste my wrath!");
-                World.getWorld().submit(new Tick(3) {
-                    public void execute() {
-                        stop();
-                        Prayer.wrathEffect(NPC.this, NPC.this.getCombatExecutor().getLastAttacker());
-                    }
-                });
-            }
-            sendDead();
-        }
+		if (getHitPoints() <= 0) {
+		   if (isNex()) {
+				setAttribute("nex_wrath_pending", Boolean.TRUE);
+				resetCombatState();
+				getPoisonManager().removePoison();
+				mask.setSwitchId(Nex.WRATH_NEX);
+				forceText("Taste my wrath!");
+				submitWorldTick(new Tick(3) {
+					public void execute() {
+						stop();
+						Prayer.wrathEffect(NPC.this, NPC.this.getCombatExecutor().getLastAttacker());
+						removeAttribute("nex_wrath_pending");
+						sendDead();
+					}
+				});
+				return;
+			}
+			sendDead();
+		}
     }
 
     public void sendDead() {
@@ -313,7 +390,11 @@ public class NPC extends Mob {
         if (killer != null && killer.isFamiliar())
         	killer = killer.getFamiliar().getOwner();
         setDead(true);
-        FightCaves.onCaveNpcDeath(this);
+        Player caveKiller = (killer != null && killer.isPlayer()) ? killer.getPlayer() : null;
+        FightCaves.onCaveNpcDeath(this, caveKiller);
+        if (caveKiller != null) {
+            org.dementhium.content.minigames.WarriorGuild.onCyclopsDeath(caveKiller, this);
+        }
         resetTurnTo();
         animate(getDeathAnimation());
         int npcId = getId();
@@ -361,63 +442,10 @@ public class NPC extends Mob {
 			break;
 	}
         if (killer != null && killer.isPlayer()) {
-            FightCaves.onCaveNpcDeath(this, killer.getPlayer());
-            if (BarrowsConstants.isInBarrowsZone(killer.getPlayer()) 
-            		&& killer.getPlayer().getActivity() instanceof BarrowsActivity) {
-            	int cryptId = killer.getPlayer().getSettings().getTunnelEntranceId();
-            	if (killer.getPlayer().getActivity().getEntities().get(cryptId).getNPC().getId() == getId()) {
-            		killer.getPlayer().setAttribute("canLootBarrowsChest", true);
-            	}
-            	switch (getId()) {
-            	case 2025:
-            		killer.getPlayer().getSettings().getBarrowsKilled().add(getId());
-            		killer.getPlayer().getSettings().getKilledBrothers()[2] = true;
-            		IconManager.removeIcon(killer.getPlayer(), this);
-            		killer.getPlayer().getSettings().setBarrowsKillcount(killer.getPlayer().getSettings().getBarrowsKillcount() + 1);
-            		break;
-            	case 2026:
-            		killer.getPlayer().getSettings().getBarrowsKilled().add(getId());
-            		killer.getPlayer().getSettings().getKilledBrothers()[1] = true;
-            		IconManager.removeIcon(killer.getPlayer(), this);
-            		killer.getPlayer().getSettings().setBarrowsKillcount(killer.getPlayer().getSettings().getBarrowsKillcount() + 1);
-            		break;
-            	case 2027:
-            		killer.getPlayer().getSettings().getBarrowsKilled().add(getId());
-            		killer.getPlayer().getSettings().getKilledBrothers()[3] = true;
-            		IconManager.removeIcon(killer.getPlayer(), this);
-            		killer.getPlayer().getSettings().setBarrowsKillcount(killer.getPlayer().getSettings().getBarrowsKillcount() + 1);
-            		break;
-            	case 2028:
-            		killer.getPlayer().getSettings().getBarrowsKilled().add(getId());
-            		killer.getPlayer().getSettings().getKilledBrothers()[4] = true;
-            		IconManager.removeIcon(killer.getPlayer(), this);
-            		killer.getPlayer().getSettings().setBarrowsKillcount(killer.getPlayer().getSettings().getBarrowsKillcount() + 1);
-            		break;
-            	case 2029:
-            		killer.getPlayer().getSettings().getBarrowsKilled().add(getId());
-            		killer.getPlayer().getSettings().getKilledBrothers()[5] = true;
-            		IconManager.removeIcon(killer.getPlayer(), this);
-            		killer.getPlayer().getSettings().setBarrowsKillcount(killer.getPlayer().getSettings().getBarrowsKillcount() + 1);
-            		break;
-            	case 2030:
-            		killer.getPlayer().getSettings().getBarrowsKilled().add(getId());
-            		killer.getPlayer().getSettings().getKilledBrothers()[0] = true;
-            		IconManager.removeIcon(killer.getPlayer(), this);
-            		killer.getPlayer().getSettings().setBarrowsKillcount(killer.getPlayer().getSettings().getBarrowsKillcount() + 1);
-            		break;
-            	default:
-            		if (World.getWorld().getAreaManager().getAreaByName("BarrowsUnderground").contains(killer.getPlayer().getLocation())) {
-            			killer.getPlayer().getSettings().setBarrowsKillcount(killer.getPlayer().getSettings().getBarrowsKillcount() + 1);
-            		}
-            		break;
-            	}
-        		int hash = 0;
-        		for (int id : killer.getPlayer().getSettings().getBarrowsKilled()) {
-        			hash |= 1 << (id - 2025);
-        		}
-        		ActionSender.sendConfig(killer.getPlayer(), 453, killer.getPlayer().getSettings().getBarrowsKillcount() << 17 | hash);
-            }
-/*            if (id >= 2025 && id <= 2030) { // barrow brothers
+            if (BarrowsConstants.isInBarrowsZone(killer.getPlayer())
+                    && killer.getPlayer().getActivity() instanceof BarrowsActivity) {
+                ((BarrowsActivity) killer.getPlayer().getActivity()).recordKill(this);
+            }/*            if (id >= 2025 && id <= 2030) { // barrow brothers
                 if (killer.getAttribute(Barrows.FIGHTING_ATTRIBUTE) != null) {
                     NPC npc = killer.getAttribute(Barrows.FIGHTING_ATTRIBUTE);
                     if (this == npc) {
@@ -443,7 +471,7 @@ public class NPC extends Mob {
             }*/
         }
         final Mob finalKiller = killer;
-        World.getWorld().submit(new Tick(deathTick) {
+        submitWorldTick(new Tick(deathTick) {
             @Override
             public void execute() {
                 stop();
@@ -468,11 +496,16 @@ public class NPC extends Mob {
                 		getFamiliar().dismiss(true, null);
                 }
                 getDamageManager().clearEnemyHits();
+                deathRewardComplete = true;
             }
         });
+        if(this instanceof org.dementhium.model.npc.godwars.GodWarsNPC) {
+            ((org.dementhium.model.npc.godwars.GodWarsNPC)this).died(last != null ? last : finalKiller);
+            return;
+        }
         for (int i : UNRESPAWNABLE_NPCS) {
             if (id == i || unrespawnable) {
-                World.getWorld().submit(new Tick(deathTick) {
+                submitWorldTick(new Tick(deathTick) {
                     @Override
                     public void execute() {
                         if (id == 1532 || id == 1533) {
@@ -488,7 +521,7 @@ public class NPC extends Mob {
                 return;
             }
         }
-        World.getWorld().submit(new Tick(deathTick) {
+        submitWorldTick(new Tick(deathTick) {
             @Override
             public void execute() {
                 setHidden(true);
@@ -501,7 +534,7 @@ public class NPC extends Mob {
         });
 
         if (!isSpecial(id)) {
-            World.getWorld().submit(new Tick(60 + deathTick) {
+            submitWorldTick(new Tick(60 + deathTick) {
                 @Override
                 public void execute() {
                     resetCombat();
@@ -526,7 +559,7 @@ public class NPC extends Mob {
             }
         }
         if (amt == SPECIAL_DEATH_NPCS[index].length) {
-            World.getWorld().submit(new Tick(30 + getDeathTick()) {
+            submitWorldTick(new Tick(30 + getDeathTick()) {
                 @Override
                 public void execute() {
                     for (int npcId : SPECIAL_DEATH_NPCS[index]) {
@@ -856,7 +889,7 @@ public class NPC extends Mob {
                 }
                 if (clan.getMembers().contains(pl)) {
                     ActionSender.sendMessage(pl, done.getDisplayName() + " received: " + amount + " x " + ItemDefinition.forId(id).getName()+".");
-                    World.getWorld().submit(new Tick(6) {
+                    submitWorldTick(new Tick(6) {
                         @Override
                         public void execute() {
                             ActionSender.sendMessage(pl, "Your chance of receiving loot has improved.");
@@ -890,7 +923,7 @@ public class NPC extends Mob {
         return dropAmount;
     }
 
-    private int getDeathAnimation() {
+    public int getDeathAnimation() {
         return definition.getDeathAnimation();
     }
 
@@ -931,6 +964,7 @@ public class NPC extends Mob {
     }
 
     public void setDead(boolean dead) {
+        if(this.isDead!=dead){resetCombatState();returningHome=false;deathRewardComplete=false;}
         this.isDead = dead;
     }
 
@@ -955,6 +989,7 @@ public class NPC extends Mob {
 
     public void setDefinition(NPCDefinition definition) {
         this.definition = definition;
+        if(combatStats!=null)combatStats.reset();
     }
 
     @Override
@@ -1002,6 +1037,7 @@ public class NPC extends Mob {
     }
 
     public void heal(int amount) {
+        if(isNex() && (isDead() || isDying()))return;
         int healedAmount = hitpoints + amount;
         if (healedAmount > definition.getHitpoints()) {
             healedAmount = definition.getHitpoints();
@@ -1052,7 +1088,7 @@ public class NPC extends Mob {
     public void hunterDeath() {
         setHidden(true);
         setDead(true);
-        World.getWorld().submit(new Tick(30 + getDeathTick()) {
+        submitWorldTick(new Tick(30 + getDeathTick()) {
             @Override
             public void execute() {
                 stop();
@@ -1230,19 +1266,8 @@ public class NPC extends Mob {
 		if (CombatUtils.usingProtection(this, type)) {
 			hit *= source.isPlayer() ? 0.6 : 0;
 		}
-		if (source.isPlayer() && source.getPlayer().getSlayer() != null && source.getPlayer().getSlayer().getSlayerTask() != null) {
-			if (source.getPlayer().getSlayer().getSlayerTask().getName().equalsIgnoreCase(definition.getCacheDefinition().getName())) {
-				Item item = source.getPlayer().getEquipment().get(Equipment.SLOT_HAT);
-				if (item != null) {
-					if (item.getDefinition().getName().contains("lack mask")) {
-						hit *= 1.15;
-					} else if (item.getDefinition().getName().contains("layer helmet")) {
-						hit *= 1.15;
-					}
-				}
-			}
-		}
-		Item weapon = source.isPlayer() ? source.getPlayer().getEquipment().get(3) : null;
+		// Target bonuses are applied once by EquipmentEffects in the combat formulae.
+        Item weapon = source.isPlayer() ? source.getPlayer().getEquipment().get(3) : null;
 		if (weapon != null && weapon.getId() == 15403 && getDefinition().getName().contains("agannoth")) {
 			hit *= 1.75;
 			source.graphics(source.getPlayer().getSettings().getCombatType() == WeaponInterface.TYPE_CRUSH ? 2272 : 2273, 96 << 16);

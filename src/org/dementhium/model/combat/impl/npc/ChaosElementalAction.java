@@ -27,6 +27,7 @@ import org.dementhium.model.player.Player;
  *
  */
 public class ChaosElementalAction extends CombatAction {
+    @Override public CombatAction newSession(){return new ChaosElementalAction();}
 
 	/**
 	 * The combat area.
@@ -39,7 +40,7 @@ public class ChaosElementalAction extends CombatAction {
 	 *
 	 */
 	private static enum Attack {
-		
+
 		/**
 		 * The default attack.
 		 */
@@ -52,7 +53,7 @@ public class ChaosElementalAction extends CombatAction {
 					}
 				}
 		),
-		
+
 		/**
 		 * The teleporting attack.
 		 */
@@ -66,7 +67,7 @@ public class ChaosElementalAction extends CombatAction {
 					}
 				}
 		),
-		
+
 		/**
 		 * The disarming attack.
 		 */
@@ -104,27 +105,27 @@ public class ChaosElementalAction extends CombatAction {
 					}
 				}
 		);
-		
+
 		/**
 		 * The start graphic.
 		 */
 		private final Graphic start;
-		
+
 		/**
 		 * The projectile to send.
 		 */
 		private final Projectile projectile;
-		
+
 		/**
 		 * The end graphic.
 		 */
 		private final Graphic end;
-		
+
 		/**
 		 * The combat task to execute.
 		 */
 		private final CombatTask task;
-		
+
 		/**
 		 * Constructs a new {@code Attack} {@code Object}.
 		 * @param start The start graphic.
@@ -139,17 +140,17 @@ public class ChaosElementalAction extends CombatAction {
 			this.task = task;
 		}
 	}
-	
+
 	/**
 	 * The current combat type used.
 	 */
 	private CombatType type = CombatType.MAGIC;
-	
+
 	/**
 	 * The current attack used.
 	 */
 	private Attack attack = Attack.PRIMARY;
-	
+
 	/**
 	 * Constructs a new {@code ChaosElementalAction} {@code Object}.
 	 */
@@ -212,21 +213,9 @@ public class ChaosElementalAction extends CombatAction {
 			} else {
 				interaction.getVictim().graphics(85, 96 << 16);
 			}
-			if (interaction.getDamage().getVenged() > 0) {
-				interaction.getVictim().submitVengeance(interaction.getSource(), interaction.getDamage().getVenged());
-			}
-			if (interaction.getDamage().getDeflected() > 0) {
-				//interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-						//interaction.getDamage().getDeflected(), 
-						//interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-				interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getDeflected(), DamageType.DEFLECT);
-			}
-			if (interaction.getDamage().getRecoiled() > 0) {
-				//interaction.getSource().getDamageManager().damage(interaction.getVictim(), 
-						//interaction.getDamage().getRecoiled(), 
-						//interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-				interaction.getSource().getDamageManager().miscDamage(interaction.getDamage().getRecoiled(), DamageType.DEFLECT);
-			}
+
+
+
 			interaction.getVictim().retaliate(interaction.getSource());
 		}
 		return true;

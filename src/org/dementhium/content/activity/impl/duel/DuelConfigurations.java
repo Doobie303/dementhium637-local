@@ -1,465 +1,147 @@
 package org.dementhium.content.activity.impl.duel;
-
+import java.util.*;
 import org.dementhium.content.activity.impl.DuelActivity;
 import org.dementhium.content.areas.Area;
-import org.dementhium.model.Container;
-import org.dementhium.model.Item;
-import org.dementhium.model.Location;
-import org.dementhium.model.World;
+import org.dementhium.model.*;
 import org.dementhium.model.map.Region;
-import org.dementhium.model.player.Player;
+import org.dementhium.model.player.*;
 import org.dementhium.net.ActionSender;
 
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.List;
-import java.util.Random;
-
-/**
- * Represents the dueling rules agreed by the 2 dueling players.
- *
- * @author Emperor
- */
 public class DuelConfigurations {
-
-    /**
-     * The array of all fun weapon item id's.
-     * TODO: Add in item id's.
-     */
-    public static final short[] FUN_WEAPONS = {};
-
-    /**
-     * The array of strings used on the second challenge screen.
-     */
-    private static final String[] DUEL_TEXT = {
-            /*
-            * During the duel...
-            */
-            "You cannot use Ranged attacks.",
-            "You cannot use Melee attacks.",
-            "You cannot use Magic attacks.",
-            "You can only use 'fun weapons.'",
-            "You cannot forfeit the duel.",
-            "You cannot use drinks.",
-            "You cannot use food.",
-            "You cannot use Prayer.",
-            "You cannot move.",
-            "There will be obstacles in the arena.",
-            "You cannot use special attacks.",
-            "Summoning familiars can assist you in battle.",
-            /*
-            * Before the duel..
-            */
-            "Some worn items will be taken off.",
-            "Some worn items will be taken off.",
-            "Some worn items will be taken off.",
-            "Some worn items will be taken off.",
-            "Some worn items will be taken off.",
-            "Some worn items will be taken off.",
-            "Some worn items will be taken off.",
-            "Some worn items will be taken off.",
-            "Some worn items will be taken off.",
-            "Some worn items will be taken off.",
-            "Some worn items will be taken off.",
-    };
-
-
-    /**
-     * The rules enum.
-     *
-     * @author Emperor
-     */
-    public static enum Rules {
-        RANGE(16),
-        MELEE(32),
-        MAGIC(64),
-        FUN_WEAPONS(4096),
-        FORFEIT(1),//TODO
-        DRINKS(128),
-        FOOD(256),
-        PRAYER(512),
-        MOVEMENT(2),
-        OBSTACLES(1024),
-        SPECIAL_ATTACKS(8192),
-        SUMMONING(268435456),
-        HAT(16384),
-        CAPE(32768),
-        AMULET(65536),
-        WEAPON(131072),
-        BODIE(262144),
-        SHIELD(524288),
-        LEG(2097152),
-        GLOVE(8388608),
-        BOOT(16777216),
-        RING(67108864),
-        ARROW(134217728);
-
-
-        /**
-         * The configuration value.
-         */
-        private final int value;
-
-        Rules(int configurationValue) {
-            this.value = configurationValue;
-        }
+    public enum Rules {
+        RANGE(16),MELEE(32),MAGIC(64),FUN_WEAPONS(4096),FORFEIT(1),DRINKS(128),FOOD(256),PRAYER(512),MOVEMENT(2),OBSTACLES(1024),SPECIAL_ATTACKS(8192),SUMMONING(268435456),
+        HAT(16384),CAPE(32768),AMULET(65536),WEAPON(131072),BODIE(262144),SHIELD(524288),LEG(2097152),GLOVE(8388608),BOOT(16777216),RING(67108864),ARROW(134217728);
+        final int value;Rules(int value){this.value=value;}
     }
-
-    /**
-     * The bitset of rules.
-     */
-    private BitSet rules = new BitSet();
-
-    /**
-     * The configurations id of summoning enabled.
-     */
-    public static final byte SUMMONING = 5;
-
-    /**
-     * The configurations id of obstacles arena.
-     */
-    public static final byte OBSTACLES = 6;
-
-    /**
-     * Sets a rule.
-     *
-     * @param rule The rule to set.
-     * @return {@code True}.
-     */
-    public boolean setRule(Rules rule, boolean flag) {
-        rules.set(rule.ordinal(), flag);
+    public static final short[] FUN_WEAPONS={4566,2460,2461,2462,2463,2464,2465,2466,2467,2468,6541};
+    public static final byte SUMMONING=5,OBSTACLES=6;
+    private final BitSet rules=new BitSet();
+    private final DuelActivity owner;
+    private static final int[] SLOTS={0,1,2,3,4,5,7,9,10,12,13};
+    private static final String[] LABELS={"No Ranged","No Melee","No Magic","Fun Weapons","No Forfeit","No Drinks","No Food","No Prayer","No Movement","Obstacles","No Special Attacks","Enable Summoning","No Helm","No Cape","No Amulet","No Weapon","No Body","No Shield","No Legs","No Gloves","No Boots","No Ring","No Ammo"};
+    public DuelConfigurations(){this(null);}
+    public DuelConfigurations(DuelActivity owner){this.owner=owner;}
+    public BitSet snapshot(){return (BitSet)rules.clone();}
+    public boolean getRule(Rules rule){return rules.get(rule.ordinal());}
+    public boolean setRule(Rules rule,boolean flag){
+        if(owner!=null)throw new IllegalStateException("Live duel rules must use versioned edits");
+        rules.set(rule.ordinal(),flag);return true;
+    }
+    public boolean canSetRule(Player p,Rules rule){
+        BitSet next=snapshot();next.flip(rule.ordinal());return valid(next,p);
+    }
+    private static boolean valid(BitSet next,Player p){
+        boolean invalid=(next.get(0)&&next.get(1)&&next.get(2))||(next.get(3)&&(next.get(1)||next.get(15)))||(next.get(4)&&next.get(1));
+        if(invalid&&p!=null)p.sendMessage("Those rules would prevent a fair, finishable duel.");return !invalid;
+    }
+    public boolean swapRule(Player p,Player other,Rules rule){
+        if(owner!=null&&(!owner.editable(p)||owner.getOpponent(p)!=other))return false;
+        BitSet before=snapshot(),next=snapshot();next.flip(rule.ordinal());
+        if(rule==Rules.OBSTACLES&&next.get(9)){next.clear(8);next.clear(11);}
+        if((rule==Rules.MOVEMENT||rule==Rules.SUMMONING)&&next.get(rule.ordinal()))next.clear(9);
+        if(!valid(next,p))return false;
+        rules.clear();rules.or(next);
+        StringBuilder change=new StringBuilder();
+        for(int n=0;n<LABELS.length;n++)if(before.get(n)!=next.get(n)){
+            if(change.length()>0)change.append("; ");change.append(describe(n,next.get(n)));
+        }
+        BitSet delta=(BitSet)before.clone();delta.xor(next);
+        if(owner!=null)owner.changed(p,change.toString(),delta);
+        refresh(p);refresh(other);
         return true;
     }
-
-    /**
-     * Gets the flag of the given rule.
-     *
-     * @param rule The rule.
-     * @return {@code True} if the rule has been enabled,
-     *         <br>		{@code false} if not.
-     */
-    public boolean getRule(Rules rule) {
-        return rules.get(rule.ordinal());
+    private static String describe(int n,boolean enabled){
+        if(n==3)return enabled?"Fun weapons only":"Normal weapons allowed";
+        if(n==9)return "Obstacles "+(enabled?"enabled":"disabled");
+        if(n==11)return "Summoning "+(enabled?"enabled":"disabled");
+        return LABELS[n].substring(3)+(enabled?" blocked":" allowed");
     }
-
-    /**
-     * Swaps a rule.
-     *
-     * @param player The player.
-     * @param other  The other player.
-     * @param rule   The rule.
-     * @return {@code True}.
-     */
-    public boolean swapRule(Player player, Player other, Rules rule) {
-        if (canSetRule(player, rule)) {
-            rules.set(rule.ordinal(), !rules.get(rule.ordinal()));
-            refresh(player);
-            refresh(other);
-            return true;
-        }
-        return false;
+    public void refreshLabels(Player p){
+        for(int n=0;n<12;n++)ActionSender.sendString(p,
+            (owner!=null&&owner.highlightRule(p,n)?"<col=ff4040>* ":"<col=bf751d>")+LABELS[n]+"</col>",631,27+2*n);
     }
-
-    /**
-     * Checks if the rule can be changed.
-     *
-     * @param player The player.
-     * @param rule   The rule.
-     * @return {@code True} if so, {@code false} if not.
-     */
-    public boolean canSetRule(Player player, Rules rule) {
-        if (rules.get(rule.ordinal())) {
-            return true;
+    public boolean refresh(Player p){int value=0;for(Rules r:Rules.values())if(getRule(r))value|=r.value;ActionSender.sendConfig(p,286,value);return true;}
+    public static boolean isFunWeapon(int id){for(short fun:FUN_WEAPONS)if(fun==id)return true;return false;}
+    public boolean weaponAllowed(Player p,int id){
+        if(getRule(Rules.FUN_WEAPONS)&&!isFunWeapon(id)){p.sendMessage("Fun weapons only: rubber chicken, flowers or mouse toy.");return false;}return true;
+    }
+    private Container equipmentToRemove(Player p){
+        Container removed=new Container(14,false,false,true);
+        for(int n=0;n<SLOTS.length;n++)if(getRule(Rules.values()[12+n])){
+            Item item=p.getEquipment().get(SLOTS[n]);if(item!=null)removed.set(SLOTS[n],new Item(item));
         }
-        switch (rule) {
-            case MAGIC:
-                if (rules.get(Rules.MELEE.ordinal()) && rules.get(Rules.RANGE.ordinal())) {
-                    player.sendMessage("You have to be able to use atleast one combat style in a duel.");
-                    return false;
-                }
-                return true;
-            case MELEE:
-                if (rules.get(Rules.MAGIC.ordinal()) && rules.get(Rules.RANGE.ordinal())) {
-                    player.sendMessage("You have to be able to use atleast one combat style in a duel.");
-                    return false;
-                }
-                return true;
-            case RANGE:
-                if (rules.get(Rules.MELEE.ordinal()) && rules.get(Rules.MAGIC.ordinal())) {
-                    player.sendMessage("You have to be able to use atleast one combat style in a duel.");
-                    return false;
-                }
-                return true;
-            case OBSTACLES:
-                if (rules.get(Rules.SUMMONING.ordinal())) {
-                    setRule(Rules.SUMMONING, false);
-                }
-                if (rules.get(Rules.MOVEMENT.ordinal())) {
-                    setRule(Rules.MOVEMENT, false);
-                }
-                return true;
-            case MOVEMENT:
-            case SUMMONING:
-                if (rules.get(Rules.OBSTACLES.ordinal())) {
-                    setRule(Rules.OBSTACLES, false);
-                }
-                return true;
-            case WEAPON:
-                if (rules.get(Rules.FUN_WEAPONS.ordinal())) {
-                    player.sendMessage("You can't have weapons disabled while the fun weapons rule is active.");
-                    return false;
-                }
-                return true;
-            case FUN_WEAPONS:
-                if (rules.get(Rules.WEAPON.ordinal())) {
-                    player.sendMessage("You can't have fun weapons active while weapons are disabled.");
-                    return false;
-                }
-                return true;
-        }
+        Item weapon=p.getEquipment().get(3);
+        if(weapon!=null&&getRule(Rules.SHIELD)&&weapon.getDefinition().isTwoHanded())removed.set(3,new Item(weapon));
+        return removed;
+    }
+    public boolean canAccept(Player p){
+        if(!valid(rules,p))return false;
+        if(p.getFamiliar()!=null&&!getRule(Rules.SUMMONING)){p.sendMessage("You cannot bring familiars into this duel.");return false;}
+        if(!weaponAllowed(p,p.getEquipment().getSlot(3)))return false;
+        Container inventory=new Container(28,false);DuelRecovery.replace(inventory,p.getInventory().getContainer());
+        if(!inventory.tryAddAll(equipmentToRemove(p))){p.sendMessage("Make inventory space for equipment removed by these rules.");return false;}
         return true;
     }
-
-    /**
-     * Refreshes the rules.
-     *
-     * @param player The player.
-     * @return {@code True}.
-     */
-    public boolean refresh(Player player) {
-        int value = 0;
-        for (int i = 0; i < Rules.values().length; i++) {
-            if (rules.get(i)) {
-                value += Rules.values()[i].value;
-            }
-        }
-        ActionSender.sendConfig(player, 286, value);
-        return true;
+    public boolean canEquip(Player p,int normalizedSlot){
+        if(normalizedSlot<0||normalizedSlot>=SLOTS.length)return false;
+        if(rules.get(normalizedSlot+12)){p.sendMessage("That equipment slot is disabled for this duel.");return false;}return true;
     }
-//find the press all packet kk
-    /**
-     * Sends the second challenge interface.
-     *
-     * @param player The player.
-     */
-    public void sendSecondInterface(Player player, Player other) {
-        if (!player.getInventory().getContainer().hasSpaceFor(((Stakes) other.getAttribute("duelStakes")).getContainer())) {
-            //player.sendMessage("You do not have enough space in your inventory for the stake!");
-            ((DuelActivity) player.getActivity()).decline(player, true);
-            return;
-        }
-        //TODO: send friendList interface etc. here, not the stake inventory
-        int duringDuelOffset = 33;
-        int beforeDuelOffset = 41;
-        boolean wornItemWarning = false;
-        for (int i = 28; i <= 44; i++) {
-            if (i != 32) {
-                ActionSender.sendString(player, "", DuelActivity.DUEL_SECOND_INTERFACE, i);
-            }
-        }
-        ActionSender.sendString(player, "Modified stats will be restored.", DuelActivity.DUEL_SECOND_INTERFACE, beforeDuelOffset);
-        beforeDuelOffset = 28;
-        for (int i = 0; i < rules.size(); i++) {
-            if (rules.get(i)) {
-                if (i == 17) {
-                    ActionSender.sendString(player, "You can't use two-handed weapons, like bows.", DuelActivity.DUEL_SECOND_INTERFACE, duringDuelOffset);
-                    duringDuelOffset++;
-                }
-                if (i > 11) {
-                    if ((i >= 11 && i <= 22) && i != 20) {
-                        if (wornItemWarning) {
-                            continue;
-                        } else {
-                            wornItemWarning = true;
-                        }
-                    }
-                    ActionSender.sendString(player, DUEL_TEXT[i], DuelActivity.DUEL_SECOND_INTERFACE, beforeDuelOffset);
-                    beforeDuelOffset++;
-                    if (beforeDuelOffset == 42) {
-                        beforeDuelOffset = 28;
-                    }
-                } else {
-                    ActionSender.sendString(player, DUEL_TEXT[i], DuelActivity.DUEL_SECOND_INTERFACE, duringDuelOffset);
-                    duringDuelOffset++;
-                }
-            }
-        }
-        ActionSender.sendString(other, "", DuelActivity.DUEL_SECOND_INTERFACE, 45);
-        Container stake = ((Stakes) player.getAttribute("duelStakes")).getContainer();
-        if (stake.freeSlots() < 28) {
-            ActionSender.sendString(player, "", DuelActivity.DUEL_SECOND_INTERFACE, 25);
-            ActionSender.sendString(other, "", DuelActivity.DUEL_SECOND_INTERFACE, 26);
-        }
-        ActionSender.sendInterface(player, DuelActivity.DUEL_SECOND_INTERFACE);
+    public void removeEquipment(Player p){
+        Container removed=equipmentToRemove(p);
+        if(!p.getInventory().getContainer().tryAddAll(removed))throw new IllegalStateException("Equipment no longer fits");
+        for(int n=0;n<removed.getSize();n++)if(removed.get(n)!=null)p.getEquipment().set(n,null);
+        p.getEquipment().recalculateHpModifier();p.getEquipment().refresh();p.getInventory().refresh();p.getSkills().refresh();
     }
-
-    /**
-     * Represents the different teleport locations.
-     *
-     * @author Emperor
-     */
+    private static String itemText(Container c){
+        StringBuilder result=new StringBuilder();
+        for(Item item:c.toArray())if(item!=null){
+            if(result.length()>0)result.append("<br>");
+            result.append(item.getDefinition().getName().replace("<","(").replace(">",")")).append(" x ").append(java.text.NumberFormat.getIntegerInstance(java.util.Locale.US).format(item.getAmount()));
+            if(item.getHealth()>0)result.append(" [charge ").append(item.getHealth()).append("]");
+        }
+        return result.toString();
+    }
+    public void sendSecondInterface(Player p,Player other){
+        ActionSender.closeInventoryInterface(p);ActionSender.sendInterface(p,626);
+        ActionSender.sendString(p,"Confirm "+(owner.isStaking()?"stake":"friendly duel")+" with "+other.getDisplayName(),626,20);
+        ActionSender.sendString(p,"",626,45);
+        Container mine=owner.stakeOf(p).getContainer(),theirs=owner.stakeOf(other).getContainer();
+        ActionSender.sendString(p,mine.size()==0?"Absolutely nothing!":"",626,25);
+        ActionSender.sendString(p,theirs.size()==0?"Absolutely nothing!":"",626,26);
+        ActionSender.sendString(p,itemText(mine),626,46);ActionSender.sendString(p,itemText(theirs),626,47);
+        for(int n=28;n<=44;n++)if(n!=32)ActionSender.sendString(p,"",626,n);
+        ActionSender.sendString(p,"Stats restored; equipped rules enforced.",626,41);
+        List<String> disabled=new ArrayList<String>();
+        for(int n=12;n<LABELS.length;n++)if(rules.get(n))disabled.add(LABELS[n].substring(3));
+        for(int n=0;n<disabled.size();n+=3)ActionSender.sendString(p,"Remove: "+String.join(", ",disabled.subList(n,Math.min(n+3,disabled.size()))),626,28+n/3);
+        List<String> during=new ArrayList<String>();
+        for(int n=0;n<12;n++)during.add(LABELS[n]+": "+(rules.get(n)?"ON":"OFF"));
+        int[] rows={33,34,35,36,37,38,39,40,42,43,44};
+        // Twelve explicit states fit eleven rows by combining the arena toggles.
+        during.set(8,during.get(8)+"; "+during.get(9));during.remove(9);
+        for(int n=0;n<rows.length;n++)ActionSender.sendString(p,during.get(n),626,rows[n]);
+        if(getRule(Rules.SHIELD))p.sendMessage("No Shield also prevents two-handed weapons.");
+    }
     public enum TeleportLocations {
-        NORMAL_ARENA(World.getWorld().getAreaManager().getAreaByName("NormalArena")),
-        OBSTACLES_ARENA(World.getWorld().getAreaManager().getAreaByName("ObstaclesArena")),
-        SUMMONING_ARENA(World.getWorld().getAreaManager().getAreaByName("SummoningArena")),
-        CHALLENGE_ROOM(World.getWorld().getAreaManager().getAreaByName("ChallengeRoom"));
-
-        /**
-         * The base area of the teleport.
-         */
-        private final Area area;
-
-        /**
-         * Constructs the teleport locations enum.
-         *
-         * @param area The area.
-         */
-        TeleportLocations(Area area) {
-            this.area = area;
-        }
-
-        /**
-         * @return the area
-         */
-        public Area getArea() {
-            return area;
-        }
+        NORMAL_ARENA("NormalArena"),OBSTACLES_ARENA("ObstaclesArena"),SUMMONING_ARENA("SummoningArena"),CHALLENGE_ROOM("ChallengeRoom");
+        final String area;TeleportLocations(String area){this.area=area;}
+        public Area getArea(){return World.getWorld().getAreaManager().getAreaByName(area);}
     }
-
-    /**
-     * Teleports a player inside the duel arena.
-     *
-     * @param player The player.
-     * @param stage  The teleport stage.
-     */
-    public static boolean teleport(Player player, TeleportLocations stage, boolean noMovement) {
-        if (noMovement) {
-            Location l = ((Player) player.getAttribute("duelingWith")).getLocation();
-            Location to = getLocation(player, l);
-            player.teleport(to.getX(), to.getY(), to.getZ(), true);
-            return true;
-        }
-        int x, y, clippingMask;
-        List<Location> locations = new ArrayList<Location>();
-        for (x = stage.getArea().swX; x < stage.getArea().nwX; x++) {
-            for (y = stage.getArea().swY; y < stage.getArea().nwY; y++) {
-                Location l = Location.locate(x, y, 0);
-                clippingMask = Region.getClippingMask(l.getX(), l.getY(), l.getZ());
-                if ((clippingMask & 0x1280180) == 0 && (clippingMask & 0x1280108) == 0
-                        && (clippingMask & 0x1280120) == 0 && (clippingMask & 0x1280102) == 0) {
-                    locations.add(l);
-                }
-            }
-        }
-        Random r = new Random();
-        Location current = locations.get(r.nextInt(locations.size()));
-        x = current.getX();
-        y = current.getY();
-        player.teleport(x, y, 0, true);
-        return true;
-    }
-
-    /**
-     * Gets the location for the player when the "No movement" rule is toggled.
-     *
-     * @param player The player.
-     * @param l      The location of the other player.
-     * @return The {@code Location} to teleport to.
-     */
-    private static Location getLocation(Player player, Location l) {
-        List<Location> list = new ArrayList<Location>(4);
-        list.add(l.transform(-1, 0, 0));
-        list.add(l.transform(0, -1, 0));
-        list.add(l.transform(1, 0, 0));
-        list.add(l.transform(0, 1, 0));
-        int clippingMask;
-        for (Location i : list) {
-            clippingMask = Region.getClippingMask(i.getX(), i.getY(), i.getZ());
-            if ((clippingMask & 0x1280180) == 0 && (clippingMask & 0x1280108) == 0
-                    && (clippingMask & 0x1280120) == 0 && (clippingMask & 0x1280102) == 0) {
-                return i;
-            }
+    private static boolean open(Location p){int mask=Region.getClippingMask(p.getX(),p.getY(),p.getZ());return (mask&0x12801fe)==0;}
+    public Location[] startLocations(){
+        TeleportLocations stage=getRule(Rules.SUMMONING)?TeleportLocations.SUMMONING_ARENA:getRule(Rules.OBSTACLES)?TeleportLocations.OBSTACLES_ARENA:TeleportLocations.NORMAL_ARENA;
+        Area area=stage.getArea();if(area==null)return null;
+        for(int rx=(area.swX-1)>>6;rx<=((area.nwX+1)>>6);rx++)for(int ry=(area.swY-1)>>6;ry<=((area.nwY+1)>>6);ry++){int region=(rx<<8)|ry;if(!org.dementhium.cache.format.LandscapeParser.parseLandscape(region,org.dementhium.util.MapXTEA.getKey(region)))return null;}
+        List<Location> tiles=new ArrayList<Location>();
+        for(int x=area.swX;x<area.nwX;x++)for(int y=area.swY;y<area.nwY;y++){Location p=Location.locate(x,y,0);if(open(p))tiles.add(p);}
+        Collections.shuffle(tiles);
+        for(Location a:tiles){
+            if(!getRule(Rules.MOVEMENT)){for(Location b:tiles)if(!a.equals(b))return new Location[]{a,b};}
+            else for(int[] d:new int[][]{{-1,0},{0,-1},{1,0},{0,1}}){Location b=a.transform(d[0],d[1],0);if(area.contains(b)&&open(b))return new Location[]{a,b};}
         }
         return null;
     }
-
-    /**
-     * Checks if the player can accept the duel.
-     *
-     * @param player The player.
-     * @return {@code True} if so, {@code false} if not.
-     */
-    public boolean canAccept(Player player) {
-        int spaceNeeded = 0;
-        Item item;
-        if (player.getFamiliar() != null && !rules.get(Rules.SUMMONING.ordinal())) {
-            player.sendMessage("You can't bring familiars in this arena.");
-            return false;
-        }
-        if (rules.get(17) && !rules.get(15)) { //shield rule = 17, weapon rule = 15
-        	if (player.getEquipment().get(3) != null && player.getEquipment().get(3).getDefinition().isTwoHanded())
-        		spaceNeeded++;
-        }
-        for (int i = 12; i < Rules.values().length; i++) {
-            int slot = i - 12;
-            slot = slot == 6 ? 7 : slot > 6 ? slot + 2 : slot;
-            if (rules.get(i) && (item = player.getEquipment().get(slot)) != null) {
-                if (i == 12 || i == 16) {
-                    if (!(item.getDefinition().isStackable() && player.getInventory().getContainer().containsOne(item))) {
-                        spaceNeeded++;
-                    }
-                } else {
-                    spaceNeeded++;
-                }
-            }
-        }
-        int freeSlots = player.getInventory().getContainer().freeSlots() - spaceNeeded;
-        if (freeSlots < 0) {
-            player.sendMessage("You do not have enough inventory space to remove all the equipment.");
-            return false;
-        }
-        Container stakes = ((DuelActivity) player.getActivity()).getStakes();
-        for (int i = 0; i < stakes.getSize(); i++) {
-            if (stakes.get(i) != null) {
-                freeSlots--;
-            }
-        }
-        if (freeSlots < 0) {
-            player.sendMessage("You do not have enough inventory space for the stakes.");
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Checks if the player can equip an item.
-     *
-     * @param slot The equipment slot.
-     * @return {@code True} if so, {@code false} if not.
-     */
-    public boolean canEquip(Player player, int slot) {
-        if (rules.get(slot + 12)) {
-            player.sendMessage("You can't equip " + Rules.values()[slot + 12].name().toLowerCase() + "s for this duel!");
-            return false;
-        }
-        return true;
-    }
-
-    /**
-     * Removes the equipment upon accept.
-     *
-     * @param player The player.
-     */
-    public void removeEquipment(Player player) {
-        int slot;
-        for (int i = 12; i < Rules.values().length; i++) {
-            if (rules.get(i)) {
-                slot = i - 12;
-                slot = slot == 6 ? 7 : slot > 6 ? slot + 2 : slot;
-                player.getEquipment().removeSlot(slot);
-                player.getEquipment().recalculateHpModifier(); 
-                player.getSkills().refresh();
-            }
-        }
+    public static boolean teleport(Player p,TeleportLocations stage,boolean noMovement){
+        if(stage==TeleportLocations.CHALLENGE_ROOM){p.teleport(Location.locate(3366,3266,0),false);return true;}return false;
     }
 }

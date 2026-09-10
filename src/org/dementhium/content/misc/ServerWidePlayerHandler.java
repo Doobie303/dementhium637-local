@@ -80,7 +80,7 @@ public class ServerWidePlayerHandler {
         if (ipMute) {
             String ip = formatIp(p.getConnection().getChannel().getRemoteAddress().toString());
             for (String s : mutedIps) {
-                if (mutedIps.equals(ip)) {
+		if (mutedIps.contains(ip)) {
                     mutedIps.remove(s);
                 }
             }
@@ -101,7 +101,7 @@ public class ServerWidePlayerHandler {
         if (ipBan) {
             String ip = p.getLastConnectIp();
             for (String s : bannedIps) {
-                if (bannedIps.equals(ip)) {
+		if (bannedIps.contains(ip)) {
                     bannedIps.remove(s);
                 }
             }

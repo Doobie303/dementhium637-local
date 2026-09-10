@@ -2,6 +2,7 @@ package org.dementhium.task.impl;
 
 import org.dementhium.content.interfaces.LevelUp;
 import org.dementhium.model.mask.Animation;
+import org.dementhium.model.player.DegradingHandler;
 import org.dementhium.model.player.Player;
 import org.dementhium.net.ActionSender;
 import org.dementhium.net.message.Message;
@@ -34,6 +35,7 @@ public class PlayerTickTask implements Task {
 			
 			try {
 				player.getCombatExecutor().tick();
+				DegradingHandler.processWorn(player);
 				player.processTicks();
 				player.getWalkingQueue().getNextEntityMovement();
 				Tick followingTick = player.getTick("following_mob");

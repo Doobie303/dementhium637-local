@@ -33,13 +33,14 @@ public class TutorialScene {
        //actions.add(new InterfaceAction(p, 0, -1));
        actions.add(new DialogueAction(p, -1, DialogueManager.SECRELTY_TALKING, false, "whaa....??? Where am I?!"));
        actions.add(new DialogueAction(p, 13280, DialogueManager.HAPPY_TALKING, true, "No need to be scared!", "This is DyNamic PvP and I will be your guide today!"));
-       actions.add(new CameraMoveAction(p, 3, 2340, 3675, 15, 10));
+       actions.add(new TeleportAction(p, 0, 2337, 3803, 0, 0, false));
+       actions.add(new CameraMoveAction(p, 3, 2337, 3807, 15, 10));
        actions.add(new DialogueAction(p, 13280, DialogueManager.TALKING_ALOT, true, "Now what you see here is our home area,","here you can find just about everything!","Shops, items, players, portals and more!"));
        actions.add(new DialogueAction(p, 13280, DialogueManager.TALKING_ALOT, true, "Here at the home area will be your way around the server.","All of these portals take you somewhere!","Each place is different, it's a lot of fun!"));
        actions.add(new TeleportAction(p, 3, 2883, 9812, 0, 0, false));
        actions.add(new DialogueAction(p, 13280, DialogueManager.CALM_TALK, true, "Here we are....","One of the many training dungeons on DyNamic's!","You can train your skills here and collect coins!"));
        actions.add(new TeleportAction(p, 3, 2782, 10102, 0, 0, false));
-       actions.add(new DialogueAction(p, 13280, DialogueManager.HAPPY_TALKING, true, "I bring you to one of the most popular"," train areas on DyNamic's! Yes this is rock crabs!","You can get here by using the purple portal at home!"));
+       actions.add(new DialogueAction(p, 13280, DialogueManager.HAPPY_TALKING, true, "I bring you to one of the most popular"," train areas on DyNamic's! Yes this is rock crabs!","Choose Rock crabs from the PvM portal at home!"));
        actions.add(new DialogueAction(p, 13280, DialogueManager.HAPPY_TALKING, true, "Now... Let's take you somewhere a little more interesting!"));
       // actions.add(new TeleportAction(p, 3, 2815, 5511, 0, 0, false));
       // actions.add(new CameraMoveAction(p, 3, 2813, 5506, 1, 10));
@@ -58,13 +59,13 @@ public class TutorialScene {
        actions.add(new CameraMoveAction(p, 3, 3001, 5506, 15, 7));
        actions.add(new DialogueAction(p, 13280, DialogueManager.HAPPY_TALKING, true, "This is Dangerous PvP, players lose items here."," It's 1V1 combat let's you safeley fight others here","without interuption."));
        actions.add(new DialogueAction(p, 13280, DialogueManager.HAPPY_TALKING, true, "Back to the home area...","I am sure you are very tired of me talking so much!..."));
-       actions.add(new TeleportAction(p, 3, 2343, 3683, 0, 0, false));
+       actions.add(new TeleportAction(p, 3, 2337, 3803, 0, 0, false));
        actions.add(new DialogueAction(p, 13280, DialogueManager.HAPPY_TALKING, true, "Now that you know your way around...","You can get started!"));
        actions.add(new DialogueAction(p, 13280, DialogueManager.HAPPY_TALKING, true, "Before that though...."));
        actions.add(new DialogueAction(p, 13280, DialogueManager.HAPPY_TALKING, true, "Remember to ALWAYS follow the rules!","You can read them at","www.dynamicpvp.com"));
        actions.add(new DialogueAction(p, 13280, DialogueManager.HAPPY_TALKING, true, "Don't forget to register on forums also,","you can vote every 24 hours for vote","tickets you get special prizes!","Vote at www.dynamicpvp.com"));
        actions.add(new DialogueAction(p, 13280, DialogueManager.HAPPY_TALKING, true, "Respect ALL staff and Mod's/Admin's","The owner of DyNamic's is Doobie."));
-       actions.add(new TeleportAction(p, 3, 2784, 10099, 0, 0, false));
+       actions.add(new TeleportAction(p, 3, 2337, 3803, 0, 0, false));
        actions.add(new DialogueAction(p, 13280, DialogueManager.HAPPY_TALKING, true, "Now You are finished!","Have fun on DyNamic's play safe!"));
 		return actions.toArray(new CutsceneAction[0]);
    }

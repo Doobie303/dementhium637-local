@@ -71,54 +71,23 @@ public class PlayerOption extends PacketHandler {
     private void handleFirstOption(final Player player, Message packet) {
         int playerIndex = packet.readLEShort();
         final Player other = World.getWorld().getPlayers().get(playerIndex);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,other)) return;
         if (other == null || !other.isOnline() || player.getIndex() == other.getIndex()) {
             return;
         }
 		player.closeAll(true, true);
         player.getActionManager().stopAction();
         if (World.getWorld().getAreaManager().getAreaByName("Duel").contains(player.getLocation()) && !World.getWorld().getAreaManager().getAreaByName("AreaNotBeloningToDuel").contains(player.getLocation()) && player.getAttribute("duelingWith") == null) {
-            player.turnTo(other, false);
-        	boolean allowAdminDuel = true;
-    		for(String name : PlayerLoader.superMods) {
-    			if(player.getUsername().equals(name) || other.getUsername().equals(name)) {
-    				allowAdminDuel = true;
-    			}
-    		}
-            if (!World.getWorld().doPath(new DefaultPathFinder(), player, other.getLocation().getX(), other.getLocation().getY(), false, false).isRouteFound()) {
-                player.sendMessage("I can't reach that!");
-                return;
-            } else if (!World.getWorld().getAreaManager().getAreaByName("Duel").contains(other.getLocation()) || World.getWorld().getAreaManager().getAreaByName("AreaNotBeloningToDuel").contains(other.getLocation())) {
-                player.sendMessage("That player is not in the duel challenge area.");
-                return;
-            } else if (other.getAttribute("duelingWith") == Boolean.TRUE) {
-                return;
-            } else if (player.getAttribute("duelingWith") == Boolean.TRUE) {
-            	return;
-            } else if (other.getRights() >= 2 && player.getRights() < 2 && !allowAdminDuel) {
-                player.sendMessage("You can't duel with an administrator.");
-                return;
-            } else if (player.getRights() >= 2 && other.getRights() < 2 && !allowAdminDuel) {
-                player.sendMessage("Administrators can't duel with players.");
-                return;
-            } else {
-                Following.combatFollow(player, other);
+            if (!org.dementhium.content.activity.impl.duel.DuelChallenge.eligible(player,other)) {
+                player.sendMessage("That player is not available to duel.");return;
             }
-
-            World.getWorld().submitAreaEvent(player, new CoordinateEvent(player, other.getLocation().getX(), other.getLocation().getY(), other.size(), other.size()) {
-
-                @Override
+            Following.combatFollow(player,other);
+            World.getWorld().submitAreaEvent(player,new CoordinateEvent(player,other.getLocation().getX(),other.getLocation().getY(),other.size(),other.size()) {
                 public void execute() {
-                    if (other.getAttribute("didRequestDuel") == Boolean.TRUE && ((Short) other.getAttribute("duelWithIndex") == player.getIndex())) {
-                        ActivityManager.getSingleton().register(new DuelActivity(player, other));
-                    } else {
-                        ActionSender.sendInterface(player, 640);
-                        ActionSender.sendConfig(player, 283, 67108864);
-                        player.setAttribute("isStaking", Boolean.FALSE);
-                        player.setAttribute("duelWithIndex", other.getIndex());
-                    }
+                    if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,other)) return;
+                    org.dementhium.content.activity.impl.duel.DuelChallenge.select(player,other);
                 }
-            });
-        } else if (player.getActivity().isCombatActivity(player, other, true) || player.getPlayerArea().inWilderness() || (player.getAttribute("duelingWith") != null && World.getWorld().getAreaManager().getAreaByName("Duel").contains(player.getLocation()))) {
+            });        } else if (player.getActivity().isCombatActivity(player, other, true) || player.getPlayerArea().inWilderness() || (player.getAttribute("duelingWith") != null && World.getWorld().getAreaManager().getAreaByName("Duel").contains(player.getLocation()))) {
         	player.turnTo(other, false);
 			player.setAttribute("Droptick", World.getTicks() + 20);
         	if (player.isInWilderness()) {
@@ -199,6 +168,7 @@ public class PlayerOption extends PacketHandler {
             return;
         }
         final Player partner = World.getWorld().getPlayers().get(partnerIndex);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,partner)) return;
         if (partner == null || !partner.isOnline() || player.getIndex() == partner.getIndex()) {
             return;
         }
@@ -247,6 +217,7 @@ public class PlayerOption extends PacketHandler {
 
             @Override
             public void execute() {
+                if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,partner)) return;
                 if (partner.getTradeSession() != null) {
                     ActionSender.sendMessage(player, "The other player is busy.");
                     return;
@@ -272,6 +243,7 @@ public class PlayerOption extends PacketHandler {
             return;
         }
         final Player other = World.getWorld().getPlayers().get(playerIndex);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,other)) return;
         if (other == null || !other.isOnline() || player.getIndex() == other.getIndex()) {
             return;
         }
@@ -320,6 +292,7 @@ public class PlayerOption extends PacketHandler {
             return;
         }
         final Player other = World.getWorld().getPlayers().get(playerIndex);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,other)) return;
         if (other == null || !other.isOnline() || player.getIndex() == other.getIndex()) {
             return;
         }
@@ -398,6 +371,7 @@ public class PlayerOption extends PacketHandler {
             return;
         }
         final Player other = World.getWorld().getPlayers().get(playerIndex);
+        if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,other)) return;
         if (other == null || !other.isOnline() || player.getIndex() == other.getIndex()) {
             return;
         }

@@ -13,6 +13,11 @@ import org.dementhium.util.misc.CycleState;
  *
  */
 public class Interaction {
+    private final NPCCombatContext npcContext;
+    public boolean isNPCContextCurrent(){return npcContext.isCurrent();}
+    private int specialWarmup;
+    public void setSpecialWarmup(int ticks) { specialWarmup=ticks; }
+    public boolean finishSpecialWarmup() { return specialWarmup>0 && --specialWarmup==0; }
 
 	/**
 	 * The attacking mob.
@@ -38,6 +43,9 @@ public class Interaction {
 	 * The damage to deal.
 	 */
 	private Damage damage;
+    private Damage secondaryDamage;
+    public Damage getSecondaryDamage() { return secondaryDamage; }
+    public void setSecondaryDamage(Damage damage) { secondaryDamage = damage; }
 	
 	/**
 	 * If the victim has a deflect curse.
@@ -76,6 +84,7 @@ public class Interaction {
 	 */
 	public Interaction(Mob source, Mob victim) {
 		this.source = source;
+        this.npcContext = new NPCCombatContext(source,victim);
 		this.victim = victim;
 	}
 

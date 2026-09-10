@@ -1,6 +1,7 @@
 package org.dementhium.model.combat.impl.spells.ancient;
 
 import org.dementhium.model.Item;
+import org.dementhium.model.combat.CombatStatus;
 import org.dementhium.model.Mob;
 import org.dementhium.model.Projectile;
 import org.dementhium.model.World;
@@ -25,22 +26,16 @@ public class IceRush extends MagicSpell {
 		int speed = (int) (46 + interaction.getSource().getLocation().getDistance(interaction.getVictim().getLocation()) * 10);
 		ProjectileManager.sendProjectile(Projectile.create(interaction.getSource(), interaction.getVictim(), 360, 43, 0, 51, speed, 16, 64));
 		interaction.getSource().animate(1978);
-		if (interaction.getDamage().getHit() > -1 && interaction.getVictim().getAttribute("freezeImmunity", -1) < World.getTicks()) {
-			int delay = 8;
-			interaction.getVictim().getCombatExecutor().reset();
-			if (interaction.getVictim().isPlayer()) {
-				ActionSender.sendMessage(interaction.getVictim().getPlayer(), "You have been frozen.");
-				if (interaction.isDeflected() || interaction.getVictim().getPlayer().getPrayer().usingPrayer(0, 17)) {
-					delay *= 0.5;
-				}
-			}
-			interaction.getVictim().getWalkingQueue().reset();
-			interaction.getVictim().setAttribute("freezeTime", World.getTicks() + delay);
-			interaction.getVictim().setAttribute("freezeImmunity", World.getTicks() + delay + 4);
-		}
+		
 		interaction.setEndGraphic(Graphic.create(361));
 		return true;
 	}
+
+    @Override
+    public boolean endSpell(Interaction interaction) {
+        CombatStatus.freezeOnImpact(interaction.getDamage(), interaction.getVictim(), 8);
+        return super.endSpell(interaction);
+    }
 
 	@Override
 	public double getExperience(Interaction interaction) {

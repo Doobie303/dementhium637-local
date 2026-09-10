@@ -378,35 +378,64 @@ public class Container implements Cloneable {
 	}
 
 	public void addAll(Container container) {
-		for (int i = 0; i < container.getSize(); i++) {
-			Item item = container.get(i);
-			if (item != null) {
-				if (item.getDefinition().isStackable()) {
-					int count = this.getNumberOf(item);
-					int count_ = item.getAmount();
-			if (count + count_ < 0) {
-				this.add(item);
-				continue;
-		      }	
-		}
-				if (!item.getDefinition().isStackable()) {
-					this.add(item);
-				}
-			}
-		}
+		if (!tryAddAll(container)) throw new IllegalStateException("Insufficient container capacity for bulk transfer");
 	}
 
+    /** All-or-nothing copy, including ordinary stacks; never mutates the input. */
+    public boolean tryAddAll(Container source) {
+        Container copy = new Container(data.length, alwaysStackable, neverStack, splitMaxAmounts);
+        for (int i = 0; i < data.length; i++) {
+            Item item = data[i];
+            if (item != null) copy.data[i] = new Item(item);
+        }
+        for (Item item : source.data) {
+            if (item == null) continue;
+            if (item.getAmount() <= 0) return false;
+            boolean stack = !neverStack && (alwaysStackable || item.getDefinition().isStackable() || item.getDefinition().isNoted());
+            if (!stack) {
+                if (copy.freeSlots() < item.getAmount()) return false;
+                for (int n=0;n<item.getAmount();n++) {
+                    Item unit=new Item(item); unit.setAmount(1); copy.forceAdd(unit);
+                }
+                continue;
+            }
+            long remaining = item.getAmount();
+            for (int i = 0; i < copy.data.length && remaining > 0; i++) {
+                Item existing = copy.data[i];
+                if (existing == null || existing.getId() != item.getId() || existing.getHealth()!=item.getHealth()) continue;
+                long total = existing.getAmount() + remaining;
+                if (total > Integer.MAX_VALUE && !splitMaxAmounts) return false;
+                int added = (int)Math.min(remaining, Integer.MAX_VALUE - (long)existing.getAmount());
+                existing.setAmount(existing.getAmount() + added);
+                remaining -= added;
+            }
+            if (remaining > 0) {
+                Item remainder=new Item(item); remainder.setAmount((int)remaining);
+                if (!copy.forceAdd(remainder)) return false;
+            }
+        }
+        data = copy.data;
+        return true;
+    }
+
 	public boolean hasSpaceFor(Container container) {
-		for (int i = 0; i < container.getSize(); i++) {
-			Item item = container.get(i);
-			if (item != null) {
-				if (!this.hasSpaceForItem(item)) {
-					return false;
-				}
-			}
-		}
-		return true;
+		return deepCopy().tryAddAll(container);
 	}
+
+    /** Independent items and identical stacking rules for transaction preparation. */
+    public Container deepCopy() {
+        Container copy = new Container(data.length, alwaysStackable, neverStack, splitMaxAmounts);
+        for (int i = 0; i < data.length; i++) {
+            if (data[i] != null) copy.data[i] = new Item(data[i]);
+        }
+        return copy;
+    }
+
+    /** Publishes a prepared image; callers must serialize related game-state mutations. */
+    public void replaceWith(Container prepared) {
+        if (prepared.data.length != data.length) throw new IllegalArgumentException("Container size mismatch");
+        data = prepared.deepCopy().data;
+    }
 
 	private boolean hasSpaceForItem(Item item) {
 		if (!neverStack && (alwaysStackable || item.getDefinition().isStackable() || item.getDefinition().isNoted())) {

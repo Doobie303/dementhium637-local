@@ -6,7 +6,6 @@ import org.dementhium.model.npc.impl.Nex.NexAreaEvent;
 import org.dementhium.model.player.Player;
 import org.dementhium.model.player.Skills;
 import org.dementhium.tickable.Tick;
-import org.dementhium.util.Misc;
 
 /**
  * @author 'Mystic Flow <Steven@rune-server.org>
@@ -14,13 +13,12 @@ import org.dementhium.util.Misc;
 public class NexVirusTick extends Tick {
 
     private Player victim;
+    private final org.dementhium.model.npc.impl.Nex owner;
 
-    private long lastSpeak = System.currentTimeMillis();
-    private long lastEffect = System.currentTimeMillis();
+	private static final String COUGH = "*cough*";
 
-    private static final String COUGH = "*cough*";
-
-    private int ticksPassed;
+	private int ticksPassed;
+	private int prayerDrainTenths;
     
     private static final Location AREA_CENTER = NexAreaEvent.AREA_CENTER;
 
@@ -28,7 +26,17 @@ public class NexVirusTick extends Tick {
    
         super(1);
         this.victim = victim;
+        this.owner = NexAreaEvent.getNexAreaEvent().getNex();
         this.victim.forceText(COUGH);
+    }
+
+    /**
+     * Being next to another infected player refreshes the virus, as it did in the
+     * original encounter.  Keeping the refresh on the existing tick avoids
+     * repeatedly replacing ticks while a group is stacked together.
+     */
+    private void refresh() {
+        ticksPassed = 0;
     }
 
     @Override
@@ -36,32 +44,43 @@ public class NexVirusTick extends Tick {
         if (!isRunning()) {
             return;
         }
-        if (++ticksPassed >= 60 || !(victim.getLocation().distance(AREA_CENTER) < 16)) {
+        if (++ticksPassed >= 60 || owner == null || owner.isDead()
+                || NexAreaEvent.getNexAreaEvent().getNex() != owner
+                || !victim.isOnline() || victim.isDead()
+                || !NexAreaEvent.getNexAreaEvent().isInNexRoom(victim)) {
             victim.sendMessage("The smoke clouds around you dissipate.");
             stop();
             return;
         }
-        long currentTime = System.currentTimeMillis();
-        if (currentTime - lastSpeak >= 10000 + Misc.random(5000)) {
-            victim.forceText(COUGH);
-            lastSpeak = currentTime;
-        }
-        if (currentTime - lastEffect >= 9000 + Misc.random(5000)) {
-            for (int i : Skills.COMBAT_SKILLS) {
-                if (i != Skills.CONSTITUTION) {
-                    float modification = victim.getSkills().getLevel(i) * 0.20F;
-                    if (modification < 1) {
-                        modification = 1;
-                    }
-                    if (victim.getSkills().getLevel(i) - modification > 1 && victim.getAttribute("overloads") == Boolean.FALSE) {
-                        victim.getSkills().decreaseLevelOnce(i, Math.round(modification));
-                    }
-                }
+		// One game tick is 0.6 seconds: twelve tenths per tick averages the
+		// original two prayer points drained per second.
+		prayerDrainTenths += 12;
+		if (prayerDrainTenths >= 10) {
+			victim.getSkills().drainPray(prayerDrainTenths / 10);
+			prayerDrainTenths %= 10;
+		}
+		if (ticksPassed % 8 == 0) {
+			victim.forceText(COUGH);
+		}
+		if (ticksPassed % 5 == 0) {
+			for (int i : Skills.COMBAT_SKILLS) {
+				if (i != Skills.CONSTITUTION) {
+					if (victim.getSkills().getLevel(i) > 2
+							&& !Boolean.TRUE.equals(victim.getAttribute("overloads"))) {
+						victim.getSkills().decreaseLevelOnce(i, 2);
+					}
+				}
+			}
+		}
+		for (Player local : Region.getLocalPlayers(victim.getLocation(), 2)) {
+            if (local == victim || !local.isOnline() || local.isDead()
+                    || !local.hasReceivedStarter() || !NexAreaEvent.getNexAreaEvent().isInNexRoom(local)) {
+                continue;
             }
-            lastEffect = currentTime;
-        }
-        for (Player local : Region.getLocalPlayers(victim.getLocation(), 1)) {
-            if (!local.hasTick("nex_virus") && local.getLocation().distance(AREA_CENTER) < 16) {
+            Tick virus = local.getTick("nex_virus");
+            if (virus instanceof NexVirusTick) {
+                ((NexVirusTick) virus).refresh();
+            } else {
                 local.submitTick("nex_virus", new NexVirusTick(local));
             }
         }

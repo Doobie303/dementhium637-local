@@ -71,7 +71,7 @@ public class ItemsKeptOnDeath {
             }
         }
         keptItems.shift();
-        ItemsKeptOnDeath.sendPacket(player, allowedAmount, riskedWealth, carriedWealth, player.getFamiliar() == null ? false : player.getFamiliar().isBeastOfBurden(), false, displayType, keptItems);
+        ItemsKeptOnDeath.sendPacket(player, allowedAmount, riskedWealth, carriedWealth, player.getFamiliar() == null ? false : player.getFamiliar().isBeastOfBurden(), player.getSkullManager().isSkulled(), displayType, keptItems);
     }
 
     /**
@@ -164,77 +164,32 @@ public class ItemsKeptOnDeath {
 	 * 
 	 * @return The 2 containers.
 	 */
-	public static Container[] getDeathContainers(Player player) {
-		int count = 3;
-		if (player.getPrayer().usingPrayer(0, Prayer.PROTECT_ITEM) || player.getPrayer().usingPrayer(1, Prayer.CURSE_PROTECT_ITEM)) {
-			count++;
-		}
-		if (player.getSkullManager().isSkulled()) {
-			count -= 3;
-		}
-		Container itemsKept = new Container(count, false);
-		Container itemsLost = new Container(36, false);
-		itemsLost.addAll(player.getInventory().getContainer());
-		itemsLost.addAll(player.getEquipment().getContainer());
-		Item toRemove = null;
-		Item toAdd = null;
-		Item[] toReplace = null;
-		for (int i = 0; i < count; i++) {
-			for (Item item : itemsLost.toArray()) {
-				if (item == null) {
-					continue;
-				}
-				ItemDefinition id;
-				if (!(id = item.getDefinition()).isStackable()) {
-					if (itemsKept.get(i) == null) {
-						itemsKept.set(i, item);
-						toRemove = item;
-					} else if (id.getExchangePrice()/*getHighAlchPrice()*/ > itemsKept.get(i)
-							.getDefinition().getExchangePrice()/*getHighAlchPrice()*/) {
-						if (itemsKept.get(i).getDefinition().isStackable()) {
-							toAdd = itemsKept.get(i);
-						}
-						toRemove = item;
-						itemsKept.set(i, item);
-					}
-				} else {
-					if (itemsKept.get(i) == null) {
-						if (item.getAmount() > 0) {
-							itemsKept.set(i, new Item(item.getId(), item.getAmount() - (item.getAmount() - 1)));
-							toReplace = new Item[2];
-							toReplace[0] = item;
-							toReplace[1] = new Item(item.getId(),
-									item.getAmount() - 1);
-						}
-					} else if (id.getExchangePrice()/*getHighAlchPrice()*/ > itemsKept.get(i)
-							.getDefinition().getExchangePrice()/*getHighAlchPrice()*/) {
-						toReplace = new Item[2];
-						toReplace[0] = item;
-						toReplace[1] = new Item(item.getId(),
-								item.getAmount() - 1);
-						itemsKept.set(i, new Item(item.getId(), 1));
-					}
-				}
-			}
-			if (toAdd != null) {
-				itemsLost.add(toAdd);
-				toAdd = null;
-			}
-			if (toRemove != null) {
-				itemsLost.remove(toRemove);
-				toRemove = null;
-			}
-			if (toReplace != null) {
-				itemsLost.remove(toReplace[0]);
-				if (toReplace[1].getAmount() > 0) {
-					itemsLost.add(toReplace[1]);
-				}
-				toReplace = null;
-			}
-		}
-		return new Container[] { itemsKept, itemsLost };
-	}
-
+    public static Container[] getDeathContainers(Player player) {
+        int count = allowedAmount(player);
+        Container kept = new Container(count, false);
+        Container lost = new Container(Inventory.SIZE + Equipment.SIZE, false);
+        int slot = 0;
+        // Preserve physical stacks separately; two MAX_VALUE stacks must not merge/overflow.
+        for (Container source : new Container[]{player.getInventory().getContainer(), player.getEquipment().getContainer()}) {
+            for (Item item : source.toArray()) {
+                if (item != null && item.getAmount() > 0) lost.set(slot++, new Item(item));
+            }
+        }
+        for (int i = 0; i < count; i++) {
+            int best = -1;
+            for (int j = 0; j < lost.getSize(); j++) {
+                Item candidate = lost.get(j);
+                if (candidate != null && (best < 0 || candidate.getDefinition().getExchangePrice()
+                        > lost.get(best).getDefinition().getExchangePrice())) best = j;
+            }
+            if (best < 0) break;
+            Item item = lost.get(best);
+            Item unit = new Item(item); unit.setAmount(1); kept.set(i, unit);
+            if (item.getAmount()==1) lost.set(best,null);
+            else item.setAmount(item.getAmount()-1);
+        }
+        return new Container[]{kept, lost};
+    }
     public static void sendPacket(Player player, int allowedItems, int riskedWealth, int carriedWealth, boolean hasBeastOfBurdenFamiliar, boolean skulled, int type, Container keptItems) {
         ActionSender.sendAMask(player, 211, 0, 2, 102, 18, 4);
         ActionSender.sendAMask(player, 212, 0, 2, 102, 21, 42);
@@ -256,68 +211,21 @@ public class ItemsKeptOnDeath {
     }
 
     public static int getCarriedWealth(Player player) {
-        //long amount = 0; //clever to use a long but there is still room for error
-    	int price = 0;
-    	int itemPrice = 1;
-		double itemAmount = 0;
-		boolean ignoreValue = false;
-        for (int i = 0; i < Inventory.SIZE; i++) {
-            Item item = player.getInventory().get(i);
-            if (item != null) {
-				price += item.getDefinition().getExchangePrice() * item.getAmount();
-				itemAmount = item.getAmount();
-				itemPrice = item.getDefinition().getExchangePrice() == 0 ? 1 : item.getDefinition().getExchangePrice();
-				double maxAmount = (Integer.MAX_VALUE / itemPrice);
-				if (itemAmount > maxAmount || price < 0) {
-					ignoreValue = true;
-				}
-            }
-        }
-        for (int i = 0; i < Equipment.SIZE; i++) {
-            Item item = player.getEquipment().get(i);
-            if (item != null) {
-				price += item.getDefinition().getExchangePrice() * item.getAmount();
-				itemAmount = item.getAmount();
-				itemPrice = item.getDefinition().getExchangePrice() == 0 ? 1 : item.getDefinition().getExchangePrice();
-				double maxAmount = (Integer.MAX_VALUE / itemPrice);
-				if (itemAmount > maxAmount || price < 0) {
-					ignoreValue = true;
-				}
-            }
-        }
-		if (ignoreValue)
-			price = Integer.MAX_VALUE;
-        //if (amount < 0 || amount > Integer.MAX_VALUE) {
-          //  amount = Integer.MAX_VALUE;
-        //}
-        return (int) price;
+        return (int)Math.min(Integer.MAX_VALUE, wealth(player.getInventory().getContainer())
+                + wealth(player.getEquipment().getContainer()));
     }
 
     public static int getRiskedWealth(Container lostItems) {
-        //long amount = 0;
-    	int price = 0;
-    	int itemPrice = 1;
-		double itemAmount = 0;
-		boolean ignoreValue = false;
-        for (Item item : lostItems.toArray()) {
-            if (item != null) {
-				price += item.getDefinition().getExchangePrice() * item.getAmount();
-				itemAmount = item.getAmount();
-				itemPrice = item.getDefinition().getExchangePrice() == 0 ? 1 : item.getDefinition().getExchangePrice();
-				double maxAmount = (Integer.MAX_VALUE / itemPrice);
-				if (itemAmount > maxAmount || price < 0) {
-					ignoreValue = true;
-				}
-            }
-        }
-		if (ignoreValue)
-			price = Integer.MAX_VALUE;
-        //if (amount < 0 || amount > Integer.MAX_VALUE) {
-          //  amount = Integer.MAX_VALUE;
-        //}
-        return (int) price;
+        return (int)Math.min(Integer.MAX_VALUE, wealth(lostItems));
     }
 
+    private static long wealth(Container items) {
+        long total = 0;
+        for (Item item : items.toArray()) {
+            if (item != null) total += (long)Math.max(0, item.getDefinition().getExchangePrice()) * Math.max(0, item.getAmount());
+        }
+        return total;
+    }
     //types, 1=safe area, 2=poh, 3=in castlewars 4=in trouble brewing 5=barbie assualt
 
 }

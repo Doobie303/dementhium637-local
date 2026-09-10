@@ -16,6 +16,7 @@ import org.dementhium.model.mask.Graphic;
 import org.dementhium.model.misc.DamageManager.DamageType;
 import org.dementhium.model.misc.GroundItemManager;
 import org.dementhium.model.npc.NPC;
+import org.dementhium.model.player.DegradingHandler;
 import org.dementhium.model.player.Equipment;
 import org.dementhium.model.player.Player;
 import org.dementhium.model.player.Skills;
@@ -148,7 +149,7 @@ public class CombatUtils {
 						return 380;
 					return 382;
 				}
-				switch (weapon.getId()) {
+				switch (DegradingHandler.getCombatItemId(weapon.getId())) {
 				case -1:
 					if (player.getSettings().getCombatStyle() == WeaponInterface.STYLE_AGGRESSIVE) {
 						return 423; // kick
@@ -370,74 +371,32 @@ public class CombatUtils {
 	 *            The maximum amount of targets to get.
 	 * @return The list of targets.
 	 */
-	public static List<ExtraTarget> getTargetList(Mob attacker, Mob source,
-			int distance, int maximum) {
-		if (source.isPlayer()) {
-			return getPlayerTargets(attacker, source, distance, maximum);
-		}
-		return getNPCTargets(attacker, source, distance, maximum);
-	}
+    /** Maximum is the total accepted target count, including the selected victim. */
+    public static List<ExtraTarget> getTargetList(Mob attacker, Mob source, int distance, int maximum) {
+        java.util.List<Mob> candidates = new java.util.ArrayList<Mob>();
+        if (source.isPlayer()) candidates.addAll(Region.getLocalPlayers(source.getLocation(), distance));
+        else candidates.addAll(Region.getLocalNPCs(source.getLocation(), distance));
+        return selectTargets(attacker, source, distance, maximum, candidates);
+    }
 
-	/**
-	 * Gets the vector of NPC targets in range.
-	 * 
-	 * @param attacker
-	 *            The entity to executing the attack.
-	 * @param source
-	 *            The entity to check from.
-	 * @param distance
-	 *            The maximum distance.
-	 * @param maximum
-	 *            The maximum amount of targets to get.
-	 * @return The vector list of NPC targets.
-	 */
-	private static List<ExtraTarget> getNPCTargets(Mob attacker, Mob source,
-			int distance, int maximum) {
-		List<ExtraTarget> targetList = new ArrayList<ExtraTarget>();
-		int count = 0;
-		List<NPC> npcs = Region.getLocalNPCs(source.getLocation(), distance);
-		for (NPC n : npcs) {
-			if (n != null
-					&& Math.floor(n.getLocation().getDistance(
-							source.getLocation())) <= distance && n != attacker
-					&& count++ <= maximum && n.isAttackable(attacker)
-					&& n.isMulti()) {
-				targetList.add(new ExtraTarget(n));
-			}
-		}
-		return targetList;
-	}
-
-	/**
-	 * Gets the vector of player targets in range.
-	 * 
-	 * @param attacker
-	 *            The entity to executing the attack.
-	 * @param source
-	 *            The entity to check from.
-	 * @param distance
-	 *            The maximum distance.
-	 * @param maximum
-	 *            The maximum amount of targets to get.
-	 * @return The vector list of player targets.
-	 */
-	private static List<ExtraTarget> getPlayerTargets(Mob attacker, Mob source,
-			int distance, int maximum) {
-		List<ExtraTarget> targetList = new ArrayList<ExtraTarget>();
-		int count = 0;
-		List<Player> players = Region.getLocalPlayers(source.getLocation(),
-				distance);
-		for (Player p : players) {
-			if (p != null
-					&& Math.floor(p.getLocation()
-							.distance(source.getLocation())) <= distance
-					&& p != attacker && count++ <= maximum
-					&& p.isAttackable(attacker) && p.isMulti()) {
-				targetList.add(new ExtraTarget(p));
-			}
-		}
-		return targetList;
-	}
+    public static List<ExtraTarget> selectTargets(Mob attacker, Mob selected, int distance, int maximum,
+            java.util.List<? extends Mob> candidates) {
+        List<ExtraTarget> targets = new ArrayList<ExtraTarget>();
+        if (maximum <= 0 || distance < 0) return targets;
+        java.util.Set<Mob> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Mob, Boolean>());
+        java.util.List<Mob> ordered = new java.util.ArrayList<Mob>();
+        ordered.add(selected); ordered.addAll(candidates);
+        for (Mob target : ordered) {
+            if (target == null || target == attacker || !seen.add(target) || target.getHitPoints() <= 0
+                    || target.getLocation().getZ() != selected.getLocation().getZ()
+                    || Math.floor(target.getLocation().distance(selected.getLocation())) > distance
+                    || !target.isMulti() || !target.isAttackable(attacker)
+                    || !org.dementhium.model.instance.InstanceAccess.canInteract(attacker, target)) continue;
+            targets.add(new ExtraTarget(target));
+            if (targets.size() == maximum) break;
+        }
+        return targets;
+    }
 
 	/**
 	 * Gets the hit decreased by all dragonfire protection modifiers.
@@ -517,93 +476,83 @@ public class CombatUtils {
 			victim.graphics(Graphic.create(749));
 			return Damage.getDamage(player, victim, CombatType.RANGE,
 					RangeFormulae.getDamage(player, victim, 1.1, 1.1, .95));
-		case 9237: // Jade
-			victim.graphics(Graphic.create(755));
-			if (victim.isPlayer()) {
-				int random = victim.getRandom().nextInt(120);
-				if (random > victim.getPlayer().getSkills()
-						.getLevel(Skills.AGILITY)) {
-					victim.stun(4, "You have been stunned.", false);
-				}
-			}
-			return Damage.getDamage(player, victim, CombatType.RANGE,
-					RangeFormulae.getDamage(player, victim));
-		case 9238: // Pearl
-			victim.graphics(Graphic.create(750));
-			if (victim.isPlayer()) {
-				if (victim.getPlayer().getEquipment().getSlot(3) != 1383) {
-					return Damage.getDamage(player, victim, CombatType.RANGE,
-							RangeFormulae.getDamage(player, victim, 1.1, 1.15,
-									.95));
-				}
-				return Damage.getDamage(player, victim, CombatType.RANGE,
-						RangeFormulae.getDamage(player, victim));
-			} // TODO: Check if NPC is a 'fiery beast'.
-			return Damage.getDamage(player, victim, CombatType.RANGE,
-					RangeFormulae.getDamage(player, victim, 1.1, 1.15, .95));
-		case 9239: // Topaz
-			victim.graphics(Graphic.create(757));
-			Damage d = Damage.getDamage(player, victim, CombatType.RANGE,
-					RangeFormulae.getDamage(player, victim));
-			if (victim.isPlayer()) {
-				victim.getPlayer()
-						.getSkills()
-						.decreaseLevelToZero(Skills.MAGIC,
-								(int) (d.getHit() * 0.05));
-			}
-			return d;
-		case 9240: // Sapphire
+        case 9237: // Jade: stun belongs to a damaging impact, not damage construction.
+            return Damage.getDamage(player, victim, CombatType.RANGE, RangeFormulae.getDamage(player, victim))
+                    .onImpact(applied -> {
+                        victim.graphics(Graphic.create(755));
+                        if (victim.isPlayer() && victim.getRandom().nextInt(120) > victim.getPlayer().getSkills().getLevel(Skills.AGILITY))
+                            victim.stun(4, "You have been stunned.", false);
+                    });
+        case 9238: // Water-staff exclusion; fiery target tuning remains documented separately.
+            if (victim.isPlayer()) {
+                int staff=victim.getPlayer().getEquipment().getSlot(Equipment.SLOT_WEAPON);
+                if (staff==1383 || staff==1395 || staff==1403 || staff==6562 || staff==6563 || staff==11736 || staff==11738) break;
+            }
+            return Damage.getDamage(player,victim,CombatType.RANGE,
+                    RangeFormulae.getDamage(player,victim,1.1,1.15,.95))
+                    .onImpact(applied -> victim.graphics(Graphic.create(750)));
+		case 9239: // Topaz: no stat loss before impact or on a blocked hit.
+            Damage d = Damage.getDamage(player, victim, CombatType.RANGE, RangeFormulae.getDamage(player, victim));
+            return d.onImpact(applied -> {
+                victim.graphics(Graphic.create(757));
+                if (victim.isPlayer()) victim.getPlayer().getSkills().decreaseLevelToZero(Skills.MAGIC, (int)(applied * .05));
+            });
+        case 9240: // Sapphire
 			victim.graphics(Graphic.create(751));
 			d = Damage.getDamage(player, victim, CombatType.RANGE,
 					RangeFormulae.getDamage(player, victim));
 			if (victim.isPlayer()) {
-				victim.getPlayer().getSkills().drainPray(d.getHit() * 0.1);
-				player.getSkills().restorePray(d.getHit() * 0.1);
+				d.onImpact(applied -> {
+                    double drained = Math.min(victim.getPlayer().getSkills().getPrayerPoints(), applied * 0.1);
+                    victim.getPlayer().getSkills().drainPray(drained);
+                    player.getSkills().restorePray(drained);
+                });
 			}
 			return d;
-		case 9241: // Emerald
-			victim.graphics(Graphic.create(752));
-			if (player.getRandom().nextInt(10) < 8) {
-				victim.getPoisonManager().poison(player, 68);
-			}
-			return Damage.getDamage(player, victim, CombatType.RANGE,
-					RangeFormulae.getDamage(player, victim));
-		case 9242: // Ruby (bolts (e))
-			victim.graphics(Graphic.create(754));
-			d = Damage.getDamage(player, victim, CombatType.RANGE,
-					RangeFormulae.getDamage(player, victim, 1.0, 3.0, 1.0));
-			// Edited out the below stuff, as it just hits you for no real good
-			// reason.
-			// if (player.getSkills().getHitPoints() >
-			// player.getSkills().getLevel(Skills.HITPOINTS)) {
-			// d = Damage.getDamage(player, victim, CombatType.RANGE,
-			// victim.getHitPoints() / 5);
-			// player.getDamageManager().damage(player,
-			// player.getSkills().getLevel(Skills.HITPOINTS), 1500,
-			// DamageType.DEFLECT);
-			// }
-			return d;
-		case 9243: // Diamond
-			return Damage.getDamage(player, victim, CombatType.RANGE,
-					RangeFormulae.getDamage(player, victim, 1.0, 1.0, .55));
-		case 9244: // Dragon
-			victim.graphics(Graphic.create(756));
-			return Damage.getDamage(
-					player,
-					victim,
-					CombatType.RANGE,
-					getDragonProtection(victim, player, RangeFormulae
-							.getDamage(player, victim, 2.0, 1.70, 1.2)));
+		case 9241: // Emerald: respect target poison immunity when the bolt lands.
+            final boolean poison = player.getRandom().nextInt(10) < 8;
+            return Damage.getDamage(player, victim, CombatType.RANGE, RangeFormulae.getDamage(player, victim))
+                    .onImpact(applied -> {
+                        victim.graphics(Graphic.create(752));
+                        if (poison) victim.getPoisonManager().poison(player, 68);
+                    });
+        case 9242: // Blood forfeit: a fraction of current HP, never triple weapon damage.
+            if (player.getHitPoints() * 10 < player.getSkills().getMaximumLifePoints()) break;
+            d = Damage.getDamage(player, victim, CombatType.RANGE, Math.min(1000, victim.getHitPoints()/5));
+            return d.onImpact(applied -> {
+                victim.graphics(Graphic.create(754));
+                player.getDamageManager().miscDamage(Math.max(1, player.getHitPoints()/10), DamageType.RED_DAMAGE);
+            });
+        case 9243: // Historical reduction magnitude remains provisional; preserve existing tuning.
+            return Damage.getDamage(player, victim, CombatType.RANGE,
+                    RangeFormulae.getDamage(player, victim, 1.0, 1.0, .55));
+        case 9244: // Protection negates the enchantment, not the underlying ordinary bolt.
+            if (dragonstoneProtected(victim)) break;
+            return Damage.getDamage(player,victim,CombatType.RANGE,
+                    RangeFormulae.getDamage(player,victim,2.0,1.70,1.2))
+                    .onImpact(applied -> victim.graphics(Graphic.create(756)));
 		case 9245: // Onyx
+            if (victim.isNPC() && EquipmentEffects.undead(victim.getNPC().getDefinition().getName().toLowerCase(java.util.Locale.ROOT))) break;
 			victim.graphics(Graphic.create(753));
 			d = Damage.getDamage(player, victim, CombatType.RANGE,
 					RangeFormulae.getDamage(player, victim, 1.25, 1.3, 1.0));
-			player.heal(d.getHit() / 4);
+			d.onImpact(applied -> player.heal(applied / 4));
 			return d;
 		}
 		return Damage.getDamage(player, victim, CombatType.RANGE,
 				RangeFormulae.getDamage(player, victim));
 	}
+
+    public static boolean dragonstoneProtected(Mob victim) {
+        if (victim.isNPC()) {
+            String name=victim.getNPC().getDefinition().getName().toLowerCase(java.util.Locale.ROOT);
+            return name.endsWith(" dragon") || name.equals("dragon") || name.equals("elvarg");
+        }
+        int shield=victim.getPlayer().getEquipment().getSlot(Equipment.SLOT_SHIELD);
+        long now=System.currentTimeMillis();
+        return shield==1540 || shield==11283 || shield==11284 || shield==8282 || shield==16079 || shield==16933
+                || now-victim.getAttribute("antiFire",0L)<360000 || now-victim.getAttribute("santiFire",0L)<360000;
+    }
 
 	/**
 	 * Adds the experience gained when dealing a hit.
@@ -617,13 +566,18 @@ public class CombatUtils {
 	 */
 	public static void appendExperience(Player player, int damage,
 			DamageType type) {
+        experienceAtLaunch(player,type).accept(damage);
+    }
+    public static java.util.function.IntConsumer experienceAtLaunch(final Player player, final DamageType type) {
+        final int style=player.getSettings().getCombatStyle();
+        final double rate=player.getPersonalCombatXpRate();
+        return damage -> {
 		if (damage < 1) {
 			return;
 		}
-		double xp = damage * .4 * player.getPersonalCombatXpRate() / 100;
-		double hpXP = damage * .133 * player.getPersonalCombatXpRate() / 100;
+		double xp = damage * .4 * rate / 100;
+		double hpXP = damage * .133 * rate / 100;
 		player.getSkills().addExperience(Skills.CONSTITUTION, hpXP);
-		int style = player.getSettings().getCombatStyle();
 		if (type == DamageType.MELEE) {
 			switch (style) {
 			case WeaponInterface.STYLE_ACCURATE:
@@ -652,7 +606,8 @@ public class CombatUtils {
 				break;
 			}
 		}
-	}
+	        };
+    }
 
 	/**
 	 * Drops the player's arrows.
@@ -665,35 +620,44 @@ public class CombatUtils {
 	 *            The range data.
 	 */
 	public static void dropArrows(Player player, Mob victim, RangeData data) {
-		if (data == null) {
-			return;
-		}
-		boolean hasAvaDevice = player.getEquipment().contains(10498)
-				|| player.getEquipment().contains(10499)
-				|| player.getEquipment().contains(20068);
-		if (!data.isDropAmmo()
-				|| (hasAvaDevice && player.getRandom().nextInt(10) < 7)) {
-			return;
-		}
-		if (data.getWeapon().getAmmunitionSlot() > -1) {
-			Item item = new Item(data.getAmmo().getItemId(),
-					data.getWeaponType() == 2 ? 2 : 1);
-			player.getEquipment().getContainer().remove(item);
-			player.getEquipment().refresh();
-			if (player.getEquipment().getSlot(
-					data.getWeapon().getAmmunitionSlot(), -1) == -1) {
-				ActionSender.sendMessage(player, "You've ran out of ammo.");
-			}
-			if (player.getActivity() instanceof DuelActivity) {
-				Container ammoRecord = player.getAttribute("droppedAmmo");
-				if (ammoRecord == null)
-					ammoRecord = new Container(29, false);
-				ammoRecord.add(item);
-				player.setAttribute("droppedAmmo", ammoRecord);
-			} else
-				GroundItemManager.increaseAmount(player, data.getAmmo()
-						.getItemId(), victim.getLocation(), data
-						.getWeaponType() == 2 ? 2 : 1);
-		}
-	}
+        if (data == null || !consumeAmmunition(player, data)) return;
+        int count = data.ammunitionToDrop;
+        data.ammunitionToDrop = 0;
+        if (count == 0) return;
+        Item item = new Item(data.getAmmo().getItemId(), count);
+        if (player.getActivity() instanceof DuelActivity) {
+            Container record = player.getAttribute("droppedAmmo");
+            if (record == null) record = new Container(29, false);
+            Container one=new Container(1,false);one.set(0,item);
+            if(!record.tryAddAll(one)){Container expanded=new Container(record.getSize()+1,false,false,true);expanded.addAll(record);expanded.addAll(one);record=expanded;}
+            player.setAttribute("droppedAmmo", record);
+        } else GroundItemManager.increaseAmount(player, item.getId(), victim.getLocation(), count);
+    }
+
+    public static boolean consumeAmmunition(Player player, RangeData data) {
+        if (data == null) return false;
+        if (data.ammunitionConsumed) return true;
+        if (data.getWeaponType() == 5 || data.getWeapon().getAmmunitionSlot() < 0) {
+            data.ammunitionConsumed = true;
+            return true;
+        }
+        int slot = data.getWeapon().getAmmunitionSlot();
+        Item equipped = player.getEquipment().get(slot);
+        int count = data.getAmmunitionCount();
+        if (equipped == null || equipped.getId() != data.getAmmo().getItemId() || equipped.getAmount() < count) return false;
+        boolean ava = player.getEquipment().contains(10498) || player.getEquipment().contains(10499)
+                || player.getEquipment().contains(20068);
+        int consumed = 0;
+        for (int i = 0; i < count; i++) {
+            if (!data.isDropAmmo() || !ava || player.getRandom().nextInt(10) >= 7) consumed++;
+        }
+        if (consumed > 0) {
+            player.getEquipment().getContainer().remove(new Item(equipped.getId(), consumed));
+            player.getEquipment().refresh();
+        }
+        data.ammunitionConsumed = true;
+        data.ammunitionToDrop = data.isDropAmmo() ? consumed : 0;
+        return true;
+    }
 }
+

@@ -1,0 +1,32 @@
+# Bank, shop and trade fixes — 2026-09-09
+
+The owner authorized fixes for the six issues reported in the server review, with an explicit correction: degraded items must not be tradeable. This implementation blocks degraded items instead of allowing trades to carry their wear data. This report records the fixes separately from the historical review probes.
+
+## Implemented
+
+1. **Negative bank deposits:** Bank.addItem now rejects nonpositive amounts and invalid inventory slots before accessing or mutating items. The actual opcode-34 numeric-input route is covered; a negative request no longer converts a small coin stack into Integer.MAX_VALUE coins.
+2. **Full-bank overwrite:** Charged-item deposits use the free-slot API that returns -1 when full. Bulk equipment deposits likewise reject a full bank before clearing equipment or overwriting bank slots. The shared bulk-deposit helper also guards ordinary items when no new slot exists. No Summoning-specific behavior was implemented; that helper is a necessary shared dependency also used by the existing beast-of-burden deposit path.
+3. **Near-cap shop sales:** The final quantity is bounded by ownership, payment-stack capacity and stock capacity. The price is computed from that exact quantity using long arithmetic, then narrowed safely. Inventory removal, payment and stock insertion are prepared on independent container images; all must fit before either live container is published. Zero-quantity sales do nothing. Existing currency selection, unit prices and special shop/admin restrictions remain. Degraded items cannot be laundered through shop sales either.
+4. **Trade-offer item loss:** Offering and removing items prepare both source and destination images, consume the selected slot first and commit only a successful transfer. Partial nonstack transfers remove exactly the quantity accepted; rejected stack transfers retain the offer. Full stacks, invalid quantities and repeated empty-slot requests cannot delete or duplicate items. Both participants use the same implementation.
+5. **Collective trade capacity:** Container.hasSpaceFor simulates the entire incoming container, including shared slots and stack limits. The final confirmation prepares both resulting inventories before publishing either. If capacity changes during confirmation, the trade returns to the first screen with offers retained. Successful settlement does not drop received items to the ground. Closed-session accept/decline calls are ignored.
+6. **Degraded-item trading:** Stored wear, Barrows wear/broken stages, used crystal equipment, activated/broken Nex items and degraded-name variants are rejected without administrator bypass, including noted forms. Pristine tradeable equipment remains allowed. The general administrator exception for other untradeable items remains; this change specifically removes the degraded-item exception. Underlying transfer copies preserve metadata defensively.
+
+During verification, a related charged-bank withdrawal defect was confirmed: ID-based removal could consume a different copy and erase another copy's wear data. Charged withdrawals now consume the selected slot, preserve its metadata and reject insufficient inventory capacity before bank removal. Charged deposits also avoid the old ID-based removal routine, preserving adjacent copies with different wear levels. Combat degradation rates and item stats were not changed.
+
+## Validation
+
+- Full active `src` and regression sources compile targeting Java 8.
+- All **28 headless suites pass**, including **482 new ItemTransactionRegression checks**, 2,126 duel checks, 10,384 Gambler checks and the existing combat, cape, PvP, Barrows, Nex, instance and Fight Caves suites.
+- New coverage includes real bank numeric-input decoding; invalid amounts; full-bank direct/bulk deposits; distinct charged copies; both trade participants; partial offers and stack limits; pristine/degraded/admin policy; two-screen settlement; capacity changes; duplicate closure; exact shop payments and 200 seeded randomized boundary sales.
+- Four independent negative controls compile the backed-up Bank, TradeSession, Shop and Container source into isolated overlays. Each fails the corresponding new assertion on the original defect. These are expected failures; corrected classes pass.
+- Commands and logs: `build/item-transactions/compile.ps1`, `verify.ps1`, `negative-controls.ps1` and their logs. The earlier `build/server-bug-review/OutstandingBugProbe.java` intentionally asserts old bugs and is not a post-fix acceptance suite. Its later charged-withdrawal probe had an incorrect expected leftover wear value; the new regression verifies the intended selected-slot behavior.
+
+These checks use mock players and isolated build-directory save/recovery fixtures. They do not establish live client acceptance or prove the whole server bug-free. Ordinary trades still use their existing in-memory offers and ordinary save lifecycle; durable crash-recovery escrow is outside these six fixes. Existing cancellation overflow still uses the prior owned-ground-item fallback; successful exchanges no longer use that fallback.
+
+## Runtime and preservation
+
+Seven runtime classes from the five changed source families listed in `build/item-transactions/changed-sources.txt` were staged and SHA-256 verified after the final 28-suite pass. Source backups are in `build/item-transactions-before/src`; runtime backups are in `build/item-transactions-before/bin`. The stage script checks the successful suite/control logs and writes per-class SHA-256 verification to `staged-classes.csv`, plus source hashes in `source-manifest.csv`. The batch-only source changes are captured in `source.diff` against the initial working tree.
+
+The server must be restarted normally after staging; do so with no active trades. No automatic restart is performed. After restart, test an ordinary trade/decline, trade capacity failure, a degraded-item rejection, a nearly full bank and a shop sale near the coin cap with the real client. Numeric-input rejection has already been checked headlessly; do not test the old vulnerable runtime with valuable accounts.
+
+No production account saves, save formats, packed item data, caches, client files, launchers, custom PvP/rewards, godmode or personal XP settings were changed. Summoning and Dungeoneering deferrals remain. Preserve all pre-existing optional save trailers when considering rollback.

@@ -1,4 +1,5 @@
 package org.dementhium.task.impl;
+import org.dementhium.content.minigames.FightCaves;
 
 import org.dementhium.model.World;
 import org.dementhium.model.map.Region;
@@ -22,25 +23,46 @@ public class NPCTickTask implements Task {
 
     @Override
     public void execute() {
+        if (!instanceAllowsTick()) return;
+        org.dementhium.model.npc.encounter.EncounterNPC encounter=npc instanceof org.dementhium.model.npc.encounter.EncounterNPC?(org.dementhium.model.npc.encounter.EncounterNPC)npc:null;
+        if(encounter!=null)encounter.beginCombatTick();
+        try{executeCycle();}finally{if(encounter!=null)encounter.endCombatTick();}
+    }
+
+    private void executeCycle() {
     	if (npc.getMask().resetTurnToNeeded()) {
     		npc.resetTurnTo();
     		npc.getMask().resetTurnToNeeded(false);
     	}
-        npc.getCombatExecutor().tick();
-        if (npc.getCombatExecutor().getVictim() != null && npc.getCombatExecutor().getVictim().getCombatExecutor().getLastAttacker() == null && npc.getCombatExecutor().getLastAttacker() == null
-        		&& !npc.getAttribute("guardAttacking", false) && npc.getAttribute("activity") == null && !npc.isFamiliar()) {
-        	npc.getCombatExecutor().reset();
+        if (npc.getCombatExecutor().getVictim() == null) {
+            Player caveTarget = FightCaves.getCombatTarget(npc);
+            if (caveTarget != null) {
+                npc.getCombatExecutor().setVictim(caveTarget);
+            }
         }
+        // CombatExecutor validates lifetime/admission. A first approach has no last attacker yet.
+        org.dementhium.model.Mob target=npc.getCombatExecutor().getVictim();
+        if(target!=null&&(!target.isAttackable(npc)||(target.isPlayer()&&target.getPlayer().isInvisible())))npc.getCombatExecutor().reset();
+        npc.getCombatExecutor().tick();
+        if (!instanceAllowsTick()) return;
         npc.processTicks();
+        if (!instanceAllowsTick()) return;
         npc.tick();
+        if (!instanceAllowsTick()) return;
         npc.getWalkingQueue().getNextEntityMovement();
-        if (npc.isDead() || npc.getCombatExecutor().getVictim() != null || !npc.getDefinition().isAggressive()) {
+        if (npc instanceof org.dementhium.model.npc.godwars.GodWarsNPC || npc instanceof org.dementhium.model.npc.encounter.EncounterNPC || npc instanceof org.dementhium.model.npc.impl.Nex) return; // Room owns aggression and chase bounds.
+        if (Boolean.TRUE.equals(npc.getAttribute("fightcaves")) && FightCaves.isBlockingNpc(npc.getId())) {
+            // Cave ownership determines aggression, independent of local-player search range.
+            return;
+        }
+        if (npc.isDead() || npc.isHidden() || npc.isReturningHome() || npc.getCombatExecutor().getVictim() != null || !npc.getDefinition().isAggressive()) {
         	return;
         }
         int currentDistance = 20;
         Player toAttack = null;
         int depth = npc.getAttribute("activity") == "FightCavesActivity" ? 50 : 5;
         for (Player player : Region.getLocalPlayers(npc.getLocation(), 5)) {
+            if(!org.dementhium.model.combat.NPCCombatContext.validPair(npc,player))continue;
         	try {
             	PathState path = World.getWorld().doPath(new PrimitivePathFinder(), npc, player.getLocation().getX(), player.getLocation().getY(), false, false, true);
             	if ((path == null || !path.isRouteFound() || !player.isAttackable(npc) || player.isInvisible())
@@ -63,6 +85,11 @@ public class NPCTickTask implements Task {
         	}
         }
         npc.getCombatExecutor().setVictim(toAttack);
+    }
+
+    private boolean instanceAllowsTick() {
+        org.dementhium.model.instance.GameInstance instance = npc.getOwningInstance();
+        return instance == null || (instance.isActive() && instance.owns(npc));
     }
 
     private boolean ignoreGodItems(int id) {

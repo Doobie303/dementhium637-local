@@ -341,11 +341,6 @@ public class CBZip2OutputStream extends OutputStream implements BZip2Constants {
 
     boolean closed = false;
 
-    protected void finalize() throws Throwable {
-        close();
-        super.finalize();
-    }
-
     public void close() throws IOException {
         if (closed) {
             return;
@@ -1599,5 +1594,4 @@ public class CBZip2OutputStream extends OutputStream implements BZip2Constants {
         nMTF = wr;
     }
 }
-
 

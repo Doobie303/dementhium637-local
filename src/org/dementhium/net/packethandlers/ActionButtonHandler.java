@@ -24,7 +24,10 @@ import org.dementhium.model.mask.Animation;
 import org.dementhium.model.misc.ProjectileManager;
 import org.dementhium.model.misc.DamageManager.DamageType;
 import org.dementhium.model.player.Bank;
+import org.dementhium.model.player.DegradingHandler;
 import org.dementhium.model.player.Equipment;
+import org.dementhium.model.player.EquipmentItemStats;
+import org.dementhium.model.player.Inventory;
 import org.dementhium.model.player.Player;
 import org.dementhium.model.player.Shop;
 import org.dementhium.model.player.Skills;
@@ -96,11 +99,17 @@ public class ActionButtonHandler extends PacketHandler {
 		}
 		System.out.println("interfaceId=" + interfaceId + " buttonId="
 				+ buttonId + " slot=" + slot + " itemId=" + itemId);
-		if (eventManager.handleInterfaceOption(player, interfaceId, buttonId,
+		if (org.dementhium.content.minigames.gambler.GamblerInterfacePreview.button(player,interfaceId,buttonId,packet.getOpcode()))return;
+        if (org.dementhium.content.minigames.gambler.GamblerSession.button(player,interfaceId,buttonId,packet.getOpcode()))return;
+        if (eventManager.handleInterfaceOption(player, interfaceId, buttonId,
 				slot, itemId, packet.getOpcode())) {
 			return;
 		}
 		switch (interfaceId) {
+        case 25:
+            if (player.getActivity() instanceof org.dementhium.content.activity.impl.BarrowsActivity)
+                ((org.dementhium.content.activity.impl.BarrowsActivity) player.getActivity()).answerPuzzle(buttonId);
+            return;
 		case 364:
 			if (buttonId == 3) { //Treasure Trails casket interface close button
         		if (player.interfaceItems != null) {
@@ -242,11 +251,7 @@ public class ActionButtonHandler extends PacketHandler {
 			switch (buttonId) {
 			case 117:
 				if (player.getAttribute("inBank", Boolean.FALSE) == Boolean.TRUE) {
-					player.setAttribute("fromBank", Boolean.TRUE);
-					ActionSender.sendInterfaceConfig(player, 667, 49, true);
-					ActionSender.sendInterfaceConfig(player, 667, 50, true);
-					player.getBonuses().refreshEquipScreen();
-					ActionSender.sendInterface(player, 667);
+					player.getBonuses().openEquipmentScreen(true);
 				}
 				break;
 			case 33:
@@ -368,6 +373,7 @@ public class ActionButtonHandler extends PacketHandler {
 			}
 			break;*/
 		case 670:
+			 if (slot < 0 || slot >= Inventory.SIZE || itemId < 0 || itemId >= ItemDefinition.MAX_SIZE) return;
 			 int equipSlot3 = Equipment.getItemType(itemId); 
 			 //Item item3 =
 			
@@ -376,6 +382,10 @@ public class ActionButtonHandler extends PacketHandler {
 			 if (item4 == null || (item4 != null && itemId != item4.getId())) {
 				 return;
 			 } //end of equipment dupe fix
+			 if (packet.getOpcode() == 73 && buttonId == 0) {
+				 EquipmentItemStats.show(player, item4);
+				 break;
+			 }
 			 
 			 if (packet.getOpcode() == 6) { 
 				 switch (buttonId) {
@@ -401,26 +411,32 @@ public class ActionButtonHandler extends PacketHandler {
 			//player.sendMessage("This feature has been disabled until further notice.");
 			break;
 		case 667:
-			int equipSlot2 = Equipment.getItemType(itemId);
-			Item item2 = player.getEquipment().get(equipSlot2);
+			int equipSlot2 = itemId >= 0 && itemId < ItemDefinition.MAX_SIZE ? Equipment.getItemType(itemId) : -1;
+			Item item2 = equipSlot2 >= 0 && equipSlot2 < Equipment.SIZE ? player.getEquipment().get(equipSlot2) : null;
+			boolean degradableItem2 = item2 != null && item2.getId() == itemId
+					&& DegradingHandler.isDegradable(item2);
 			if (packet.getOpcode() == 58) {
 				if (item2 != null) {
 					player.sendMessage(item2.getDefinition().getExamine());
 				}
 				return;
+			} else if (packet.getOpcode() == 0
+					|| packet.getOpcode() == 13 && degradableItem2) {
+				if (item2 != null && item2.getId() == itemId) {
+					DegradingHandler.checkCharges(player, item2);
+				}
+				return;
 			} else if (packet.getOpcode() == 73) {
 				switch (buttonId) {
 				case 7:
-					ActionSender.sendString(player, 667, 63, item2
-							.getDefinition().getName());
-					ActionSender.sendString(player, 667, 65, "Back");
-					ActionSender.sendInterfaceConfig(player, 667, 51, true);
+					if (item2 == null || item2.getId() != itemId) return;
+					EquipmentItemStats.show(player, item2);
 					break;
 				}
 			} else if (packet.getOpcode() == 6) {
 				switch (buttonId) {
 				case 64:
-					ActionSender.sendInterfaceConfig(player, 667, 51, false);
+					EquipmentItemStats.close(player);
 					break;
 				case 7:
 					if (item2 == null) {
@@ -459,14 +475,15 @@ public class ActionButtonHandler extends PacketHandler {
 					}*/
 					break;
 				case 48:
-					if (player.getAttribute("fromBank") != null) {
+					if (player.getAttribute("fromBank", Boolean.FALSE) == Boolean.TRUE) {
 						player.getBank().openBank();
-						player.removeAttribute("fromBank");
 					}
 					break;
 				case 74:
-					if (player.getAttribute("fromBank") != null) {
-						player.removeAttribute("fromBank");
+					if (player.getAttribute("fromBank", Boolean.FALSE) == Boolean.TRUE) {
+						// The client closes the main equipment panel itself, but the
+						// companion inventory panel and return marker also need cleanup.
+						player.closeAll(false, true);
 					}
 					break;
 				}
@@ -774,11 +791,19 @@ public class ActionButtonHandler extends PacketHandler {
 		case 387:
 			System.out.println("OPCODE: " + packet.getOpcode() + " BUTTON "
 					+ buttonId);
-			int equipSlot = Equipment.getItemType(itemId);
-			Item item = player.getEquipment().get(equipSlot);
+			int equipSlot = itemId >= 0 && itemId < ItemDefinition.MAX_SIZE ? Equipment.getItemType(itemId) : -1;
+			Item item = equipSlot >= 0 && equipSlot < Equipment.SIZE ? player.getEquipment().get(equipSlot) : null;
+			boolean degradableItem = item != null && item.getId() == itemId
+					&& DegradingHandler.isDegradable(item);
 			if (packet.getOpcode() == 58) {
 				if (item != null) {
 					player.sendMessage(item.getDefinition().getExamine());
+				}
+				return;
+			} else if (packet.getOpcode() == 0
+					|| packet.getOpcode() == 13 && degradableItem) {
+				if (item != null && item.getId() == itemId) {
+					DegradingHandler.checkCharges(player, item);
 				}
 				return;
 			} else if (packet.getOpcode() == 6) {
@@ -830,77 +855,7 @@ public class ActionButtonHandler extends PacketHandler {
 					}*/
 					return;
 				case 39:
-					/**
-					 * Config: ID: 1248 Value: 268435464 BCONFIG ID: 199 VALUE:
-					 * -1 Send interface - show id: 0, window id: 548,
-					 * interfaceId: 18, child id: 667. Send interface - show id:
-					 * 0, window id: 548, interfaceId: 198, child id: 670.
-					 * Accessmask set: 1538, interface: 667 child: 7 start 65,
-					 * length: 0 Accessmask set: 1538, interface: 667 child: 7
-					 * start 65, length: 0 Accessmask set: 1538, interface: 667
-					 * child: 7 start 65, length: 0 Accessmask set: 1538,
-					 * interface: 667 child: 7 start 65, length: 0 Accessmask
-					 * set: 1538, interface: 667 child: 7 start 65, length: 0
-					 * Accessmask set: 1538, interface: 667 child: 7 start 65,
-					 * length: 0 Accessmask set: 1538, interface: 667 child: 7
-					 * start 65, length: 0 Accessmask set: 1538, interface: 667
-					 * child: 7 start 65, length: 0 Accessmask set: 1538,
-					 * interface: 667 child: 7 start 65, length: 0 Accessmask
-					 * set: 1538, interface: 667 child: 7 start 65, length: 0
-					 * Accessmask set: 1538, interface: 667 child: 7 start 65,
-					 * length: 0 Accessmask set: 1538, interface: 667 child: 7
-					 * start 65, length: 0 Accessmask set: 1538, interface: 667
-					 * child: 7 start 65, length: 0 Accessmask set: 1538,
-					 * interface: 667 child: 7 start 65, length: 0 Accessmask
-					 * set: 1538, interface: 667 child: 7 start 65, length: 0
-					 * Accessmask set: 1538, interface: 670 child: 0 start 65,
-					 * length: 0 Accessmask set: 1538, interface: 670 child: 0
-					 * start 65, length: 0 Accessmask set: 1538, interface: 670
-					 * child: 0 start 65, length: 0 Accessmask set: 1538,
-					 * interface: 670 child: 0 start 65, length: 0 Accessmask
-					 * set: 1538, interface: 670 child: 0 start 65, length: 0
-					 * Accessmask set: 1538, interface: 670 child: 0 start 65,
-					 * length: 0 Accessmask set: 1538, interface: 670 child: 0
-					 * start 65, length: 0 Accessmask set: 1538, interface: 670
-					 * child: 0 start 65, length: 0 Accessmask set: 1538,
-					 * interface: 670 child: 0 start 65, length: 0 Accessmask
-					 * set: 1538, interface: 670 child: 0 start 65, length: 0
-					 * Accessmask set: 1538, interface: 670 child: 0 start 65,
-					 * length: 0 Accessmask set: 1538, interface: 670 child: 0
-					 * start 65, length: 0 Accessmask set: 1538, interface: 670
-					 * child: 0 start 65, length: 0 Accessmask set: 1538,
-					 * interface: 670 child: 0 start 65, length: 0 Accessmask
-					 * set: 1538, interface: 670 child: 0 start 65, length: 0
-					 * Accessmask set: 1538, interface: 670 child: 0 start 65,
-					 * length: 0 Accessmask set: 1538, interface: 670 child: 0
-					 * start 65, length: 0 Accessmask set: 1538, interface: 670
-					 * child: 0 start 65, length: 0 Accessmask set: 1538,
-					 * interface: 670 child: 0 start 65, length: 0 Accessmask
-					 * set: 1538, interface: 670 child: 0 start 65, length: 0
-					 * Accessmask set: 1538, interface: 670 child: 0 start 65,
-					 * length: 0 Accessmask set: 1538, interface: 670 child: 0
-					 * start 65, length: 0 Accessmask set: 1538, interface: 670
-					 * child: 0 start 65, length: 0 Accessmask set: 1538,
-					 * interface: 670 child: 0 start 65, length: 0 Accessmask
-					 * set: 1538, interface: 670 child: 0 start 65, length: 0
-					 * Accessmask set: 1538, interface: 670 child: 0 start 65,
-					 * length: 0 Accessmask set: 1538, interface: 670 child: 0
-					 * start 65, length: 0 Accessmask set: 1538, interface: 670
-					 * child: 0 start 65, length: 0 BCONFIG ID: 779 VALUE: 28
-					 */
-					player.getPriceCheck().close();
-					player.removeAttribute("itemPriceCheckId");
-					ActionSender.sendConfig(player, 1248, 268435464);
-					ActionSender.sendBConfig(player, 199, -1);
-					ActionSender.sendInterfaceConfig(player, 667, 49, false);
-					ActionSender.sendInterfaceConfig(player, 667, 50, false);
-					// ActionSender.sendAMask(player, 4, 667, 7, 0, 65);
-					ActionSender.sendAMask(player, 1538, 667, 7, 0, 15);
-					ActionSender.sendAMask(player, 1538, 670, 0, 0, 28);
-					ActionSender.sendBConfig(player, 779, 28);
-					player.getBonuses().refreshEquipScreen();
-					ActionSender.sendInterface(player, 667);
-					ActionSender.sendInventoryInterface(player, 670);
+					player.getBonuses().openEquipmentScreen(false);
 					break;
 				case 42:
 					player.getPriceCheck().open();
@@ -1269,10 +1224,7 @@ public class ActionButtonHandler extends PacketHandler {
 					}*/
 					return;
 				case 39:
-					ActionSender.sendInterfaceConfig(player, 667, 49, false);
-					ActionSender.sendInterfaceConfig(player, 667, 50, false);
-					player.getBonuses().refreshEquipScreen();
-					ActionSender.sendInterface(player, 667);
+					player.getBonuses().openEquipmentScreen(false);
 					break;
 				case 42:
 					player.getPriceCheck().open();
@@ -1640,32 +1592,8 @@ public class ActionButtonHandler extends PacketHandler {
 				SpecialAttack spec = SpecialAttackContainer.get(player
 						.getEquipment().getSlot(3));
 				if (spec instanceof QuickSmash) {
-					int extraDistance = 0;
-					if (player.getWalkingQueue().isMoving() && player.getCombatExecutor().getVictim() != null) {
-						if (player.getCombatExecutor().getVictim().getWalkingQueue().isRunningMoving())
-							extraDistance = 3;
-						else if (player.getCombatExecutor().getVictim().getWalkingQueue().isMoving())
-							extraDistance = 2;
-					}
-					if ((player.getCombatExecutor().getVictim() == null
-							|| Math.floor(player.getLocation().distance(
-									player.getCombatExecutor().getVictim()
-											.getLocation())) > player.getCombatExecutor().getVictim().size() + extraDistance)
-											&& player.getSettings().isUsingSpecial()) {
-						player.sendMessage("Warning: Since the maul's special is an instant attack, it will be wasted when used ");
-						player.sendMessage("on a first strike.");
-						player.reverseSpecialActive();
-						return;
-					}
-					if (player.getSpecialAmount() < 500) {
-						player.sendMessage("You do not have enough power left.");
-						return;
-					}
-					if (player.getCombatAction().getCombatType() == CombatType.MELEE) {
-						player.getCombatExecutor().setTicks(0);
-						player.getCombatExecutor().tick();
-					}
-				} else if (player.getEquipment().get(3).getDefinition()
+                    if(!QuickSmash.activate(player)) player.sendMessage("You need a reachable opponent and enough special energy.");
+                } else if (player.getEquipment().get(3).getDefinition()
 						.getName().contains("Staff of light")) {
 					if (player.getSpecialAmount() < 1000) {
 						player.sendMessage("You do not have enough power left.");
@@ -2101,3 +2029,4 @@ public class ActionButtonHandler extends PacketHandler {
 		}
 	}
 }
+

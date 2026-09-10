@@ -50,14 +50,13 @@ public class MeleeFormulae {
 	public static int getDamage(Mob source, Mob victim,
 			double accuracyMultiplier, double hitMultiplier,
 			double defenceMultiplier) {
-		double accuracy = CombatExecutor.getGaussian(0.5, source.getRandom(),
-				getMeleeAccuracy(source, accuracyMultiplier));
-		double defence = CombatExecutor.getGaussian(0.5, victim.getRandom(),
+		double accuracy = CombatRolls.roll(source.getRandom(),
+				getMeleeAccuracy(source, accuracyMultiplier * EquipmentEffects.multiplier(source, victim, CombatType.MELEE)));
+		double defence = CombatRolls.roll(victim.getRandom(),
 				getMeleeDefence(source, victim, defenceMultiplier));
-		double mod = accuracy / (accuracy + defence);
 		if (accuracy > defence) {
-			return (int) CombatExecutor.getGaussian(mod, source.getRandom(),
-					getMeleeDamage(source, hitMultiplier));
+			return (int) CombatRolls.roll(source.getRandom(),
+					getMeleeDamage(source, hitMultiplier * EquipmentEffects.multiplier(source, victim, CombatType.MELEE)));
 		}
 		return 0;
 	}
@@ -79,13 +78,12 @@ public class MeleeFormulae {
 	 */
 	public static int getDamage(Mob source, Mob victim,
 			double accuracyMultiplier, int damage, double defenceMultiplier) {
-		double accuracy = CombatExecutor.getGaussian(0.5, source.getRandom(),
-				getMeleeAccuracy(source, accuracyMultiplier));
-		double defence = CombatExecutor.getGaussian(0.5, victim.getRandom(),
+		double accuracy = CombatRolls.roll(source.getRandom(),
+				getMeleeAccuracy(source, accuracyMultiplier * EquipmentEffects.multiplier(source, victim, CombatType.MELEE)));
+		double defence = CombatRolls.roll(victim.getRandom(),
 				getMeleeDefence(source, victim, defenceMultiplier));
-		double mod = accuracy / (accuracy + defence);
 		if (accuracy > defence) {
-			return (int) CombatExecutor.getGaussian(mod, source.getRandom(),
+			return (int) CombatRolls.roll(source.getRandom(),
 					damage);
 		}
 		return 0;
@@ -101,37 +99,26 @@ public class MeleeFormulae {
 	 * @return The maximum melee damage.
 	 */
 	public static int getMeleeDamage(Mob source, double hitMultiplier) {
-		int style = 0;
-		if (source.isPlayer()) {
-			if (source.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_AGGRESSIVE) {
-				style = 3;
-			} else if (source.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_CONTROLLED) {
-				style = 1;
-			}
-		}
-		int strLvl = source.isPlayer() ? source.getPlayer().getSkills()
-				.getLevel(Skills.STRENGTH) : source.getNPC().getDefinition()
-				.getStrengthLevel();
-		int strBonus = source.isPlayer() ? source.getPlayer().getBonuses()
-				.getBonus(Bonuses.STRENGTH) : source.getNPC().getDefinition()
-				.getBonuses()[11];
-		double strMult = 1.0;
-		int dhp = 0;
-		double dharokMod = 1.0;
-		strMult += source.isPlayer() ? source.getPlayer().getPrayer()
-				.getStrengthModifier() : source.getNPC().getStrengthModifier();
-		if (source.isPlayer()
-				&& source.getPlayer().getEquipment().barrowsSet(2)) {
-			dhp = source.getPlayer().getSkills().getMaximumLifePoints()
-					- source.getPlayer().getSkills().getHitPoints();
-			dharokMod = (dhp * 0.001) + 1;
-		}
-		if (source.isPlayer() && source.getPlayer().getEquipment().voidSet(1)) {
-			hitMultiplier += 0.1;
-		}
-		double cumulativeStr = (strLvl * strMult + style) * dharokMod;
-		return (int) ((14 + cumulativeStr + (strBonus / 8) + ((cumulativeStr * strBonus) / 64)) * hitMultiplier);
-	}
+        int stance = 0;
+        if (source.isPlayer()) {
+            int style = source.getPlayer().getSettings().getCombatStyle();
+            stance = style == WeaponInterface.STYLE_AGGRESSIVE ? 3 : style == WeaponInterface.STYLE_CONTROLLED ? 1 : 0;
+        }
+        int level = source.isPlayer() ? source.getPlayer().getSkills().getLevel(Skills.STRENGTH)
+                : source.getNPC().getCombatLevel(org.dementhium.model.player.Skills.STRENGTH);
+        int bonus = source.isPlayer() ? source.getPlayer().getBonuses().getBonus(Bonuses.STRENGTH)
+                : source.getNPC().getDefinition().getBonuses()[11];
+        double modifier = source.isPlayer() ? source.getPlayer().getPrayer().getStrengthModifier()
+                : source.getNPC().getStrengthModifier();
+        int effective = CombatFormula.effectiveLevel(level, modifier, stance + (source.isPlayer() ? source.getPlayer().getPrayer().getTurmoilStrength() : 0),
+                source.isPlayer() && source.getPlayer().getEquipment().voidSet(1) ? 1.1 : 1);
+        // Pre-EoC reconstruction: damage scales with the fraction of life points missing.
+        if (source.isPlayer() && source.getPlayer().getEquipment().barrowsSet(2)) {
+            int missing = Math.max(0, source.getPlayer().getSkills().getMaximumLifePoints() - source.getHitPoints());
+            hitMultiplier *= 1 + missing / (double) Math.max(1, source.getPlayer().getSkills().getMaximumLifePoints());
+        }
+        return CombatFormula.maximumHit(effective, bonus, hitMultiplier * EquipmentEffects.obsidianDamage(source));
+    }
 
 	/**
 	 * Gets the maximum melee accuracy.
@@ -143,31 +130,21 @@ public class MeleeFormulae {
 	 * @return The maximum melee accuracy.
 	 */
 	public static double getMeleeAccuracy(Mob source, double accuracyMultiplier) {
-		int style = 0;
-		if (source.isPlayer()) {
-			if (source.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_ACCURATE) {
-				style = 3;
-			} else if (source.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_CONTROLLED) {
-				style = 1;
-			}
-		}
-		int type = getBonusType(source);
-		int attLvl = source.isPlayer() ? source.getPlayer().getSkills()
-				.getLevel(Skills.ATTACK) : source.getNPC().getDefinition()
-				.getAttackLevel();
-		int attBonus = source.isPlayer() ? source.getPlayer().getBonuses()
-				.getBonus(type)
-				: source.getNPC().getDefinition().getBonuses()[type];
-		double attMult = 1.0;
-		attMult += source.isPlayer() ? source.getPlayer().getPrayer()
-				.getAttackModifier() : source.getNPC().getAttackModifier();
-		if (source.isPlayer() && source.getPlayer().getEquipment().voidSet(1)) {
-			accuracyMultiplier += 0.15;
-		}
-		double cumulativeAtt = attLvl * attMult + style;
-		return ((14 + cumulativeAtt + (attBonus / 8) + ((cumulativeAtt * attBonus) / 64)) * 1)
-				* accuracyMultiplier;
-	}
+        int stance = 0;
+        if (source.isPlayer()) {
+            int style = source.getPlayer().getSettings().getCombatStyle();
+            stance = style == WeaponInterface.STYLE_ACCURATE ? 3 : style == WeaponInterface.STYLE_CONTROLLED ? 1 : 0;
+        }
+        int level = source.isPlayer() ? source.getPlayer().getSkills().getLevel(Skills.ATTACK)
+                : source.getNPC().getCombatLevel(org.dementhium.model.player.Skills.ATTACK);
+        int bonus = source.isPlayer() ? source.getPlayer().getBonuses().getBonus(getBonusType(source))
+                : source.getNPC().getDefinition().getBonuses()[getBonusType(source)];
+        double modifier = source.isPlayer() ? source.getPlayer().getPrayer().getAttackModifier()
+                : source.getNPC().getAttackModifier();
+        int effective = CombatFormula.effectiveLevel(level, modifier, stance + (source.isPlayer() ? source.getPlayer().getPrayer().getTurmoilAttack() : 0),
+                source.isPlayer() && source.getPlayer().getEquipment().voidSet(1) ? 1.1 : 1);
+        return CombatFormula.accuracyRoll(effective, bonus, accuracyMultiplier);
+    }
 
 	/**
 	 * Gets the maximum melee defence.
@@ -182,28 +159,11 @@ public class MeleeFormulae {
 	 */
 	public static double getMeleeDefence(Mob source, Mob victim,
 			double defenceMultiplier) {
-		int style = 0;
-		if (victim.isPlayer()) {
-			if (victim.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_DEFENSIVE) {
-				style = 3;
-			} else if (victim.getPlayer().getSettings().getCombatStyle() == WeaponInterface.STYLE_CONTROLLED) {
-				style = 1;
-			}
-		}
-		int type = getBonusType(source);
-		int defLvl = victim.isNPC() ? victim.getNPC().getDefinition()
-				.getDefenceLevel() : victim.getPlayer().getSkills()
-				.getLevel(Skills.DEFENCE);
-		int defBonus = victim.isNPC() ? victim.getNPC().getDefinition()
-				.getDefenceBonus(type) : victim.getPlayer().getBonuses()
-				.getDefence(type);
-		double defMult = 1.0;
-		defMult += victim.isPlayer() ? victim.getPlayer().getPrayer()
-				.getDefenceModifier() : victim.getNPC().getDefenceModifier();
-		double cumulativeDef = defLvl * defMult + style;
-		return (14 + cumulativeDef + (defBonus / 8) + ((cumulativeDef * defBonus) / 64))
-				* defenceMultiplier;
-	}
+        int type = getBonusType(source);
+        int bonus = victim.isPlayer() ? victim.getPlayer().getBonuses().getDefence(type)
+                : victim.getNPC().getDefinition().getDefenceBonus(type);
+        return CombatFormula.accuracyRoll(CombatFormula.defenceLevel(victim), bonus, defenceMultiplier);
+    }
 
 	/**
 	 * Gets the bonus type used.

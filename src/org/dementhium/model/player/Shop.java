@@ -266,140 +266,82 @@ public class Shop {
 		}
 	}
 
-	private void sellItem(Player p, int itemId, int amount) {
-		if (amount < 1) {
-			return;
-		}
-		Shop.sendInventory(p);
-		p.removeAttribute("itemInfoSlot");
-		if (currency == -1) {
-			ActionSender.sendMessage(p, "You can't sell any items to this shop.");
-			return;
-		}
-		if (p.getRights() >= 2) {
-	    	boolean allowAdminSell = false;
-			for(String name : PlayerLoader.superMods) {
-				if(p.getUsername().equals(name)) {
-					allowAdminSell = true;
-				}
-			}
-			if (!allowAdminSell) {
-				p.sendMessage("Administrators can't sell any items to shops accessible by the public.");
-				return;
-			}
-		}
-		if (amount > p.getInventory().getContainer().getItemCount(itemId)) {
-			amount = p.getInventory().getContainer().getItemCount(itemId);
-		}
-		Item item = new Item(itemId, amount);
-		ItemDefinition def = item.getDefinition();
-		int itemId2 = itemId;
-		if (def.isNoted()) {
-			item = new Item(itemId == 10843 ? 10828 : itemId - 1, amount);
-			itemId2 = itemId == 10843 ? 10828 : itemId - 1;
-		}
-		if (def.getStorePrice() > 0) {
-			int price = (int) (def.getStorePrice() * amount);
-			int itemPrice = def.getStorePrice() == 0 ? 1 : def.getStorePrice();
-			for (int z = 0; z < 25; z++) {
-				for (int x = 0; x < 2; x++) {
-					if (SkillCapes.skillCapeId[z][x] == item.getId()) {
-						price = 99000;
-						itemPrice = 99000;
-						ActionSender.sendMessage(p, "You can't sell skillcapes to any shop.");
-						return;
-					}
-				}
-			}
-			if (!p.getInventory().contains(itemId)) {
-				return;
-			}
-			if (currency != -1) {
-				if (!p.getInventory().hasRoomFor(currency, price) && ItemDefinition.forId(itemId).isStackable() && p.getInventory().getContainer().getItemCount(itemId) >= 1) {
-					ActionSender.sendMessage(p, "Not enough space in your inventory.");
-					return;
-				}
-			}
-			boolean allowSell = false;
-			for (int id : origItems) {
-				if (id == itemId2) {
-					allowSell = true; //if an item is an original item of the shop but has an amount of 0, it will not be recognized
-				}
-			}
-			if ((!shop.contains(new Item(itemId2, 1)) && !allowSell && !generalStore) || itemId == currency 
-					|| (!ItemDefinition.forId(itemId2).isTradeable() && !shop.contains(new Item(itemId2, 1)) && !allowSell)) {
-				ActionSender.sendMessage(p, "You can't sell this item to this shop.");
-				return;
-			}
-			if (p.getInventory().getContainer().getItemCount(itemId) < amount) {
-				if (ItemDefinition.forId(itemId).isNoted()
-						|| ItemDefinition.forId(itemId).isStackable()) {
-					amount = p.getInventory().lookup(itemId).getAmount();
-				} else {
-					amount = p.getInventory().getContainer().getItemCount(itemId);
-				}
-				price = (int) ((int) def.getStorePrice() / 1.6 * amount);
-				itemPrice = def.getStorePrice() == 0 ? 1 : ((int) ((int) def.getStorePrice() / 1.6));
-				ActionSender.sendMessage(p, "You don't have enough of that item!");
-				if (this.shopId > 100) {
-					price = (int) ((int) def.getStorePrice() * amount);
-					itemPrice = def.getStorePrice() == 0 ? 1 : ((int) ((int) def.getStorePrice()));
-				}
-
-			}
-			if (!hasRoomFor(itemId, amount)) {
-				ActionSender.sendMessage(p, "The shop is full.");
-				return;
-			}
-			for (int i = 1038; i < 1059; i++) {
-				if (itemId == i) {
-					p.sendMessage("You can't sell rares to any shop.");
-					return;
-			}
-				}
-			for (int s = 1249; s < 1251; s++) {
-				if (itemId == s) {
-				p.sendMessage("You can't sell this item to the shop!");
-				return;
-				}
-				if (shopId == 105) {
-					for (int z = 13864; z < 14000; z++) {
-					if (itemId == z) {
-						p.sendMessage("You can't sell PvP gear back to the shop!");
-						return;
-					
-				
-					}
-				}
-			}
-		}
-			if (price + p.getInventory().getContainer().getItemCount(currency) < 0 && currency != -1) {
-				price = Integer.MAX_VALUE - p.getInventory().getContainer().getItemCount(currency);
-				if (price == 0) {
-					p.sendMessage("Not enough space in your inventory.");
-					return;
-				}
-				amount = price / def.getStorePrice();
-				itemPrice = def.getStorePrice() == 0 ? 1 : def.getStorePrice();
-				p.sendMessage("Not enough space in your inventory to sell all of that item.");
-			}
-			double itemAmount = amount;
-			double maxSellableAmount = (Integer.MAX_VALUE / itemPrice);
-			if (itemAmount > maxSellableAmount || price < 0) {
-				p.sendMessage("The price is too high to sell!");
-				return;
-			}
-			shop.add(item);
-			p.getInventory().deleteItem(itemId, amount);
-			if (currency == -1)
-				p.addPkPoints(price);
-			else
-				p.getInventory().addItem(currency, price);
-			update();
-		} else {
-			ActionSender.sendMessage(p, "You can't sell this item.");
-		}
-	}
+    private void sellItem(Player p, int itemId, int amount) {
+        if (amount <= 0 || itemId < 0 || itemId >= ItemDefinition.MAX_SIZE) return;
+        Shop.sendInventory(p);
+        p.removeAttribute("itemInfoSlot");
+        if (currency == -1) {
+            p.sendMessage("You can't sell any items to this shop.");
+            return;
+        }
+        if (p.getRights() >= 2) {
+            boolean allowed = false;
+            for (String name : PlayerLoader.superMods) if (p.getUsername().equals(name)) allowed = true;
+            if (!allowed) {
+                p.sendMessage("Administrators can't sell any items to shops accessible by the public.");
+                return;
+            }
+        }
+        ItemDefinition def = ItemDefinition.forId(itemId);
+        int stockId = def.isNoted() ? (itemId == 10843 ? 10828 : itemId - 1) : itemId;
+        int unitPrice = def.getStorePrice();
+        if (unitPrice <= 0) { p.sendMessage("You can't sell this item."); return; }
+        for (int[] capes : SkillCapes.skillCapeId) {
+            for (int cape : capes) if (stockId == cape) {
+                p.sendMessage("You can't sell skillcapes to any shop."); return;
+            }
+        }
+        boolean original = false;
+        for (int id : origItems) if (id == stockId) original = true;
+        if ((!shop.contains(new Item(stockId)) && !original && !generalStore) || itemId == currency
+                || (!ItemDefinition.forId(stockId).isTradeable() && !shop.contains(new Item(stockId)) && !original)) {
+            p.sendMessage("You can't sell this item to this shop."); return;
+        }
+        if ((itemId >= 1038 && itemId <= 1058) || itemId == 1249 || itemId == 1250
+                || (shopId == 105 && itemId >= 13864 && itemId < 14000)) {
+            p.sendMessage("You can't sell this item to the shop."); return;
+        }
+        long owned = 0, coins = 0, stocked = 0;
+        for (Item item : p.getInventory().getContainer().toArray()) {
+            if (item == null) continue;
+            if (item.getId() == currency) coins += item.getAmount();
+            if (item.getId() == itemId && !DegradingHandler.isDegradedForTrade(item)) owned += item.getAmount();
+        }
+        for (Item item : shop.toArray()) if (item != null && item.getId() == stockId) stocked += item.getAmount();
+        // Clamp the quantity first. Price and stock must describe exactly that quantity.
+        long count = Math.min((long)amount, owned);
+        count = Math.min(count, Math.max(0L, Integer.MAX_VALUE - coins) / unitPrice);
+        count = Math.min(count, Math.max(0L, Integer.MAX_VALUE - stocked));
+        if (count <= 0) {
+            p.sendMessage("You cannot sell any of that item with the current inventory and shop limits."); return;
+        }
+        int quantity = (int)count;
+        int price = (int)(count * unitPrice);
+        Container inventoryResult = p.getInventory().getContainer().deepCopy();
+        Container shopResult = shop.deepCopy();
+        int remaining = quantity;
+        for (int i = 0; i < inventoryResult.getSize() && remaining > 0; i++) {
+            Item item = inventoryResult.get(i);
+            if (item == null || item.getId() != itemId || DegradingHandler.isDegradedForTrade(item)) continue;
+            int removed = Math.min(remaining, item.getAmount());
+            if (removed == item.getAmount()) inventoryResult.set(i, null);
+            else { Item rest = new Item(item); rest.setAmount(item.getAmount() - removed); inventoryResult.set(i, rest); }
+            remaining -= removed;
+        }
+        Container payment = new Container(1, true); payment.set(0, new Item(currency, price));
+        Container stock = new Container(1, true); stock.set(0, new Item(stockId, quantity));
+        if (remaining != 0 || !inventoryResult.tryAddAll(payment)) {
+            p.sendMessage("Not enough space in your inventory."); return;
+        }
+        if (!shopResult.tryAddAll(stock)) {
+            p.sendMessage("The shop is full."); return;
+        }
+        p.getInventory().getContainer().replaceWith(inventoryResult);
+        shop.replaceWith(shopResult);
+        if (quantity < amount) p.sendMessage("Only part of that sale fits the current inventory and shop limits.");
+        p.getInventory().refresh();
+        update();
+    }
 
 	public boolean hasRoomFor(int id, int itemAmount) {
 		return shop.getFreeSlots() >= 1 || shop.contains(new Item(id));

@@ -35,26 +35,14 @@ public class IceCleave extends SpecialAttack {
 		interaction.setDamage(Damage.getDamage(interaction.getSource(), 
 				interaction.getVictim(), CombatType.MELEE, 
 				MeleeFormulae.getDamage(interaction.getSource(), 
-						interaction.getVictim(), 1.175, 1.0, 0.998)));
+						interaction.getVictim(), 2.0, 1.0, 1.0)));
 		interaction.getDamage().setMaximum(MeleeFormulae.getMeleeDamage(interaction.getSource(), 1.0));
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
 		}
-		if (interaction.getSource().isPlayer() && interaction.getDamage().getHit() > 0
-				&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-				 && interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()) {
-			interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-					interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-		}
-		if (interaction.getDamage().getHit() > 0) {
-			if (interaction.getVictim().isPlayer()) {
-				interaction.getVictim().getPlayer().sendMessage("You have been frozen.");
-			}
-			interaction.getVictim().getCombatExecutor().reset();
-			interaction.getVictim().getWalkingQueue().reset();
-			interaction.getVictim().setAttribute("freezeTime", World.getTicks() + 33);
-		}
-		interaction.getSource().animate(ANIMATION);
+		
+		interaction.getDamage().onImpact(actual -> org.dementhium.model.combat.CombatStatus.freeze(interaction.getVictim(), 33));
+        interaction.getSource().animate(ANIMATION);
 		interaction.getSource().graphics(GRAPHICS);
 		interaction.getVictim().animate(interaction.isDeflected() ? 12573 : interaction.getVictim().getDefenceAnimation());
 		if (interaction.isDeflected()) {

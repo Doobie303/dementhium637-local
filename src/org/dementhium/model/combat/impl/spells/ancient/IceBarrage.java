@@ -3,6 +3,7 @@ package org.dementhium.model.combat.impl.spells.ancient;
 import java.util.ArrayList;
 
 import org.dementhium.model.Item;
+import org.dementhium.model.combat.CombatStatus;
 import org.dementhium.model.Mob;
 import org.dementhium.model.Projectile;
 import org.dementhium.model.World;
@@ -36,7 +37,7 @@ public class IceBarrage extends MagicSpell {
 					new ExtraTarget(interaction.getVictim()));
 		} else {
 			interaction.setTargets(CombatUtils.getTargetList(
-					interaction.getSource(), interaction.getVictim(), 1, 8));
+					interaction.getSource(), interaction.getVictim(), 1, 9));
 		}
 		interaction.getSource().animate(1979);
 		if (interaction.getVictim().getWalkingQueue().isMoving()) {
@@ -71,29 +72,7 @@ public class IceBarrage extends MagicSpell {
 							interaction.getSource().getPlayer(), m.getVictim(),
 							this)));
 			m.getDamage().setMaximum(maximum);
-			if (m.getDamage().getHit() > 0) {
-				if (m.getVictim().getAttribute("freezeImmunity", -1) < World
-						.getTicks()) {
-					int delay = 36;//How much ticks the freeze is
-					m.getVictim().getCombatExecutor().reset();
-					if (m.getVictim().isPlayer()) {
-						ActionSender.sendMessage(m.getVictim().getPlayer(),
-								"You have been frozen.");
-						if (m.isDeflected()
-								|| m.getVictim().getPlayer().getPrayer()
-										.usingPrayer(0, 17)) {
-							/*delay *= 0.5;*/
-						}
-					}
-					m.getVictim().getWalkingQueue().reset();
-					m.getVictim().setAttribute("freezeTime",
-							World.getTicks() + delay);
-					m.getVictim().setAttribute("freezeImmunity",
-							World.getTicks() + delay + 5);
-				} else {
-					m.setFrozen(true);
-				}
-			}
+
 			Interaction inter = new Interaction(interaction.getSource(),
 					m.getVictim());
 			inter.setDamage(m.getDamage());
@@ -144,12 +123,15 @@ public class IceBarrage extends MagicSpell {
 	@Override
 	public boolean endSpell(Interaction interaction) {
 		for (ExtraTarget m : interaction.getTargets()) {
-			if (m.getDamage().getHit() > 0) {
+			if (m.getDamage().getHit() >= 0) {
+                m.getDamage().onContact(()->{
+                m.setFrozen(!CombatStatus.freeze(m.getVictim(), 32));
 				if (m.isFrozen()) {
 					m.getVictim().graphics(1677, 96 << 16);
 				} else {
 					m.getVictim().graphics(369);
 				}
+                });
 				m.getVictim()
 						.getDamageManager()
 						.damage(interaction.getSource(), m.getDamage(),
@@ -157,30 +139,9 @@ public class IceBarrage extends MagicSpell {
 			} else {
 				m.getVictim().graphics(85, 96 << 16);
 			}
-			if (m.getDamage().getVenged() > 0) {
-				m.getVictim().submitVengeance(interaction.getSource(),
-						m.getDamage().getVenged());
-			}
-			if (m.getDamage().getDeflected() > 0) {
-				// interaction.getSource().getDamageManager().damage(m.getVictim(),
-				// m.getDamage().getDeflected(),
-				// m.getDamage().getDeflected(), DamageType.DEFLECT);
-				interaction
-						.getSource()
-						.getDamageManager()
-						.miscDamage(m.getDamage().getDeflected(),
-								DamageType.DEFLECT);
-			}
-			if (m.getDamage().getRecoiled() > 0) {
-				// interaction.getSource().getDamageManager().damage(m.getVictim(),
-				// m.getDamage().getRecoiled(),
-				// m.getDamage().getRecoiled(), DamageType.DEFLECT);
-				interaction
-						.getSource()
-						.getDamageManager()
-						.miscDamage(m.getDamage().getRecoiled(),
-								DamageType.DEFLECT);
-			}
+
+
+
 			m.getVictim().retaliate(interaction.getSource());
 		}
 		return true;

@@ -34,7 +34,7 @@ public class SwitchItemHandler extends PacketHandler {
         int tabId = (toInterfaceHash & 0xFF);
         int fromId = packet.readLEShortA();
         int toId = packet.readLEShort();
-        int tabIndex = player.getBank().getArrayIndex(tabId);
+        int tabIndex = Bank.getArrayIndex(tabId);
         int fromTab;
         switch (fromInterfaceId) {
             case 762:

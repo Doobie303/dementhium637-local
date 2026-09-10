@@ -82,6 +82,7 @@ public class NPCLoader {
 				}
 			}
 		}
+		org.dementhium.content.home.HomeHub.spawnServices();
 		System.out.println("Loaded " + size + " default npc spawns.");
 	}
 	

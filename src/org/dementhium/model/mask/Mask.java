@@ -14,6 +14,7 @@ public class Mask {
     private ChatMessage lastChatMessage;
     private Graphic lastGraphics;
     private Animation lastAnimation;
+    private long npcAnimationStart, npcAnimationEnd, npcAnimationGeneration;
     private Heal lastHeal;
     private Location facePosition;
 
@@ -83,16 +84,27 @@ public class Mask {
     }
 
     public void setLastAnimation(Animation lastAnimation) {
-    //	System.out.println(lastAnimation.getId() + ", " + mob.canAnimate());
-    //	new Throwable().printStackTrace(System.out);
-        if (mob.canAnimate()) {
-            this.lastAnimation = lastAnimation;
-        }
+        setLastAnimation(lastAnimation, false);
     }
 
     public void setLastAnimation(Animation lastAnimation, boolean ignoreFlag) {
         if (!mob.canAnimate() && !ignoreFlag) {
             return;
+        }
+        if (mob.isNPC() && lastAnimation != null) {
+            long now = (long) World.getTicks() * 30;
+            int id = lastAnimation.getId();
+            // reset() clears an outgoing mask, not a sequence still playing on the client.
+            // Only flinch/defence is suppressed; attacks, death and explicit resets win.
+            if (!ignoreFlag && id >= 0 && id == mob.getDefenceAnimation()
+                    && npcAnimationGeneration == mob.getNPC().getCombatGeneration()
+                    && now >= npcAnimationStart && now < npcAnimationEnd) return;
+            if (id < 0) npcAnimationEnd = 0;
+            else if (id != mob.getDefenceAnimation()) {
+                npcAnimationStart = now;
+                npcAnimationEnd = now + lastAnimation.getDelay() + NPCAnimation.frames(id);
+                npcAnimationGeneration = mob.getNPC().getCombatGeneration();
+            }
         }
         this.lastAnimation = lastAnimation;
     }

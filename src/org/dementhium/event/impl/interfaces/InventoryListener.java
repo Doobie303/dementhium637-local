@@ -32,6 +32,7 @@ import org.dementhium.model.misc.DamageManager.DamageType;
 import org.dementhium.model.misc.GroundItem;
 import org.dementhium.model.misc.GroundItemManager;
 import org.dementhium.model.player.Equipment;
+import org.dementhium.model.player.DegradingHandler;
 import org.dementhium.model.player.Player;
 import org.dementhium.net.ActionSender;
 import org.dementhium.tickable.Tick;
@@ -61,6 +62,9 @@ public class InventoryListener extends EventListener {
 		Item slotItem = player.getInventory().get(slot);
 		if (slotItem == null || slotItem.getId() != itemId)
 			return false;
+		if (opcode == 0 && DegradingHandler.checkCharges(player, slotItem)) {
+			return true;
+		}
 		if(opcode == 0){
 			if (itemId >= 5509 && itemId <= 5515) {
 				int pouchHealth = player.getInventory().getContainer().get(slot).getHealth();

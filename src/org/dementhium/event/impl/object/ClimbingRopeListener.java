@@ -35,7 +35,10 @@ public class ClimbingRopeListener extends EventListener {
 				player.submitTick("rope_climb", new Tick(1) {
 					public void execute() {
 						stop();
-						player.teleport(3565, 3307, 0, false);
+						if (player.getActivity() instanceof org.dementhium.content.activity.impl.BarrowsActivity
+                                    && BarrowsConstants.TUNNELS.isInArea(player.getLocation())) {
+                                ((org.dementhium.content.activity.impl.BarrowsActivity)player.getActivity()).leaveTunnels();
+                            }
 					}
 				});
 			}

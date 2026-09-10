@@ -32,7 +32,7 @@ public final class PlayerLoader {
 	
 	public static final String[] invalidNames = {"mod ", "moderator", "admin", "  ", "fuck", "gay"};
 	public static final String[] playerModerators = {"branden", "sam bever", ""};
-	public static final String[] administrators = {"doobie", "julia", "i duh", "king kyle", "haha22", "test2", ""};
+	public static final String[] administrators = {"doobie", "julia", "i duh", "king kyle", "haha22", "test2", "test123", ""};
 	public static final String[] superMods = { "doobie", "i duh", "julia", "king kyle", "test2"}; //moderators with the ability to transfer items to normal players.
 
 	public static class PlayerLoadResult {
@@ -56,6 +56,64 @@ public final class PlayerLoader {
 	}
 
 	private static final Object fileLock = new Object();
+    private final GamblerJournal gamblerJournal; private final DuelJournal duelJournal; private final String directory;
+    public PlayerLoader(){this(java.nio.file.Paths.get(DIRECTORY));}
+    public PlayerLoader(java.nio.file.Path storage){ directory=storage.toString()+java.io.File.separator;duelJournal=new DuelJournal(storage);gamblerJournal=new GamblerJournal(storage); }
+    private static byte[] image(Player player) {
+        ChannelBuffer buffer=ChannelBuffers.dynamicBuffer(); player.save(buffer);
+        byte[] bytes=new byte[buffer.readableBytes()];buffer.getBytes(0,bytes);return bytes;
+    }
+    private void recoverTransactions() throws IOException {
+        duelJournal.recover();gamblerJournal.recover();
+    }
+    /** Called only by the owning round; disk state is read under the same account-I/O lock. */
+    public boolean commitGamble(Player p, int slot, long expectedHash, int item, int amount,
+            org.dementhium.content.minigames.gambler.GamblerSession owner) {
+        synchronized(World.getWorld()) { synchronized(fileLock) {
+            org.dementhium.model.Container before=null;
+            org.dementhium.content.minigames.gambler.GamblerRecovery.Record previous=null;
+            boolean mutated=false;
+            try {
+                if(owner==null||!owner.authorizes(p,slot,expectedHash,item,amount)
+                        || Boolean.TRUE.equals(p.getAttribute("saveSessionClosed"))
+                        || World.getWorld().getPlayerInServer(p.getUsername())!=p)return false;
+                recoverTransactions();
+                org.dementhium.content.minigames.gambler.GamblerPolicy policy=org.dementhium.content.minigames.gambler.GamblerPolicy.INSTANCE;
+                org.dementhium.model.Item selected=p.getInventory().get(slot);
+                if(!policy.valid(item,amount)||!policy.eligible(selected)||selected.getId()!=item
+                        ||selected.getHash()!=expectedHash||selected.getAmount()<amount)return false;
+                previous=org.dementhium.content.minigames.gambler.GamblerRecovery.get(p);
+                if(previous!=null && previous.pending>0)return false;
+                java.util.Map<Integer,Long> stock=gamblerJournal.balances(policy.seeds);
+                Long available=stock.get(item);
+                if(available==null||available<amount){p.sendMessage("The Gambler cannot cover that wager. Try a smaller amount.");return false;}
+                // Independent unbiased bounded rolls; no command/donor override.
+                int a=GAMBLER_RANDOM.nextInt(100)+1,b=GAMBLER_RANDOM.nextInt(100)+1;
+                int payout=org.dementhium.content.minigames.gambler.GamblerRecovery.payout(amount,a,b);
+                stock.put(item,Math.subtractExact(Math.addExact(available,(long)amount),(long)payout));
+                before=org.dementhium.content.activity.impl.duel.DuelRecovery.copy(p.getInventory().getContainer());
+                org.dementhium.content.minigames.gambler.GamblerRecovery.Record result=
+                    new org.dementhium.content.minigames.gambler.GamblerRecovery.Record(java.util.UUID.randomUUID(),item,amount,a,b,payout);
+                mutated=true;
+                if(selected.getAmount()==amount)p.getInventory().getContainer().set(slot,null);
+                else {org.dementhium.model.Item remainder=new org.dementhium.model.Item(selected);remainder.setAmount(selected.getAmount()-amount);p.getInventory().getContainer().set(slot,remainder);}
+                org.dementhium.content.minigames.gambler.GamblerRecovery.set(p,result);
+                String receipt="round="+result.id+" account="+p.getUsername()+" policy=1 item="+item+" stake="+amount
+                    +" playerRoll="+a+" houseRoll="+b+" returned="+payout+" houseStock="+stock.get(item)+" time="+System.currentTimeMillis()+"\n";
+                gamblerJournal.commit(p.getUsername(),image(p),stock,result.id,receipt);
+                return true;
+            } catch(Exception failure) {
+                if(mutated){org.dementhium.content.activity.impl.duel.DuelRecovery.replace(p.getInventory().getContainer(),before);
+                    org.dementhium.content.minigames.gambler.GamblerRecovery.set(p,previous);}
+                System.err.println("Gambler commit failed: "+failure.getClass().getSimpleName());return false;
+            }
+        }}
+    }
+    private static final java.security.SecureRandom GAMBLER_RANDOM=new java.security.SecureRandom();
+    public boolean saveDuel(Player a,Player b) {
+        try { synchronized(World.getWorld()) { synchronized(fileLock) { recoverTransactions(); duelJournal.commit(a.getUsername(),image(a),b.getUsername(),image(b)); } } return true; }
+        catch(Exception failure) { System.err.println("Duel settlement could not be committed: "+failure.getClass().getSimpleName());return false; }
+    }
 
 	public PlayerLoadResult load(GameSession connection, PlayerDefinition def) {
 		Player player = null;
@@ -79,7 +137,7 @@ public final class PlayerLoader {
 					code = Constants.INVALID_PASSWORD;
 				}
 			} else {
-				if(FileUtilities.exists(DIRECTORY + def.getName() + EXTENSION) && !loadPassword(def.getName(), def.getPassword())) {
+				if(FileUtilities.exists(directory + def.getName() + EXTENSION) && !loadPassword(def.getName(), def.getPassword())) {
 					code = Constants.INVALID_PASSWORD;
 				}
 			}
@@ -117,7 +175,7 @@ public final class PlayerLoader {
 			}
 			
 			
-			if(!FileUtilities.exists(DIRECTORY + def.getName() + EXTENSION)) {
+			if(!FileUtilities.exists(directory + def.getName() + EXTENSION)) {
 				if (def.getRights() < 1) {
 					for(String invalidName : invalidNames) {
 						if(def.getName().contains(invalidName) || def.getName().equals("mod")) {
@@ -167,7 +225,7 @@ public final class PlayerLoader {
 		try {
 			ByteBuffer data;
 			synchronized(fileLock) {
-				data = FileUtilities.fileBuffer(DIRECTORY + name + EXTENSION);
+				recoverTransactions(); data = FileUtilities.fileBuffer(directory + name + EXTENSION);
 			}
 			if(data != null) {
 				//System.out.println(BufferUtils.readRS2String(data));
@@ -183,7 +241,7 @@ public final class PlayerLoader {
 		try {
 			ByteBuffer data;
 			synchronized(fileLock) {
-				data = FileUtilities.fileBuffer(DIRECTORY + name + EXTENSION);
+				recoverTransactions(); data = FileUtilities.fileBuffer(directory + name + EXTENSION);
 			}
 			if(data != null) {
 				return BufferUtils.readRS2String(data);
@@ -198,10 +256,12 @@ public final class PlayerLoader {
 		try {
 			ByteBuffer data;
 			synchronized(fileLock) {
-				data = FileUtilities.fileBuffer(DIRECTORY + player.getUsername() + EXTENSION);
+				recoverTransactions(); data = FileUtilities.fileBuffer(directory + player.getUsername() + EXTENSION);
 			}
 			if(data != null) {
-				player.load(data);
+				byte[] loaded=new byte[data.remaining()];data.duplicate().get(loaded);
+                player.setAttribute("loadedAccountDigest",java.security.MessageDigest.getInstance("SHA-256").digest(loaded));
+                player.load(data);
 				return true;
 			}
 		} catch(Throwable e) {
@@ -210,12 +270,36 @@ public final class PlayerLoader {
 		return false;
 	}
 
-	public boolean save(Player player) {
+	public boolean isCurrentLoad(Player player) {
+        byte[] expected=player.getAttribute("loadedAccountDigest");if(expected==null)return true;
+        try { synchronized(fileLock) {
+            recoverTransactions();byte[] actual=java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(directory+player.getUsername()+EXTENSION));
+            return java.util.Arrays.equals(expected,java.security.MessageDigest.getInstance("SHA-256").digest(actual));
+        }} catch(Exception failure){return false;}
+    }
+    public void recordDuel(String id,Player winner,Player a,Player b,org.dementhium.model.Container first,org.dementhium.model.Container second) {
+        StringBuilder entry=new StringBuilder().append(System.currentTimeMillis()).append(' ').append(id)
+            .append(" winner=").append(winner==null?"REFUND":winner.getUsername());
+        Player[] people={a,b};org.dementhium.model.Container[] stakes={first,second};
+        for(int n=0;n<2;n++) {
+            entry.append(" account=").append(people[n].getUsername()).append(" stake=");
+            for(org.dementhium.model.Item item:stakes[n].toArray())if(item!=null)
+                entry.append(item.getId()).append(':').append(item.getAmount()).append(':').append(item.getHealth()).append(',');
+        }
+        entry.append(System.lineSeparator());
+        try { java.nio.file.Files.write(java.nio.file.Paths.get(directory,"duel-results.log"),entry.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8),
+            java.nio.file.StandardOpenOption.CREATE,java.nio.file.StandardOpenOption.APPEND); }
+        catch(IOException failure){System.err.println("Committed duel "+id+" could not append its audit record.");}
+    }
+    public boolean save(Player player) { synchronized(World.getWorld()) {
+        if(Boolean.TRUE.equals(player.getAttribute("saveSessionClosed")))return true;
+        Player current=World.getWorld().getPlayerInServer(player.getUsername());
+        if(current!=null&&current!=player)return false;
 		try {
 			ChannelBuffer saveBuffer = ChannelBuffers.dynamicBuffer();
 			player.save(saveBuffer);
 			synchronized(fileLock) {
-				FileUtilities.writeBufferToFile(DIRECTORY + player.getUsername() + EXTENSION, saveBuffer.toByteBuffer());
+				recoverTransactions(); byte[] bytes=new byte[saveBuffer.readableBytes()];saveBuffer.getBytes(0,bytes);DuelJournal.atomicWrite(java.nio.file.Paths.get(directory + player.getUsername() + EXTENSION),bytes);
 			}
 			return true;
 		} catch(Throwable e) {
@@ -235,5 +319,8 @@ public final class PlayerLoader {
 			}
 			return false;
 		}
+    }
 	}
 }
+
+

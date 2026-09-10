@@ -30,6 +30,11 @@ public class Shove extends SpecialAttack {
 	
 	@Override
 	public boolean commenceSpecialAttack(Interaction interaction) {
+        if(!org.dementhium.model.combat.CombatStatus.statusAllowed(interaction.getVictim())
+                || interaction.getVictim().getAttribute("cantMove",false)
+                || !org.dementhium.model.instance.InstanceAccess.canInteract(interaction.getSource(),interaction.getVictim())
+                || interaction.getSource().getLocation().getZ()!=interaction.getVictim().getLocation().getZ())return false;
+
 		if (interaction.getVictim().size() > 1) {
 			interaction.getSource().getPlayer().sendMessage("This monster is too large to stun.");
 			return false;
@@ -73,10 +78,11 @@ public class Shove extends SpecialAttack {
 		interaction.getSource().turnTo(interaction.getVictim(), false);
 		interaction.getVictim().turnTo(interaction.getSource(), false);
 		WalkingDirection direction = Directions.directionFor(x, y);
-		System.out.println("X: " + x + ", y: " + y + ", dir: " + direction);
+		
 		if (PrimitivePathFinder.canMove(interaction.getVictim().getLocation(), direction, false)) {
 			Location loc = interaction.getVictim().getLocation().getLocation(direction);
-			interaction.getVictim().requestWalk(loc.getX(), loc.getY());
+			if(org.dementhium.model.instance.InstanceAccess.canWalk(interaction.getVictim(),loc))
+                interaction.getVictim().forceMovement(null,loc.getX(),loc.getY(),0,30,-1,1,true);
 		}
 		return true;
 	}

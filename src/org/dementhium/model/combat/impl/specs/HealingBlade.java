@@ -29,28 +29,17 @@ public class HealingBlade extends SpecialAttack {
 		interaction.setDamage(Damage.getDamage(interaction.getSource(), 
 				interaction.getVictim(), CombatType.MELEE, 
 				MeleeFormulae.getDamage(interaction.getSource(), 
-						interaction.getVictim(), 1.12, 1.1, 0.998)));
+						interaction.getVictim(), 2.0, 1.1, 1.0)));
 		interaction.getDamage().setMaximum(MeleeFormulae.getMeleeDamage(interaction.getSource(), 1.1));
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
 		}
-		if (interaction.getSource().isPlayer() && interaction.getDamage().getHit() > 0
-				&& interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-				 && interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()) {
-			interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-					interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-		}
-		int toHeal = interaction.getDamage().getHit() / 2;
-		double toRestore = interaction.getDamage().getHit() * 0.025;
-		if (toHeal < 100) {
-			toHeal = 100;
-		}
-		if (toRestore < 5) {
-			toRestore = 5;
-		}
-		interaction.getSource().getPlayer().getSkills().heal(toHeal);
-		interaction.getSource().getPlayer().getSkills().restorePray(toRestore);
-		interaction.getSource().animate(ANIMATION);
+		
+		interaction.getDamage().onImpact(actual -> {
+            interaction.getSource().getPlayer().getSkills().heal(Math.max(100, actual / 2));
+            interaction.getSource().getPlayer().getSkills().restorePray(Math.max(5, actual * .025));
+        });
+        interaction.getSource().animate(ANIMATION);
 		interaction.getSource().graphics(GRAPHICS);
 		interaction.getVictim().animate(interaction.isDeflected() ? 12573 : interaction.getVictim().getDefenceAnimation());
 		if (interaction.isDeflected()) {

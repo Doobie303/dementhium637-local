@@ -99,7 +99,7 @@ public class Bank {
 	}
 	
 	public void addItem(int slot, int amount, boolean refresh) {
-		if (checkingBank) {
+		if (checkingBank || amount <= 0 || slot < 0 || slot >= Inventory.SIZE) {
 			return;
 		}
 		if (player.getAttribute("inBank", Boolean.FALSE) == Boolean.TRUE) {
@@ -112,6 +112,27 @@ public class Bank {
 			int currentTab = player.getLastBankTab();
 			if (playerAmount < amount) {
 				amount = playerAmount;
+			}
+			if (item.getHealth() > 0) {
+				int freeSlot = bank.freeSlot();
+				if (freeSlot < 0) {
+					player.sendMessage("You don't have enough bank space left to bank this item.");
+					return;
+				}
+				Item chargedItem = new Item(item);
+				chargedItem.setAmount(1);
+				if (item.getAmount() == 1) player.getInventory().set(slot, null);
+				else {
+					Item remainder = new Item(item);
+					remainder.setAmount(item.getAmount() - 1);
+					player.getInventory().set(slot, remainder);
+				}
+				bank.set(freeSlot, chargedItem);
+				if (refresh) {
+					player.getInventory().refresh();
+					refresh();
+				}
+				return;
 			}
 			if (item.getDefinition().isNoted()) {
 				item = new Item(item.getId() == 10843 ? 10828 : item.getId() - 1, item.getAmount());
@@ -218,10 +239,33 @@ public class Bank {
 				return;
 			}
 			Item item = bank.get(slot);
+			int savedHealth = item == null ? 0 : item.getHealth();
 			Item item2 = bank.get(slot);
 			Item item3 = bank.get(slot);
 			int tabId = getTabByItemSlot(slot);
 			if (item == null) {
+				return;
+			}
+			if (savedHealth > 0) {
+				Item withdrawn = new Item(item);
+				withdrawn.setAmount(1);
+				Container addition = new Container(1, false);
+				addition.set(0, withdrawn);
+				if (!player.getInventory().getContainer().tryAddAll(addition)) {
+					player.sendMessage("Not enough space in your inventory.");
+					return;
+				}
+				if (item.getAmount() == 1) {
+					bank.set(slot, null);
+					decreaseTabStartSlots(tabId);
+				} else {
+					Item remainder = new Item(item);
+					remainder.setAmount(item.getAmount() - 1);
+					bank.set(slot, remainder);
+				}
+				bank.shift();
+				player.getInventory().refresh();
+				refresh();
 				return;
 			}
 			int playerAmount = player.getInventory().numberOf(item.getId());
@@ -270,14 +314,17 @@ public class Bank {
 				item3 = new Item(item3.getId(), player.getInventory().getFreeSlots());
 			}
 			if (bank.contains(item3)) {
+				if (savedHealth > 0) {
+					item.setHealth(savedHealth);
+				}
 				if (player.getInventory().getFreeSlots() <= 0 && !player.getInventory().contains(item3)) {
 					player.sendMessage("You don't have enough inventory space to withdraw that many.");
 				} else {
 					if (noting() && !item.getDefinition().isNoted()) {
-						player.getInventory().addItem(item.getId(), item.getAmount());
+						player.getInventory().addItem(item);
 						bank.remove(item3);
 					} else {
-						player.getInventory().addItem(item.getId(), item.getAmount());
+						player.getInventory().addItem(item);
 						bank.remove(item3);
 					}
 				}
@@ -369,6 +416,16 @@ public class Bank {
 			if (item == null) {
 				continue;
 			}
+			if (item.getHealth() > 0) {
+				int freeSlot = bank.freeSlot();
+				if (freeSlot < 0) {
+					messageRequired = true;
+					continue;
+				}
+				bank.set(freeSlot, new Item(item));
+				container.set(i, null);
+				continue;
+			}
 			Item toBank = item;
 			int bankAmount = bank.getNumberOf(toBank);
 			int amount = item.getAmount();
@@ -381,6 +438,10 @@ public class Bank {
 			}
 			if (item.getDefinition().isNoted()) {
 				toBank = new Item(item.getId() == 10843 ? 10828 : item.getId() - 1, amount);
+			}
+			if (bank.freeSlot() == -1 && bank.indexOf(toBank) == -1) {
+				messageRequired = true;
+				continue;
 			}
 			if (restoreItem) {
 				container.set(i, new Item(item.getId(), item.getAmount() - amount));

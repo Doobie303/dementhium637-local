@@ -24,18 +24,24 @@ public class BloodBlitz extends MagicSpell {
 		int speed = (int) (46 + interaction.getSource().getLocation().getDistance(interaction.getVictim().getLocation()) * 10);
 		ProjectileManager.sendProjectile(Projectile.create(interaction.getSource(), interaction.getVictim(), 374, 43, 0, 51, speed, 16, 64));
 		interaction.getSource().animate(1978);
-		if (interaction.getDamage().getHit() > 0) {
+		interaction.setEndGraphic(Graphic.create(375));
+		return true;
+	}
+
+	@Override
+    public boolean endSpell(Interaction interaction) {
+        if (!super.endSpell(interaction)) return false;
+if (interaction.getDamage().getHit() > 0) {
 			if (interaction.getVictim().isPlayer()) {
 				ActionSender.sendMessage(interaction.getVictim().getPlayer(), "Your lifepoints have been drained.");
 			}
 			interaction.getSource().heal((int) (interaction.getDamage().getHit() * 0.25));
 			ActionSender.sendMessage(interaction.getSource().getPlayer(), "You drain some of your opponents' lifepoints.");
 		}
-		interaction.setEndGraphic(Graphic.create(375));
 		return true;
-	}
+    }
 
-	@Override
+    @Override
 	public double getExperience(Interaction interaction) {
 		double xp = 45;
 		if (interaction.getDamage().getHit() > 0) {

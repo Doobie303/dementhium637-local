@@ -38,6 +38,8 @@ public class DialogueManager {
 	
 
 	public static boolean proceedDialogue(final Player player, int stage) {
+        if(stage>=19200 && stage<=19204)return org.dementhium.content.home.HomeHub.select(player,stage-19200);
+        if(stage>=19100 && stage<=19109)return org.dementhium.content.minigames.gambler.GamblerSession.dialogue(player,stage);
 		if (player.getSettings().getSpeakingTo() != null && player.getSettings().getSpeakingTo().isNPC()) { //could also speak to object.
 			NPC npc = (NPC) player.getSettings().getSpeakingTo();
 			npc.setDialogueStage(stage);
@@ -78,128 +80,10 @@ public class DialogueManager {
 				player.sendMessage("You have already received a rule book! Check your bank or inventory.");
 			}
 			return false;
-		case 9050:
-			sendOptionDialogue(player, new int[]{9051, 6669, -1}, "Sure (random amount)", "Sure (set amount)", "No, I'm quite alright thank you!");
-			return true;
-		case 6669:
-			sendDisplayBox(player, 6670, "Please select the amount of money you wish to bet!");
+		// Retired Gambler stages cannot award or debit items.
+		case 9050: case 9051: case 9052: case 9053: case 9054: case 9055: case 9056:
+		case 6669: case 6670: case 6671: case 6672: case 6673: case 6674:
 			return false;
-		case 6670:
-			sendOptionDialogue(player, new int[]{6671, 6672, 6673, 6674, -1}, "10M", "50M", "100M", "500M", "Nevermind..");
-			return true;
-		case 6671:
-			if (!player.getInventory().contains(995, 10000000)) {
-				sendDialogue(player, MEAN_FACE, 2998, -1, "You need 10m!");
-				return true;
-			} else { 
-				sendDialogue(player, HAPPY_TALKING, 2998, 9053, "Okay, a 10M bet it is!");
-				player.setBet(10000000);	
-			   return true;
-			}
-		case 6672:
-			if (!player.getInventory().contains(995, 50000000)) {
-				sendDialogue(player, MEAN_FACE, 2998, -1, "You need 50m!");
-				return true;
-			} else { 
-				sendDialogue(player, HAPPY_TALKING, 2998, 9053, "Okay, a 50M bet it is!");
-				player.setBet(50000000);	
-			   return true;
-			}
-		case 6673:
-			if (!player.getInventory().contains(995, 100000000)) {
-				sendDialogue(player, MEAN_FACE, 2998, -1, "You need 100m!");
-				return true;
-			} else { 
-				sendDialogue(player, HAPPY_TALKING, 2998, 9053, "Okay, a 100M bet it is!");
-				player.setBet(100000000);	
-			   return true;
-			}
-		case 6674:
-			if (!player.getInventory().contains(995, 500000000)) {
-				sendDialogue(player, MEAN_FACE, 2998, -1, "You need 500m!");
-				return true;
-			} else { 
-				sendDialogue(player, HAPPY_TALKING, 2998, 9053, "Okay, a 500M bet it is!");
-				player.setBet(500000000);	
-			   return true;
-			}
-		case 9051:
-			sendDialogue(player, HAPPY_TALKING, -1, -1, "Sure, why not.");
-			return false;
-		case 9052:
-		Random bet = new Random();
-		for (int counter = 1; counter <= 1; counter++) {
-			player.bet = 1 + bet.nextInt(9999999);
-			
-		if (!player.getInventory().contains(995, player.getBet())) {
-			sendDialogue(player, MEAN_FACE, 2998, -1, "You need some money to play me!");
-			return true;
-		} else if (player.getBet() >= 1000) {
-			sendDialogue(player, HAPPY_TALKING, 2998, 9053, "I'll start off with a bet of " + player.bet / 1000 + "K.");
-			player.setBet(player.bet);
-		}
-	}
-			return true;
-		case 9053:
-			World.getWorld().getNpcs().getById(2998).animate(Animation.create(11900, 0));
-			World.getWorld().getNpcs().getById(2998).graphics(Graphic.create(2075, 0));
-			sendDisplayBox(player, 9056, "Rolling...");
-			player.animate(Animation.create(11900, 0));
-			player.graphics(Graphic.create(2075, 0));
-			return true;
-		case 9056:
-		for (int counter = 1; counter <= 1; counter++) {
-			int chance = Misc.random(Commands.diceChance ? 60 : 1, 100);
-			int chance_ = Misc.random(Commands.diceChance ? 50 : 1, 100);
-			player.roll = chance;
-			player.npcRoll = chance_;
-			
-		if (player.npcRoll < player.roll) {
-			player.setAttribute("cantMove", Boolean.TRUE);
-			sendDisplayBox(player, 9054, "You rolled a <col=FF0000>"+ player.roll +"</col> the Gambler rolled a <col=FF0000>"+ player.npcRoll +"</col> on the percentile dice,", "congratulations you have won!");
-			player.getInventory().addDropable(new Item(995, player.getBet()));
-			player.getInventory().refresh();
-		} else if (player.npcRoll == player.roll) {
-			player.setAttribute("cantMove", Boolean.TRUE);
-			sendDisplayBox(player, -1, "You rolled a <col=FF0000>"+ player.roll +"</col> the Gambler rolled a <col=FF0000>"+ player.npcRoll +"</col> on the percentile dice,", "looks like it's a tie!");
-		} else if (player.npcRoll > player.roll) {
-			player.setAttribute("cantMove", Boolean.TRUE);
-			player.getInventory().deleteItem(995, player.getBet());
-			player.getInventory().refresh();
-			sendDisplayBox(player, 9055, "You rolled a <col=FF0000>"+ player.roll +"</col> the Gambler rolled a <col=FF0000>"+ player.npcRoll +"</col> on the percentile dice,", "sorry you have lost!");
-		}
-	}
-			return true;
-		case 9054:
-		if (!player.getInventory().contains(995, player.getBet())) {
-			player.setAttribute("cantMove", Boolean.FALSE);
-			player.sendMessage("You need that amount of cash to earn the money.");
-			return true;
-		} else if (player.getBet() >= 1000) {
-			player.setAttribute("cantMove", Boolean.FALSE);
-			//player.getInventory().addItem(995, player.getBet());
-			sendDisplayBox(player, -1, "You have recieved " + player.getBet() / 1000 + "<col=FF0000>K</col>  from the gambler.");
-		} else {
-			player.setAttribute("cantMove", Boolean.FALSE);
-			//player.getInventory().addItem(995, player.getBet());
-			sendDisplayBox(player, -1, "You have recieved " + player.getBet() + "<col=FF0000>K</col>  from the gambler.");
-		}
-			return true;
-		case 9055:
-		if (!player.getInventory().contains(995, player.getBet())) {
-			player.setAttribute("cantMove", Boolean.FALSE);
-			player.sendMessage("You need that amount of cash to earn the money.");
-			return true;
-		} else if (player.getBet() >= 1000) {
-			player.setAttribute("cantMove", Boolean.FALSE);
-			//player.getInventory().deleteItem(995, player.getBet());
-			sendDisplayBox(player, -1, "You have lost " + player.getBet() / 1000 + "<col=FF0000>K</col> from the gambler.");
-		} else {
-			player.setAttribute("cantMove", Boolean.FALSE);
-			//player.getInventory().deleteItem(995, player.getBet());
-			sendDisplayBox(player, -1, "You have lost " + player.getBet() + "<col=FF0000>K</col> from the gambler.");
-		}
-			return true;
 		case 7:
 			if (!player.getInventory().contains(1856) && !player.getBank().contains(1856)) {
 				player.getInventory().addItem(1856, 1);
@@ -1470,15 +1354,7 @@ public class DialogueManager {
 			sendOptionDialogue(player, new int[]{617, 618, 619, 620}, "I'd like to access my bank account, please.", "I'd like to get a bank note please.", "I'd like to exchange my bank note(s).", "What is this place?");
 			return true;
 		case 617:
-			if (player.getAttribute("fromBank") != null) {
-				ActionSender.sendInterfaceConfig(player, 667, 49, true);
-				ActionSender.sendInterfaceConfig(player, 667, 50, true);
-				player.getBonuses().refreshEquipScreen();
-				ActionSender.sendInterface(player, 667);
-			} else {
-				player.getBank().openBank();
-				player.removeAttribute("fromBank");
-			}
+			player.getBank().openBank();
 			return false;
 			//BANK NOTES:
 		case 618:
@@ -1587,7 +1463,7 @@ public class DialogueManager {
 			sendOptionDialogue(player, new int[]{1995, -1}, "Yes I'm ready!", "No way!");
 			return true;
 		case 1995:
-			TeleportHandler.telePlayer(player, 2387, 5069, 0, 0, 0, false, false);
+			org.dementhium.content.minigames.FightCaves.startCaves(player);
 			return false;
 		case 13001:
 			TeleportHandler.telePlayer(player, 3090, 3520, 0, 0, 0, false, false);
@@ -1835,15 +1711,7 @@ public class DialogueManager {
 			sendOptionDialogue(player, new int[]{631, 632, 633}, "I'd like to access my bank account, please.", "I'd like to check my PIN settings.", "I'd like to see my collection box.");
 			return true;
 		case 631:
-			if (player.getAttribute("fromBank") != null) {
-				ActionSender.sendInterfaceConfig(player, 667, 49, true);
-				ActionSender.sendInterfaceConfig(player, 667, 50, true);
-				player.getBonuses().refreshEquipScreen();
-				ActionSender.sendInterface(player, 667);
-			} else {
-				player.getBank().openBank();
-				player.removeAttribute("fromBank");
-			}
+			player.getBank().openBank();
 			return false;
 		case 632:
 			player.sendMessage("Setting a pin doesn't work yet.");
@@ -2485,16 +2353,10 @@ public class DialogueManager {
 			sendDialogue(player, HAPPY_TALKING, -1, -1, "No you're not confused. You don't have the ", "brains to be so. Bald fatty with botted 99 cape!");
 			return true;
 			
-		case 748: //duel forfeit
-			if (player.getActivity() instanceof DuelActivity) {
-				DuelActivity duel = (DuelActivity) player.getActivity();
-				player.setAttribute("duellingForfeit", Boolean.TRUE);
-				duel.endSession();
-				player.setActivity(Mob.DEFAULT_ACTIVITY);
-			}
-			return false;
-			
-		case 749: //ghaslor the elder
+		case 748: // Revalidate the rule at confirmation.
+            if(player.getActivity() instanceof DuelActivity) ((DuelActivity)player.getActivity()).forfeit(player);
+            return false;
+        case 749: //ghaslor the elder
 			sendDialogue(player, HAPPY_TALKING, -1, 750, "A pleasure to meet you.");
 			return true;
 		case 750:
@@ -3086,6 +2948,7 @@ public class DialogueManager {
 	}
 
 	public static boolean handle(Player player, NPC npc) {
+		if (org.dementhium.content.home.HomeHub.handleNpc(player, npc)) return true;
 		
 		int stage = player.getAttribute("dialougeStage", -1);
 		if (stage == -1) {
@@ -3130,7 +2993,7 @@ public class DialogueManager {
 			}
 			switch (id) {
 			case 2998:
-				sendDialogue(player, HAPPY_TALKING, 2998, 9050, "Hello, would you like to play a game of dice?");
+				org.dementhium.content.minigames.gambler.GamblerSession.open(player,npc);
 				return true;
 			case 11427:
 			case 11428:
@@ -3157,6 +3020,7 @@ public class DialogueManager {
 			case 5512:
 				sendDialogue(player, CALM_TALK, id, 5032, "What can I do for you @PLAYER_NAME@?");
 				return true;
+			case 2617:
 			case 2620:
 				sendDialogue(player, HAPPY_TALKING, 2617, 1994, "Hello, @PLAYER_NAME@, Would you like to fight",  "the great monster called jad?");
 				return true;
@@ -3566,6 +3430,10 @@ public class DialogueManager {
 	}
 
 	public static void processNextDialogue(Player player, int button) {
+		if (player.getAttribute("homeMenu") != null) {
+			if (!org.dementhium.content.home.HomeHub.select(player, button)) resetDialouge(player);
+			return;
+		}
 		int stage;
 		Object attribute = player.getAttribute("nextDialougeStage", -1);
 		if (attribute instanceof int[]) {
@@ -3658,6 +3526,7 @@ public class DialogueManager {
 	}
 
 	public static void resetDialouge(Player player) {
+		player.removeAttribute("homeMenu");
 		ActionSender.sendCloseChatBox(player);
 		player.removeAttribute("nextDialougeStage");
 		player.removeAttribute("dialougeStage");

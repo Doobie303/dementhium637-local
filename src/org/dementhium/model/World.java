@@ -169,8 +169,14 @@ public final class World implements Runnable {
 	public Deque<Task> resetTasks = new ArrayDeque<Task>();
 
 	@Override
-	public void run() {
+	public synchronized void run() {
+        org.dementhium.model.instance.InstanceManager instanceManager = org.dementhium.model.instance.InstanceManager.getSingleton();
+        if (instanceManager.isShuttingDown()) return;
+        boolean instanceCycle = false;
 		try {
+            instanceManager.beginCycle(); instanceCycle = true;
+            instanceManager.drainRequests();
+            instanceManager.maintain();
 			long start = System.currentTimeMillis();
 			if (ticksToAdd.size() > 0) {
 				ticks.addAll(ticksToAdd);
@@ -216,13 +222,15 @@ public final class World implements Runnable {
 			ticksPassed++;
 		} catch (Throwable e) {
 			e.printStackTrace();
-		}
+		} finally {
+            if (instanceCycle) instanceManager.endCycle();
+        }
 	}
 
 	public void registerEvents() {
 		submit(GroundItemUpdateTick.getSingleton());
 		submit(new WGuildTick(5));
-		submit(new Nex.NexAreaEvent()); //not sure if this belongs here
+		submit(Nex.NexAreaEvent.getNexAreaEvent());
 	}
 
 	/**
@@ -281,6 +289,20 @@ public final class World implements Runnable {
 	}
 
 	public void register(final Player player) {
+        if (!org.dementhium.model.instance.InstanceManager.getSingleton().isCycleThread()) {
+            submitTask(new SessionLoginTask(player)); return;
+        }
+        if (org.dementhium.model.instance.InstanceManager.getSingleton().isShuttingDown() || player.getConnection().isDisconnected()) return;
+        if (players.get(player.getIndex())==player || lobbyPlayers.get(player.getIndex())==player) return;
+        Player alreadyOnline=getPlayerInServer(player.getUsername());
+        boolean lobbyTransfer=alreadyOnline!=null && !player.getConnection().isInLobby()
+            && lobbyPlayers.get(alreadyOnline.getIndex())==alreadyOnline;
+        if((alreadyOnline!=null&&alreadyOnline!=player&&!lobbyTransfer)||!playerLoader.isCurrentLoad(player)) {
+            player.getConnection().write(new MessageBuilder().writeByte(Constants.ALREADY_ONLINE).toMessage());
+            player.getConnection().getChannel().close();return;
+        }
+        if(lobbyTransfer){alreadyOnline.setAttribute("saveSessionClosed",true);alreadyOnline.setOnline(false);lobbyPlayers.remove(alreadyOnline);}
+        player.setLocation(org.dementhium.model.instance.InstanceAccess.recoverLocation(player.getLocation()));
 		int code = 2;
 
 
@@ -313,17 +335,17 @@ public final class World implements Runnable {
 	}
 
 	public void unregister(final Player player) {
+        if (!org.dementhium.model.instance.InstanceManager.getSingleton().isCycleThread()) {
+            submitTask(new SessionLogoutTask(player)); return;
+        }
+        if (players.get(player.getIndex())!=player && lobbyPlayers.get(player.getIndex())!=player) return;
+        org.dementhium.model.instance.InstanceAccess.depart(player,true);
 		if (DementhiumShutdownHook.getSingleton().activated) {
 			return;
 		}
 		if (player.getActivity() instanceof DuelActivity) {
 			DuelActivity duel = (DuelActivity) player.getActivity();
-			if (duel.getCurrentState() == State.FIRST_SCREEN || duel.getCurrentState() == State.SECOND_SCREEN)
-				duel.decline(player, false);
-			else {
-				player.setAttribute("duellingForfeit", Boolean.TRUE);
-				duel.endSession();
-			}
+			if (!duel.depart(player)) { submitTask(new SessionLogoutTask(player)); return; }
 		} else if (player.getActivity() != null) {
 			player.getActivity().forceEnd(player);
 		}
@@ -339,7 +361,7 @@ public final class World implements Runnable {
 			player.getFamiliar().dismiss(false, null); //the only reason we dismiss is so that other players won't see the familiar anymore.
 		}
 		clanManager.leaveClan(player, true);
-		player.setOnline(false);
+		player.setAttribute("saveSessionClosed",true);player.setOnline(false);
 		if (player.getConnection().isInLobby()) {
 			lobbyPlayers.remove(player);
 		} else {
@@ -411,13 +433,17 @@ public final class World implements Runnable {
 	}
 
 	public void submitAreaEvent(final Mob mob, final CoordinateEvent coordinateEvent) {
+        final org.dementhium.model.instance.GameInstance instanceContext = org.dementhium.model.instance.InstanceAccess.owner(mob);
+        final long instanceRevision=mob.getInstanceRevision();
 		mob.submitTick("area_event", new Tick(1) {
 
 			private int attempts;
 
 			@Override
 			public void execute() {
-				if (++attempts >= 20) {
+				if (mob.getInstanceRevision()!=instanceRevision || org.dementhium.model.instance.InstanceAccess.owner(mob)!=instanceContext
+                        || (instanceContext!=null && !instanceContext.isActive())) { stop(); return; }
+                if (++attempts >= 20) {
 					stop();
 					return;
 				}
@@ -435,6 +461,18 @@ public final class World implements Runnable {
 	}
 
 	public void submitTask(final Task task) {
+        if (task instanceof SessionLoginTask || task instanceof SessionLogoutTask) {
+            final boolean logout = task instanceof SessionLogoutTask;
+            final Player lifecyclePlayer = logout ? ((SessionLogoutTask)task).getPlayer() : ((SessionLoginTask)task).getPlayer();
+            org.dementhium.model.instance.InstanceManager.getSingleton().submitLifecycle(lifecyclePlayer, logout, () -> task.execute())
+                .whenComplete((result,failure) -> {
+                    if (failure != null) {
+                        if (lifecyclePlayer.getConnection().getChannel() != null) lifecyclePlayer.getConnection().getChannel().close();
+                        System.err.println("Session lifecycle request failed: " + failure);
+                    }
+                });
+            return;
+        }
 		ServerThread.service2.submit(new Runnable() {
 			@Override
 			public void run() {
@@ -548,3 +586,5 @@ public final class World implements Runnable {
 	}
 
 }
+
+
