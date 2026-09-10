@@ -1,0 +1,47 @@
+{
+  "scope": "Jad pending-hit timing and ownership, Barrows impact eligibility, focused encounter acceptance",
+  "stageSources": [
+    "src/org/dementhium/model/combat/impl/npc/TzTokJadAction.java",
+    "src/org/dementhium/model/npc/impl/BarrowBrother.java"
+  ],
+  "inputs": [
+    "NDE/NPCDefinitions.bin",
+    "data/xml/custom_npcs.xml"
+  ],
+  "sources": [
+    "src/org/dementhium/model/combat/impl/npc/TzTokJadAction.java",
+    "src/org/dementhium/model/npc/impl/BarrowBrother.java",
+    "tests/BossStepSixRegression.java",
+    "tests/support/CombatFixtures.java",
+    "tests/BarrowsRegression.java",
+    "tests/BarrowsFaceRegression.java",
+    "tests/FightCavesInstanceRegression.java"
+  ],
+  "suites": [
+    {
+      "reason": "Jad tells/prayer switching/replay/reset/clipping and Barrows impact immunity/session isolation",
+      "class": "BossStepSixRegression",
+      "successPattern": "Step six: [0-9]+ checks passed",
+      "arguments": []
+    },
+    {
+      "reason": "All six brother effects, owner lifecycle, unchanged boosted rewards and maze",
+      "class": "BarrowsRegression",
+      "successPattern": "PASS [0-9]+ checks",
+      "arguments": []
+    },
+    {
+      "reason": "Barrows prayer-drain timing in the final acceptance selection",
+      "class": "BarrowsFaceRegression",
+      "successPattern": "PASS",
+      "arguments": []
+    },
+    {
+      "reason": "Jad healer ownership, all-wave lifecycle, concurrent caves, resets and rewards",
+      "class": "FightCavesInstanceRegression",
+      "successPattern": "Fight Caves instances: [0-9]+ checks passed",
+      "arguments": []
+    }
+  ],
+  "name": "boss-step6"
+}

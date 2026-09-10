@@ -1,0 +1,54 @@
+{
+  "stageSources": [
+    "src/org/dementhium/model/npc/encounter/AdvancedNPC.java",
+    "src/org/dementhium/model/npc/encounter/AdvancedAttack.java",
+    "src/org/dementhium/model/npc/impl/TormentedDemon.java",
+    "src/org/dementhium/model/npc/impl/KingBlackDragon.java",
+    "src/org/dementhium/model/npc/impl/ChaosElemental.java",
+    "src/org/dementhium/model/npc/impl/FrostDragon.java",
+    "src/org/dementhium/model/npc/impl/Nex.java",
+    "src/org/dementhium/model/combat/Damage.java"
+  ],
+  "inputs": [
+    "NDE/NPCDefinitions.bin",
+    "NDE/data/NPCs/NPCDefinition51.xml",
+    "data/xml/custom_npcs.xml",
+    "data/npcs/npcspawns.txt"
+  ],
+  "scope": "Refine TD shields/switching, Nex actual-damage effects, KBD impacts, Chaos specials and early-2011 frost integration.",
+  "sources": [
+    "src/org/dementhium/model/npc/encounter/AdvancedNPC.java",
+    "src/org/dementhium/model/npc/encounter/AdvancedAttack.java",
+    "src/org/dementhium/model/npc/impl/TormentedDemon.java",
+    "src/org/dementhium/model/npc/impl/KingBlackDragon.java",
+    "src/org/dementhium/model/npc/impl/ChaosElemental.java",
+    "src/org/dementhium/model/npc/impl/FrostDragon.java",
+    "src/org/dementhium/model/npc/impl/Nex.java",
+    "tests/AdvancedBossRegression.java",
+    "tests/NexDamageRegression.java",
+    "tests/BossBatchOneRegression.java",
+    "tests/NPCFoundationRegression.java",
+    "src/org/dementhium/model/combat/Damage.java"
+  ],
+  "suites": [
+    {
+      "arguments": [],
+      "class": "AdvancedBossRegression",
+      "reason": "New TD/KBD/Chaos/frost dispatch, attacks, effects, safe item/position changes, lifecycle and maps.",
+      "successPattern": "Advanced bosses: [0-9]+ checks passed\\."
+    },
+    {
+      "arguments": [],
+      "class": "NexDamageRegression",
+      "reason": "Nex blood/Soul Split/Turmoil/poison and actual impact ownership.",
+      "successPattern": "Nex damage: [0-9]+ checks passed\\."
+    },
+    {
+      "arguments": [],
+      "class": "NPCFoundationRegression",
+      "reason": "KBD now uses encounter target/life boundaries; retain mutable-stat and delayed-action contracts.",
+      "successPattern": "NPC foundation: [0-9]+ checks passed\\."
+    }
+  ],
+  "name": "boss-step5-release"
+}

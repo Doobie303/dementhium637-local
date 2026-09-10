@@ -1,0 +1,57 @@
+{
+  "name": "boss-step4",
+  "inputs": [
+    "NDE/NPCDefinitions.bin",
+    "data/xml/custom_npcs.xml",
+    "data/npcs/npcspawns.txt",
+    "NDE/data/NPCs/NPCDefinition8133.xml",
+    "NDE/data/NPCs/NPCDefinition1158.xml",
+    "NDE/data/NPCs/NPCDefinition1160.xml",
+    "NDE/data/NPCs/NPCDefinition8127.xml",
+    "NDE/data/NPCs/NPCDefinition2881.xml",
+    "NDE/data/NPCs/NPCDefinition2882.xml",
+    "NDE/data/NPCs/NPCDefinition2883.xml"
+  ],
+  "scope": "Complete Corp, KQ forms and DK arena mechanics with owned adds/hits, preserved access and rewards.",
+  "stageSources": [
+    "src/org/dementhium/model/npc/encounter/EncounterNPC.java",
+    "src/org/dementhium/model/npc/encounter/EncounterAttack.java",
+    "src/org/dementhium/model/npc/encounter/EncounterAdd.java",
+    "src/org/dementhium/model/npc/impl/CorporealBeast.java",
+    "src/org/dementhium/model/npc/impl/KalphiteQueen.java",
+    "src/org/dementhium/model/npc/impl/DagannothKing.java",
+    "src/org/dementhium/model/combat/NPCCombatContext.java",
+    "src/org/dementhium/model/combat/CombatMovement.java",
+    "src/org/dementhium/task/impl/NPCTickTask.java"
+  ],
+  "sources": [
+    "src/org/dementhium/model/npc/encounter/EncounterNPC.java",
+    "src/org/dementhium/model/npc/encounter/EncounterAttack.java",
+    "src/org/dementhium/model/npc/encounter/EncounterAdd.java",
+    "src/org/dementhium/model/npc/impl/CorporealBeast.java",
+    "src/org/dementhium/model/npc/impl/KalphiteQueen.java",
+    "src/org/dementhium/model/npc/impl/DagannothKing.java",
+    "src/org/dementhium/model/combat/NPCCombatContext.java",
+    "src/org/dementhium/model/combat/CombatMovement.java",
+    "src/org/dementhium/task/impl/NPCTickTask.java",
+    "tests/BossStepFourRegression.java",
+    "tests/BossBatchOneRegression.java",
+    "tests/NPCFoundationRegression.java",
+    "tests/CombatEnhancementsRegression.java",
+    "tests/CombatBalanceRegression.java"
+  ],
+  "suites": [
+    {
+      "arguments": [],
+      "class": "BossStepFourRegression",
+      "successPattern": "Boss step 4: [0-9]+ checks passed\\.",
+      "reason": "New encounter lifecycle, attacks, data, adds, weapon/protection rules and actual clipped arena routing."
+    },
+    {
+      "arguments": [],
+      "class": "NPCFoundationRegression",
+      "successPattern": "NPC foundation: [0-9]+ checks passed\\.",
+      "reason": "NPC context/tick/movement boundary integration and unchanged ordinary combat ownership/stat drains."
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "name": "godwars-example-do-not-stage-as-a-new-fix",
+  "scope": "Example only: the God Wars custom batch is already staged. Copy and edit this manifest for a future authorized change; do not rerun merely to adopt tooling.",
+  "sources": [
+    "src/org/dementhium/model/npc/godwars/GodWarsAction.java",
+    "src/org/dementhium/model/npc/godwars/GodWarsRoom.java",
+    "tests/BossBatchOneRegression.java",
+    "tests/GodWarsRegression.java",
+    "tests/GodWarsCustomRegression.java"
+  ],
+  "stageSources": [
+    "src/org/dementhium/model/npc/godwars/GodWarsAction.java",
+    "src/org/dementhium/model/npc/godwars/GodWarsRoom.java"
+  ],
+  "inputs": ["NDE/NPCDefinitions.bin", "data/xml/custom_npcs.xml", "data/npcs/npcspawns.txt"],
+  "suites": [
+    {"class":"GodWarsRegression", "arguments":[], "successPattern":"God Wars: [0-9]+ checks passed\\.", "reason":"Affected attack and room lifecycle integration."},
+    {"class":"GodWarsCustomRegression", "arguments":[], "successPattern":"God Wars custom: [0-9]+ checks passed\\.", "reason":"Selected caps, Strength drains, poison contacts and target/prayer selection."}
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "stageSources": [
+    "src/org/dementhium/content/home/HomeHub.java",
+    "src/org/dementhium/model/Mob.java",
+    "src/org/dementhium/model/npc/NPCLoader.java",
+    "src/org/dementhium/model/map/ObjectManager.java",
+    "src/org/dementhium/net/packethandlers/ObjectPacketHandler.java",
+    "src/org/dementhium/content/DialogueManager.java",
+    "src/org/dementhium/content/minigames/gambler/GamblerSession.java",
+    "src/org/dementhium/content/cutscenes/impl/TutorialScene.java"
+  ],
+  "name": "neitiznot-home",
+  "sources": [
+    "src/org/dementhium/content/home/HomeHub.java",
+    "src/org/dementhium/model/Mob.java",
+    "src/org/dementhium/model/npc/NPCLoader.java",
+    "src/org/dementhium/model/map/ObjectManager.java",
+    "src/org/dementhium/net/packethandlers/ObjectPacketHandler.java",
+    "src/org/dementhium/content/DialogueManager.java",
+    "src/org/dementhium/content/minigames/gambler/GamblerSession.java",
+    "src/org/dementhium/content/cutscenes/impl/TutorialScene.java",
+    "tests/HomeHubRegression.java",
+    "tests/support/CombatFixtures.java",
+    "tests/GamblerRegression.java",
+    "tests/DuelRegression.java",
+    "tests/PvpRegression.java",
+    "tests/CombatBalanceRegression.java",
+    "tests/InstanceIntegrationRegression.java"
+  ],
+  "scope": "Owner-approved Neitiznot home, existing service access, scoped travel portals and Gambler stand",
+  "inputs": [
+    "data/npcs/npcspawns.txt",
+    "data/shops.bin",
+    "data/xml/areas.xml",
+    "data/xml/custom_npcs.xml",
+    "NDE/NPCDefinitions.bin"
+  ],
+  "suites": [
+    {
+      "arguments": [],
+      "class": "HomeHubRegression",
+      "successPattern": "Home hub: [0-9]+ checks passed",
+      "reason": "Real-cache placement and routes, services and stock identity, safe home, portal/menu restrictions, default/return routes and home Gambler admission"
+    },
+    {
+      "arguments": [],
+      "class": "GamblerRegression",
+      "successPattern": "PASS: [0-9]+ Gambler checks",
+      "reason": "Additional authorized stand must preserve existing wager lifecycle, house funds, recovery and original Duel Arena stand"
+    }
+  ]
+}

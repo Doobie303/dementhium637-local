@@ -29,6 +29,14 @@ Step 2 paused at the owner's request after the Nex blood-phase timer/cancellatio
 - Existing bank booths remain untouched at (2328,3686-3692); the nearby existing rewards trader is reused. Existing Slayer (2329,3668) failed the arrival path check, so the reachable stand shifted to (2332,3697).
 - HomeHubRegression alone passed 345 checks in 2.181s; coverage includes real clipping/pathing, shops, portals, altar, bank routing, stale-menu boundaries, Gambler conservation, tutorial/default and return objects. No full test folder or live walk was run.
 - Batch `piscatoris-home` staged 11 classes across HomeHub, Mob and TutorialScene with verified backups/hashes. A server restart and live walk remain required.
+
+### Home index alignment (2026-09-09)
+
+- The Home area index row now identifies Piscatoris as the current home.
+- Current references are HomeHub.java, Mob.DEFAULT at (2344, 3691, 0), HomeHubRegression.java and this status file.
+- NEITIZNOT_HOME_IMPLEMENTATION.md and HOME_AREA_REVIEW.md are historical only.
+- STARFALL_HAVEN_PLAN.md and both Starfall client READMEs are historical only.
+- Starfall remains a paused concept; its arch, eagle and banners are not the live home.
 - Nex blood rotation reproduced a pending-special stall: siphon's completed eight-tick action retained its named timer for another 50 ticks. The timer now stops at completion; phase/life cancellation also clears owned special state.
 - One diagnostic suite passed before the stop: `BossEncounterCompletionRegression` (1.853s tests; 41.696s total including compile/candidate/hash work), under `build/batches/boss-encounter-step2-complete-20260909/debug-7314eeee432046e2b2360dfface8988a`. It exercised natural Nex phases/death/fixture loot/respawn, four native entrance crossings and core lifecycle; it is not a release Verify or live acceptance.
 - Preserve all four `tools/batches/boss-encounter-step2*.json` preparations/backups. Earlier preparations retain original source/absent-file evidence; later ones include intermediate states. No full regression selection or Stage was run.
@@ -45,4 +53,15 @@ Step 2 paused at the owner's request after the Nex blood-phase timer/cancellatio
 
 - Completed audits and implemented AoE, Barrows/Berserker, BGS and boss repairs are historical evidence, not fresh defect lists. Recheck current code before reopening.
 - Preserve approved custom rules, rewards, access conveniences, durable recovery state and developer-client visuals/launcher; early-2011 fidelity remains provisional.
-- Summoning-specific work, Dungeoneering overhaul and lobby/startup branding remain deferred; quest implementation and solo minigame proposals remain review-only.
+- Summoning-specific work, Dungeoneering overhaul and lobby branding remain deferred; quest implementation and solo minigame proposals remain review-only.
+
+## Login loading artwork — 2026-09-09
+- Owner authorized only the startup/loading switch to the old image; lobby remains deferred.
+- Cause: Class292 AWT startup and Class210 cached loading layouts bypassed the existing interface-744 artwork hook.
+- Implemented the approved bundled image in both paths; native loading suppresses only background fill/sprites and preserves progress/text elements.
+- AWT startup uses the same image with current loading status/percentage; resizing recreates its frame buffer.
+- Packaged checks passed: login (216), interface, capability, cape and texture; 942 baseline entries audited.
+- Coverage includes native old-background overwrite negative control, actual Class210/Class292 drawing entry points, repeated frames, progress ordering and AWT resize.
+- Final Build measured 3.316s; final proof compile/execution logs span about 7s (22:30:18–22:30:25 local), excluding dependency hashing. Earlier restricted compiler failures and a corrected cross-renderer test reference are retained.
+- Published Developer-client-login-loading-20260910.jar through both copies of the same Run Dev Client.bat; old releases and backups retained under build/client-batches/login-loading-20260910.
+- Software/AWT preview inspected. Live cold startup, native crossfade/OpenGL and composed login/input acceptance remain unverified; reopen the developer client. No server restart needed.

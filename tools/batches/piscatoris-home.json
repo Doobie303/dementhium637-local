@@ -1,0 +1,41 @@
+{
+  "name": "piscatoris-home",
+  "scope": "Restore Piscatoris home and relocate the existing HomeHub service and portal overlay from Neitiznot",
+  "sources": [
+    "src/org/dementhium/content/home/HomeHub.java",
+    "src/org/dementhium/model/Mob.java",
+    "src/org/dementhium/model/npc/NPCLoader.java",
+    "src/org/dementhium/model/map/ObjectManager.java",
+    "src/org/dementhium/net/packethandlers/ObjectPacketHandler.java",
+    "src/org/dementhium/content/DialogueManager.java",
+    "src/org/dementhium/content/minigames/gambler/GamblerSession.java",
+    "src/org/dementhium/content/cutscenes/impl/TutorialScene.java",
+    "tests/HomeHubRegression.java",
+    "tests/support/CombatFixtures.java",
+    "tests/GamblerRegression.java",
+    "tests/DuelRegression.java",
+    "tests/PvpRegression.java",
+    "tests/CombatBalanceRegression.java",
+    "tests/InstanceIntegrationRegression.java"
+  ],
+  "stageSources": [
+    "src/org/dementhium/content/home/HomeHub.java",
+    "src/org/dementhium/model/Mob.java",
+    "src/org/dementhium/content/cutscenes/impl/TutorialScene.java"
+  ],
+  "inputs": [
+    "data/npcs/npcspawns.txt",
+    "data/shops.bin",
+    "data/xml/areas.xml",
+    "data/xml/custom_npcs.xml",
+    "NDE/NPCDefinitions.bin"
+  ],
+  "suites": [
+    {
+      "class": "HomeHubRegression",
+      "arguments": [],
+      "successPattern": "Home hub: [0-9]+ checks passed",
+      "reason": "Piscatoris arrival, existing-service reuse, real path and object routing, shops, portal menus, altar, tutorial and home-return paths"
+    }
+  ]
+}
