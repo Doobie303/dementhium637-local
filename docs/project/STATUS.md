@@ -65,3 +65,11 @@ Step 2 paused at the owner's request after the Nex blood-phase timer/cancellatio
 - Final Build measured 3.316s; final proof compile/execution logs span about 7s (22:30:18–22:30:25 local), excluding dependency hashing. Earlier restricted compiler failures and a corrected cross-renderer test reference are retained.
 - Published Developer-client-login-loading-20260910.jar through both copies of the same Run Dev Client.bat; old releases and backups retained under build/client-batches/login-loading-20260910.
 - Software/AWT preview inspected. Live cold startup, native crossfade/OpenGL and composed login/input acceptance remain unverified; reopen the developer client. No server restart needed.
+
+## Context-index read order — 2026-09-09
+
+- Documentation-only index maintenance; no Java, tests, staging or release action.
+- Every non-Home work row now begins with STATUS.md, then names current source before archive material.
+- The Home area / service and travel layout row was deliberately left unchanged.
+- REVIEW.md and FIXES.md references remain listed as archive after current source context.
+- The workflow row begins STATUS.md, TESTING.md and tools/README.md; EFFICIENCY_WORKFLOW.md is archive only.

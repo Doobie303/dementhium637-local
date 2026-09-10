@@ -23,3 +23,13 @@ Live v7 feedback: the owner likes the new login artwork. They explicitly request
 Future acceptance: check a cold developer-client launch through loading, login, lobby, entry into the game, and logout/return to login. The approved branding should remain consistent across these non-game screens without old artwork flashing during transitions. Keep native login/lobby controls functional and use the same Run Dev Client.bat launcher.
 
 Status: recorded only; no code, client build, assets or runtime changed for this report. Resume implementation when the owner asks to address this backlog.
+
+## Startup/loading fix — owner authorized 2026-09-09
+
+The startup item above is now implemented and published; the lobby item remains deferred. The old loading artwork came from Class292 (AWT bootstrap) and Class210 (cached native loading layouts), before interface 744 was drawn. Both now use the existing bundled artwork. Class210 suppresses its fill/sprite decoration while retaining loading progress and text; Class292 renders the current status/percentage over the image before native rendering is available. The existing native loading transition/timing and readiness lifecycle are unchanged.
+
+Release: build/client-batches/login-loading-20260910; the single Run Dev Client.bat now selects Developer-client-login-loading-20260910.jar (SHA-256 07EFDB2EDA178B1A851C425CF83C781DC1DBD69DF587F9716B040D660BD6F8BA). Previous JARs, prepared sources and launcher backups remain available. No cache, server or account changes.
+
+Verification passed all five packaged proofs, including 216 login checks and 942 baseline-entry preservation checks. Added coverage exercises Class210 and Class292 drawing entry points, demonstrates the original cached fill overwriting the artwork, checks suppression before progress, repeat frames and AWT percentage/resize behavior. The native progress-order fixture uses a controlled Interface18 overlay; it does not claim a complete live loading sequence. Final Build measured 3.316s; proof compile/execution logs span approximately seven seconds, excluding hashing. Earlier sandbox JAR-access failures and the AWT/native scaling-reference correction remain in the batch logs.
+
+Inspected verify-e6b2438e54f34adc8e847ea6ebad680a/artifacts/startup-preview.png. Reopen the developer client for live cold startup through login, native crossfades, OpenGL and composed form/input acceptance. These live checks remain pending; no server restart is needed. Lobby branding is expressly outside this fix.
