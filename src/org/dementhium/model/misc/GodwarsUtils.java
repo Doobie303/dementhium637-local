@@ -136,20 +136,7 @@ public class GodwarsUtils {
                     });
                     break;
                 case 26425:
-                    if (player.getSettings().getKillCount()[Constants.BANDOS_KILL_COUNT] > 40) {
-                        player.getSettings().getKillCount()[Constants.BANDOS_KILL_COUNT] -= 40;
-                        player.sendMessage("The door devours the life-force of 40 followers of Bandos you have slain.");
-                    }
-                    ObjectManager.addCustomObject(0, 2863, 5354, 2, 0, 2);
-                    player.requestWalk(player.getLocation().getX() == 2864 ? 2863 : 2864, 5354);
-                    World.getWorld().submit(new Tick(2) {
-                        @Override
-                        public void execute() {
-                            ObjectManager.addCustomObject(26425, 2863, 5354, 2, 0, 2);
-                            stop();
-                        }
-                    });
-                    break;
+                    return org.dementhium.model.npc.godwars.GodWarsDoor.handle(player,gameObject);
                 case 26439:
                     //player.getLocation().getX(), player.getLocation().getY() < 5338 ? 5344 : 5331
                     player.setAttribute("cantMove", Boolean.TRUE);

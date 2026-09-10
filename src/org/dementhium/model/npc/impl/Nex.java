@@ -180,6 +180,12 @@ public class Nex extends NPC {
     @Override public void resetCombatState() {
         super.resetCombatState();movementTarget=null;movementPhase=null;movementStyle=null;
         pursuitRoute=null;pursuitTarget=null;pursuitOrigin=null;
+        changingPhase=false;noEscapeAttack=false;siphonMode=false;specialPending=false;
+        castedShadow=false;castedVirus=false;autoAttacksSinceSpecial=0;
+        for(String special:new String[]{"siphon","blood_sacrifice","shadow_darkness","ice_attack"})removeTick(special);
+        setCanAnimate(true);
+        NexAreaEvent event=NexAreaEvent.getNexAreaEvent();
+        if(event.getNex()==this){event.clearShadows();event.clearIcePrison(false);event.clearContainment();event.clearBloodReavers(false);}
     }
     private CombatType movementType(Mob target) {
         if(target==null)return phase==NexPhase.SHADOW?CombatType.RANGE:CombatType.MAGIC;
@@ -300,6 +306,7 @@ public class Nex extends NPC {
 		private NPC[] minions = new NPC[4];
 		private final List<NPC> bloodReavers = new ArrayList<NPC>();
 		private final List<Location> shadowLocations = new ArrayList<Location>();
+        private int shadowSequence;
 		private final List<Location> icePrisonLocations = new ArrayList<Location>();
 		private final List<Location> containmentLocations = new ArrayList<Location>();
 		private Player icePrisonTarget;
@@ -458,8 +465,8 @@ public class Nex extends NPC {
 
 		private void clearBloodReavers(boolean healNex) {
 			for (NPC reaver : new ArrayList<NPC>(bloodReavers)) {
-				if (reaver != null && !reaver.isDead()) {
-					if (healNex && nex != null) {
+				if (reaver != null) {
+					if (healNex && nex != null && !reaver.isDead()) {
 						nex.heal(reaver.getHitPoints());
 					}
 					removeNpc(reaver);
@@ -468,7 +475,16 @@ public class Nex extends NPC {
 			bloodReavers.clear();
 		}
 
+        private void clearShadows() {
+            shadowSequence++;
+            for(Player player:getPlayersInRoom())for(Location shadow:shadowLocations)
+                ActionSender.deleteObject(player,57261,shadow.getX(),shadow.getY(),shadow.getZ(),10,0);
+            shadowLocations.clear();
+            if(nex!=null)nex.castedShadow=false;
+        }
+
 		private void resetEncounter(boolean defeated) {
+			clearShadows();
 			clearIcePrison(false);
 			clearContainment();
 			clearBloodReavers(false);
@@ -812,32 +828,22 @@ public class Nex extends NPC {
 				nex.setCanAnimate(false);
 				int reaverCount = 2;
 				for (int i = 0; i < reaverCount; i++) {
-					Location spawn = nex.getLocation().transform((i % 2 == 0 ? 1 : -1), (i < 2 ? 1 : -1), 0);
+					Location spawn = reaverSpawn();
+                    if(spawn==null)break;
 					NPC bloodReaver = World.getWorld().register(Nex.REAVER_ID, spawn);
 					bloodReaver.setUnrespawnable(true);
 					bloodReavers.add(bloodReaver);
 				}
-				nex.submitTick("siphon", new Tick(8) {
-					private boolean done = false;
-					public void execute() {
-						if(done) {
-							if (nex == null) {
-								stop();
-								return;
-							}
-							stop();
-						} else {
-							done = true;
-							if (nex == null) {
-								stop();
-								return;
-							}
-							nex.siphonMode = false;
-							nex.setCanAnimate(true);
-							setTime(50);
-						}
-					}
-				});
+                final Nex siphonOwner=nex;
+                final long siphonLife=nex.getCombatGeneration();
+                nex.submitTick("siphon",new Tick(8){
+                    @Override public void execute(){
+                        stop();
+                        if(nex!=siphonOwner||siphonOwner.getCombatGeneration()!=siphonLife
+                                ||siphonOwner.isDead()||siphonOwner.isDying())return;
+                        siphonOwner.siphonMode=false;siphonOwner.setCanAnimate(true);
+                    }
+                });
 				return true;
 			}
 			if (!nex.siphonMode && !nex.hasTick("blood_sacrifice")) {
@@ -884,6 +890,17 @@ public class Nex extends NPC {
 			return false;
 		}
 
+        private Location reaverSpawn(){
+            for(int radius=1;radius<=4;radius++)for(int x=-radius;x<=radius;x++)for(int y=-radius;y<=radius;y++){
+                Location tile=nex.getLocation().transform(x,y,0);
+                if(!nex.containsArena(tile)||CombatMovement.standingOn(tile,nex.getLocation(),1,nex.size())
+                        ||(Region.getClippingMask(tile.getX(),tile.getY(),tile.getZ())&(256|0x200000|0x40000))!=0)continue;
+                boolean occupied=false;for(NPC reaver:bloodReavers)if(!reaver.isDead()&&reaver.getLocation().equals(tile)){occupied=true;break;}
+                if(!occupied)return tile;
+            }
+            return null;
+        }
+
 		private boolean shadowAttack(boolean darkness) {
 			if (nex == null)
 				return false;
@@ -928,6 +945,8 @@ public class Nex extends NPC {
 				nex.castedShadow = true;
 				nex.getCombatExecutor().setTicks(4);
 				final Nex owner = nex;
+                final long shadowLife=owner.getCombatGeneration();
+                final int sequence=++shadowSequence;
                 final List<Location> locationArray = new ArrayList<Location>();
 				nex.forceText("Fear the shadow!");
 				nex.playSound(Sounds.NexFearTheShadow);
@@ -944,7 +963,8 @@ public class Nex extends NPC {
 					@Override
 					public void execute() {
 						stop();
-						if (nex != owner || owner.isDead()) return;
+						if (nex != owner || owner.isDead() || owner.isDying() || owner.getCombatGeneration()!=shadowLife
+                                || sequence!=shadowSequence || owner.phase!=NexPhase.SHADOW || owner.changingPhase) return;
                         nex.castedShadow = false;
 						for(Player player : getPlayersInRoom()) {
 							for(Location loc : locationArray) {
@@ -988,6 +1008,7 @@ public class Nex extends NPC {
 			nex.getMask().setFacePosition(minion.getLocation(), 1, 1);
 			minion.turnTo(nex, false);
 			minion.setAttribute("cantMove", Boolean.TRUE);
+            minion.setDoesWalk(false);
 			minion.setAttribute("nex_vulnerable", Boolean.FALSE);
 			minion.setUnrespawnable(true);
 			World.getWorld().getNpcs().add(minion);
@@ -1065,7 +1086,13 @@ public class Nex extends NPC {
 			if (nex == null || nex.changingPhase || nex.phase == phase)
 				return;
 			final Nex owner = nex;
+            final long phaseLife=owner.getCombatGeneration();
             nex.changingPhase = true;
+            nex.getWalkingQueue().reset();
+            nex.noEscapeAttack=false;nex.cancelForceMovement();
+            nex.removeTick("siphon");nex.removeTick("blood_sacrifice");nex.removeTick("shadow_darkness");nex.removeTick("ice_attack");
+            nex.siphonMode=false;nex.setCanAnimate(true);
+            clearShadows();clearBloodReavers(false);clearIcePrison(false);clearContainment();
 			int ticks = 5;
 			if(nex.phase == NexPhase.SPAWNED) {
 				ticks = 2;
@@ -1073,7 +1100,7 @@ public class Nex extends NPC {
 			World.getWorld().submit(new Tick(ticks) {
 				@Override
 				public void execute() {
-					if (nex != owner || owner.isDead()) {
+					if (nex != owner || owner.isDead() || owner.isDying() || owner.getCombatGeneration()!=phaseLife) {
 						stop();
 						return;
 					}
@@ -1093,7 +1120,7 @@ public class Nex extends NPC {
 							World.getWorld().submit(new Tick(3) {
 							@Override
 							public void execute() {
-								if (nex != owner || owner.isDead()) {
+								if (nex != owner || owner.isDead() || owner.isDying() || owner.getCombatGeneration()!=phaseLife) {
 									stop();
 									return;
 								}
@@ -1140,6 +1167,8 @@ public class Nex extends NPC {
 				return false;
 			}
 				final Nex owner = nex;
+                final long chargeLife=owner.getCombatGeneration();
+                final NexPhase chargePhase=owner.phase;
                 nex.lastEscapeAttack = System.currentTimeMillis();
 				nex.noEscapeAttack = true;
 				nex.getCombatExecutor().setVictim(null);
@@ -1150,7 +1179,7 @@ public class Nex extends NPC {
 				World.getWorld().submit(new Tick(2) {
 					@Override
 					public void execute() {
-						if (nex != owner || owner.isDead()) {
+						if (!chargeCurrent(owner,chargeLife,chargePhase)) {
 							stop();
 							return;
 						}
@@ -1161,7 +1190,7 @@ public class Nex extends NPC {
 						World.getWorld().submit(new Tick(2) {
 							@Override
 							public void execute() {
-								if (nex != owner || owner.isDead()) {
+								if (!chargeCurrent(owner,chargeLife,chargePhase)) {
 									stop();
 									return;
 								}
@@ -1180,7 +1209,7 @@ public class Nex extends NPC {
 
 									@Override
 									public void execute() {
-										if (nex != owner || owner.isDead()) {
+										if (!chargeCurrent(owner,chargeLife,chargePhase)) {
 											stop();
 											return;
 										}
@@ -1298,6 +1327,10 @@ public class Nex extends NPC {
 			return true;
 		}
 
+        private boolean chargeCurrent(Nex owner,long life,NexPhase phase) {
+            return nex==owner&&!owner.isDead()&&!owner.isDying()&&owner.getCombatGeneration()==life
+                    &&owner.phase==phase&&!owner.changingPhase&&owner.noEscapeAttack;
+        }
 		private List<Player> attackablePlayers(int direction) {
 			if(direction < 0 || direction > 3) {
 				return null;

@@ -4,14 +4,14 @@ Update this file in place. Do not create siblings.
 
 ## Current focus
 
-Documentation control only for this task. Next combat group: complete God Wars/Corp/Nex encounters, then release/live acceptance. Separate Starfall work needs a replacement statue sculpt and native preview.
+Step 2 paused at the owner's request after the Nex blood-phase timer/cancellation fix. Do not run the full regression selection, start further door/reward/boss work, or release this unfinished batch without renewed direction. Separate Starfall work needs a replacement statue sculpt and native preview.
 
 ## Live vs not live
 
 - Live after restart: Latest repairs are not confirmed loaded or live accepted; no restart recorded. Earlier Barrows/Fight Caves acceptance retains its original scope.
 - Staged only: NPC animation/overlap/arena pursuit step 1 and earlier combat repairs; Neitiznot home also reports staging with live acceptance pending.
 - Tests only: Starfall asset/export workflow prototype and developer-client candidate proofs; no publication or native rendering acceptance.
-- Not started: Encounter-completion step 2; Starfall home migration, cache/map writing and service integration. Final release/live closure remains pending.
+- Working tree only: Step 2 includes Nex changes plus earlier God Wars door/room and Corp attack/core edits; none was staged or restarted in this turn. Starfall home migration, cache/map writing and service integration remain unstarted. Final release/live closure is pending.
 
 ## Recent accepted work
 
@@ -19,12 +19,15 @@ Documentation control only for this task. Next combat group: complete God Wars/C
 - Step 1 protects NPC attack animations, separates overlapping followers and repairs God Wars/Nex arena pursuit; automated checks passed, live presentation pending.
 - Starfall unified asset build/import prototype works; arch composition approved as a baseline, further arch/eagle improvement allowed, statue likeness rejected.
 - Documentation control installed: existing AGENTS.md rules retained; index points here; this is the sole new file. No gameplay changes.
+- Nex blood rotation reproduced a pending-special stall: siphon's completed eight-tick action retained its named timer for another 50 ticks. The timer now stops at completion; phase/life cancellation also clears owned special state.
+- One diagnostic suite passed before the stop: `BossEncounterCompletionRegression` (1.853s tests; 41.696s total including compile/candidate/hash work), under `build/batches/boss-encounter-step2-complete-20260909/debug-7314eeee432046e2b2360dfface8988a`. It exercised natural Nex phases/death/fixture loot/respawn, four native entrance crossings and core lifecycle; it is not a release Verify or live acceptance.
+- Preserve all four `tools/batches/boss-encounter-step2*.json` preparations/backups. Earlier preparations retain original source/absent-file evidence; later ones include intermediate states. No full regression selection or Stage was run.
 
 ## Open defects
 
-- Sara doorway restoration/clipping/reentry remains unresolved; complete God Wars attack/follower presentation awaits acceptance.
-- Corp apparent extra cores/HP behavior remains an unresolved report, not a confirmed duplicate-spawn diagnosis; complete core ownership/lifecycle and attack validation is pending.
-- Nex full natural phases, specials, loot/reset/respawn and representative live timing remain unverified.
+- God Wars doorway restoration/clipping/reentry has working edits and diagnostic coverage; broader affected checks and live attack/follower presentation remain pending.
+- Corp graphic 1826 resolves to core model 42314, confirming the apparent extra-core visual cause. Energy-effect, HP gate and hop/ownership edits remain unreleased; ground-projectile timing still needs correction because the location overload derives duration from its speed argument. Existing BossStepFour helper expectations still need updating for the HP gate and two-tick hop.
+- Nex natural progression now completes in the isolated diagnostic; broader cancellation/affected-caller checks and live timing remain pending. Once a verified fix is loaded, test repeated siphon/sacrifice cycles with godmode off, immediate return to normal attacks, and blood-to-ice transition without lingering siphon/healing/animation locks.
 - Wider combat register remains open: historical/formula calibration, reach/equipment/resources, missing spell coverage, remaining specials and delayed callbacks. Elysian over-reduction remains unreproduced; Staff of Light ruled out.
 - Starfall statue likeness is unaccepted; native rendering/performance/collision and cache/map pipeline remain unproven.
 

@@ -17,6 +17,14 @@ import org.dementhium.util.MapXTEA;
 
 /** Real cache and existing service handlers; all money tests use an isolated account root. */
 public class HomeHubRegression extends GamblerRegression {
+    static final Location[] OLD_SERVICES={
+        Location.locate(2336,3802,0),Location.locate(2340,3802,0),Location.locate(2341,3805,0),
+        Location.locate(2343,3806,0),Location.locate(2343,3808,0),Location.locate(2337,3810,0),
+        Location.locate(2339,3810,0),Location.locate(2331,3810,0),Location.locate(2330,3806,0),
+        Location.locate(2344,3802,0)};
+    static final Location[] OLD_OBJECTS={
+        Location.locate(2331,3803,0),Location.locate(2331,3805,0),
+        Location.locate(2331,3807,0),Location.locate(2344,3804,0)};
     static NPC find(Service s){for(NPC n:World.getWorld().getNpcs())if(n!=null&&n.getId()==s.id&&n.getLocation().equals(s.location()))return n;throw new AssertionError(s);}
     static Player at(Location l){Player p=p();p.setLocation(l);return p;}
     static void click(Player p,Portal portal){
@@ -45,9 +53,20 @@ public class HomeHubRegression extends GamblerRegression {
         boolean found=false;for(int[] d:new int[][]{{1,0},{-1,0},{0,1},{0,-1}})found|=path(p,l.transform(d[0],d[1],0));
         check(found,"reachable cardinal approach: "+label+" "+l);
     }
+    static NPC seedExisting(Service s)throws Exception{
+        boolean declared=false;
+        for(String line:Files.readAllLines(Paths.get("data/npcs/npcspawns.txt"))){
+            String[] v=line.trim().split("\\s+");
+            if(v.length>=4&&!v[0].startsWith("//")&&Integer.toString(s.id).equals(v[0])
+                    &&Integer.toString(s.x).equals(v[1])&&Integer.toString(s.y).equals(v[2])&&"0".equals(v[3])){declared=true;break;}
+        }
+        check(declared,"existing Piscatoris spawn declared: "+s);
+        NPC n=org.dementhium.model.npc.NPCLoader.getNPC(s.id);n.setLocation(s.location());n.setOriginalLocation(s.location());
+        n.setDoesWalk(false);n.loadEntityVariables();World.getWorld().getNpcs().add(n);return n;
+    }
     static void geometry()throws Exception{
         Player fresh=new Player(new org.dementhium.net.GameSession(null),new org.dementhium.model.definition.PlayerDefinition("fresh-home","unused"));
-        check(fresh.getLocation().equals(Mob.DEFAULT)&&Mob.DEFAULT.equals(Location.locate(2337,3803,0)),"new player starts at Neitiznot");
+        check(fresh.getLocation().equals(Mob.DEFAULT)&&Mob.DEFAULT.equals(Location.locate(2344,3691,0)),"new player starts at Piscatoris");
         java.lang.reflect.Field options=org.dementhium.cache.format.CacheNPCDefinition.class.getDeclaredField("options");options.setAccessible(true);
         for(Service s:Service.values()){
             String[] labels=(String[])options.get(org.dementhium.cache.format.CacheNPCDefinition.forID(s.id));
@@ -62,8 +81,16 @@ public class HomeHubRegression extends GamblerRegression {
                 check(l.getGameObjectType(10)==null&&(Region.getClippingMask(l.getX(),l.getY(),0)&0x240100)==0,"unoccupied object footprint "+portal+" "+l);
             }
         }
-        HomeHub.spawnObjects();HomeHub.spawnObjects();HomeHub.spawnServices();int count=World.getWorld().getNpcs().size();HomeHub.spawnServices();
+        ObjectManager.init();HomeHub.spawnObjects();
+        for(Portal portal:Portal.values())check(portal.location().getGameObjectType(10)!=null
+                &&portal.location().getGameObjectType(10).getId()==portal.id,"home object exists "+portal);
+        check(Location.locate(2340,3687,0).getGameObjectType(10).getId()==36972,"existing prayer restore retained");
+        NPC rewards=seedExisting(Service.REWARDS),slayer=seedExisting(Service.SLAYER),skilling=seedExisting(Service.SKILLING);
+        HomeHub.spawnServices();int count=World.getWorld().getNpcs().size();HomeHub.spawnServices();
         check(count==World.getWorld().getNpcs().size(),"idempotent services");
+        check(find(Service.REWARDS)==rewards&&find(Service.SLAYER)==slayer&&find(Service.SKILLING)==skilling,"existing Piscatoris services reused");
+        for(Location old:OLD_SERVICES)for(NPC n:World.getWorld().getNpcs())check(n==null||!old.equals(n.getOriginalLocation()),"old Neitiznot service absent "+old);
+        for(Location old:OLD_OBJECTS)check(old.getGameObjectType(10)==null,"old Neitiznot object absent "+old);
         Player p=at(Mob.DEFAULT);check(!p.isInWilderness()&&!p.inPVPZone()&&!p.inSafePk(),"home is outside PvP areas");
         for(Service s:Service.values()){check(find(s)!=null,"service exists "+s);approach(p,s.location(),s.name());
             Location near=org.dementhium.net.packethandlers.NpcOption.getNearLocation(p.getLocation(),find(s));
@@ -76,9 +103,9 @@ public class HomeHubRegression extends GamblerRegression {
             check(route!=null&&route.isRouteFound(),"actual object click route "+portal);
             Position end=route.getPoints().getLast();check(Math.abs(end.getX()-portal.x)<=1&&Math.abs(end.getY()-portal.y)<=1,"object path reaches interaction range "+portal);
         }
-        for(int x:new int[]{2334,2335,2338,2339}){
-            Location l=Location.locate(x,3808,0);check(l.getGameObjectType(10).getId()==21301,"native chest retained");approach(p,l,"bank");
-            objectAction(p,l.getGameObjectType(10));check(p.getAttribute("inBank",false),"native bank handler opens chest");p.closeAll(false,true);
+        for(int y=3686;y<=3692;y++){
+            Location l=Location.locate(2328,y,0);check(l.getGameObjectType(10).getId()==11402,"existing Piscatoris booth retained");approach(p,l,"bank");
+            objectAction(p,l.getGameObjectType(10));check(p.getAttribute("inBank",false),"existing bank handler opens booth");p.closeAll(false,true);
         }
     }
     static void landings(){
@@ -113,7 +140,7 @@ public class HomeHubRegression extends GamblerRegression {
         click(a,Portal.PVM);a.setAttribute("cantMove",true);check(!HomeHub.select(a,0),"movement lock invalidates menu");a.removeAttribute("cantMove");
         click(a,Portal.PVM);DialogueManager.processNextDialogue(a,99);check(a.getAttribute("homeMenu")==null,"invalid button closes owned menu without indexing outside array");
         click(a,Portal.PVM);a.setOnline(false);check(!HomeHub.select(a,0),"logout rejects choice");a.setOnline(true);
-        click(a,Portal.ACTIVITIES);pick(a,3);pick(a,2);check(a.getLocation().equals(Location.locate(2344,3691,0)),"legacy services reachable");
+        click(a,Portal.ACTIVITIES);pick(a,3);pick(a,2);check(a.getLocation().equals(Mob.DEFAULT),"legacy services reachable");
         // Different simultaneous menus keep independent pages and destinations.
         click(a,Portal.PVM);click(b,Portal.PVP);pick(a,3);pick(b,0);
         check(b.getLocation().equals(HomeHub.destinations(Portal.PVP).get(0).location),"second player's page independent");pick(a,0);
@@ -149,7 +176,7 @@ public class HomeHubRegression extends GamblerRegression {
     public static void main(String[] args)throws Exception{
         root=Files.createTempDirectory(Paths.get("build/gambler"),"home-test-");CombatFixtures.init();MapXTEA.loadPackedFile();GroundItemManager.load();
         field(World.getWorld(),World.class,"playerLoader",new PlayerLoader(root));InstanceManager.getSingleton().beginCycle();
-        LandscapeParser.parseLandscape((36<<8)|59,MapXTEA.getMapKeys().get((36<<8)|59));
+        LandscapeParser.parseLandscape((36<<8)|57,MapXTEA.getMapKeys().get((36<<8)|57));
         World.getWorld().getShopManager().load();geometry();landings();menus();homeGambler();returns();
         System.out.println("Home hub: "+checks+" checks passed; isolated storage "+root);
     }

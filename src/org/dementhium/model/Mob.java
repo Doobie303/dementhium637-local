@@ -44,7 +44,7 @@ public abstract class Mob extends Entity {
 	
     public final static int[] VIEWPORT_SIZES = {104, 120, 136, 168};
 
-    public static final Location DEFAULT = Location.locate(2337, 3803, 0); // Neitiznot home, clear arrival lane.
+    public static final Location DEFAULT = Location.locate(2344, 3691, 0); // Piscatoris home arrival.
 
     /**
      * The mob's default activity.

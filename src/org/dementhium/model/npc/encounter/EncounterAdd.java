@@ -6,6 +6,7 @@ import org.dementhium.model.player.Player;
 import org.dementhium.model.misc.DamageManager.DamageType;
 public class EncounterAdd extends EncounterNPC {
  private final EncounterNPC owner;private final long ownerLife;private boolean removed;private int pulse,jump;private boolean pinned,dived;private int submerged;
+ private boolean airborne;
  public EncounterAdd(int id){this(id,null);}
  public EncounterAdd(int id,EncounterNPC owner){super(id);this.owner=owner;ownerLife=owner==null?0:owner.getCombatGeneration();if(owner==null)bindArena(2894,4431,2937,4467,0);setDoesWalk(id==1156);submerged=isWater()?8:0;}
  @Override public boolean contains(Location l){return owner==null?super.contains(l):owner.contains(l);}
@@ -28,9 +29,11 @@ public class EncounterAdd extends EncounterNPC {
    if(!dived&&getHp()<getMaxHp()/2){dived=true;submerged=8;spinForm(getId()-1);getPoisonManager().removePoison();return;}
   }
   if(getId()!=8127){super.tick();return;}
+  if(isDead()||isHidden()){remove();return;}
+  if(airborne){if(getAttribute("cantMove")==Boolean.TRUE)return;airborne=false;pulse=0;}
   getCombatExecutor().reset();List<Player> near=new ArrayList<Player>();for(Player p:players())if(near(p.getLocation(),getLocation(),1))near.add(p);
   if(near.isEmpty()){
-   pinned=false;if(++jump>=3){jump=0;List<Player> targets=players();if(!targets.isEmpty()){Location tile=targets.get(getRandom().nextInt(targets.size())).getLocation();if(contains(tile)&&org.dementhium.model.map.Region.getClippingMask(tile.getX(),tile.getY(),tile.getZ())==0)teleport(tile,false);}}return;
+   pinned=false;if(++jump>=3){jump=0;List<Player> targets=players();if(!targets.isEmpty()){Location tile=targets.get(getRandom().nextInt(targets.size())).getLocation();if(contains(tile)&&(org.dementhium.model.map.Region.getClippingMask(tile.getX(),tile.getY(),tile.getZ())&(256|0x200000|0x40000))==0){airborne=true;forceMovement(null,tile.getX(),tile.getY(),0,60,-1,2,true);}}}return;
   }
   jump=0;if(getPoisonManager().isPoisoned())pinned=true;if(++pulse<(pinned?20:2))return;pulse=0;
   for(Player p:near){if(!NPCCombatContext.validPair(this,p))continue;Damage d=Damage.getDamage(this,p,CombatType.MAGIC,1+getRandom().nextInt(100),true);d.setMaximum(100);d.onImpact(actual->{if(owner!=null&&!owner.isDead()&&ownerLife==owner.getCombatGeneration())owner.setHp(Math.min(owner.getMaxHp(),owner.getHp()+actual));});p.getDamageManager().damage(this,d,DamageType.MAGE);}

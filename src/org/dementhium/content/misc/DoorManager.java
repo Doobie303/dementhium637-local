@@ -28,6 +28,7 @@ public class DoorManager {
      * @return {@code True} if the object was a door and got handled, {@code false} if not.
      */
     public static boolean handleDoor(Player player, final GameObject object) {
+        if(org.dementhium.model.npc.godwars.GodWarsDoor.handle(player,object))return true;
         String name = object.getDefinition().getName().toLowerCase();
         if ((!name.contains("door") && !name.contains("gate")) || name.toLowerCase().contains("trapdoor")) {
             return false;

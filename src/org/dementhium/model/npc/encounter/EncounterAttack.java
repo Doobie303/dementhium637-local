@@ -11,7 +11,7 @@ import org.dementhium.net.ActionSender;
 /** A selection owns its targets; each queued impact also owns its source and victim life. */
 public final class EncounterAttack extends CombatAction {
  public enum Kind {
-  CORP_MELEE(CombatType.MELEE,513,10057,-1,-1),CORP_MAGIC(CombatType.MAGIC,699,10053,1825,-1),CORP_DRAIN(CombatType.MAGIC,499,10053,1823,-1),CORP_SPLIT(CombatType.MAGIC,399,10053,1824,1826),
+  CORP_MELEE(CombatType.MELEE,513,10057,-1,-1),CORP_MAGIC(CombatType.MAGIC,699,10053,1825,-1),CORP_DRAIN(CombatType.MAGIC,499,10053,1823,-1),CORP_SPLIT(CombatType.MAGIC,399,10053,1824,1824),
   SUPREME(CombatType.RANGE,300,2855,475,-1),PRIME(CombatType.MAGIC,610,2854,162,163),REX(CombatType.MELEE,280,2851,-1,-1),
   KQ_MELEE(CombatType.MELEE,314,6241,-1,-1),KQ_RANGE(CombatType.RANGE,314,6240,288,-1),KQ_MAGIC(CombatType.MAGIC,314,6234,280,281),
   WORKER(CombatType.MELEE,30,6223,-1,-1),SPIN_RANGE(CombatType.RANGE,100,2868,475,-1),SPIN_MAGIC(CombatType.MAGIC,100,2868,162,163);
@@ -52,6 +52,7 @@ public final class EncounterAttack extends CombatAction {
   if(!npc.allows(primary)||EncounterNPC.gap(npc,primary)>npc.reach()||!GodWarsAction.clear(npc,primary)||k.type==CombatType.MELEE&&!GodWarsAction.contact(npc,primary))return false;
   launched=true;npc.getCombatExecutor().setTicks(npc.getAttackDelay());int animation=k.animation;
   if(npc.getId()==1160)animation=9454;npc.animate(animation);
+  if(npc instanceof org.dementhium.model.npc.impl.CorporealBeast)((org.dementhium.model.npc.impl.CorporealBeast)npc).attackLaunched(animation);
   if(k==Kind.CORP_SPLIT){ground(primary);return true;}
   List<Player> targets=new ArrayList<Player>();targets.add(primary);
   if(k==Kind.SUPREME||k==Kind.PRIME||k==Kind.KQ_MAGIC||k==Kind.KQ_RANGE)for(Player p:npc.players())if(p!=primary&&(k!=Kind.SUPREME||inFront(primary,p))&&EncounterNPC.gap(npc,p)<=npc.reach()&&GodWarsAction.clear(npc,p)&&(k!=Kind.PRIME||EncounterNPC.near(p.getLocation(),primary.getLocation(),1)))targets.add(p);
@@ -70,15 +71,16 @@ public final class EncounterAttack extends CombatAction {
    if(k==Kind.SPIN_RANGE&&npc.getRandom().nextInt(4)==0)d.onContact(()->p.getPoisonManager().poison(npc,68));
    int delay=k.projectile<0?1:Math.max(1,(int)(npc.getLocation().distance(p.getLocation())*.3));NPCCombatContext context=new NPCCombatContext(npc,p);
    npc.schedule(delay,()->{if(context.isCurrent()&&npc.allows(p))impact(npc,p,k,d);});if(p==primary)interaction.setDamage(d);
-   if(k.projectile>=0)ProjectileManager.sendProjectile(Projectile.create(npc,p,k.projectile,30,32,52,80,3,11));
+   if(k.projectile>=0)ProjectileManager.sendProjectile(Projectile.create(npc,p,k.projectile,30,32,corp?0:52,corp?delay*30:80,3,11));
   }
   return true;
  }
  private void ground(Player target){
   final Location center=target.getLocation();final long life=npc.getCombatGeneration();
-  ProjectileManager.sendProjectile(1824,npc.getLocation(),center,52,0,150,0,0,11);
-  for(Player viewer:npc.players())ActionSender.sendPositionedGraphic(viewer,center,1826);
-  npc.schedule(3,()->{if(npc.isDead()||npc.getCombatGeneration()!=life)return;groundHit(center,1,399);for(int[] d:new int[][]{{-2,0},{2,0},{0,2}}){Location tile=center.transform(d[0],d[1],0);if(!npc.contains(tile))continue;for(Player viewer:npc.players())ActionSender.sendPositionedGraphic(viewer,tile,1826);npc.schedule(2,()->groundHit(tile,0,150));}});
+  ProjectileManager.sendProjectile(1824,npc.getLocation(),center,52,0,90,0,0,11);
+  // 1826 uses the dark core's model; use the split energy effect for ground warnings.
+  for(Player viewer:npc.players())ActionSender.sendPositionedGraphic(viewer,center,Kind.CORP_SPLIT.graphic);
+  npc.schedule(3,()->{if(npc.isDead()||npc.getCombatGeneration()!=life)return;groundHit(center,1,399);for(int[] d:new int[][]{{-2,0},{2,0},{0,2}}){Location tile=center.transform(d[0],d[1],0);if(!npc.contains(tile))continue;for(Player viewer:npc.players())ActionSender.sendPositionedGraphic(viewer,tile,Kind.CORP_SPLIT.graphic);npc.schedule(2,()->groundHit(tile,0,150));}});
   interaction.setDamage(new Damage(0));interaction.getDamage().setMaximum(399);
  }
  private void groundHit(Location tile,int radius,int max){

@@ -15,6 +15,20 @@ import java.util.List;
  * @author 'Mystic Flow
  */
 public class ObjectManager {
+    /** Exact temporary removal, retained for players who enter while it is absent. */
+    public static boolean hideObject(GameObject object) {
+        Location tile=object.getLocation();
+        if(tile.getGameObjectType(object.getType())!=object)return false;
+        discardCustomObject(object);
+        removedObjects.removeIf(old -> sameSlot(old,object));
+        removedObjects.add(object);
+        return true;
+    }
+
+    private static boolean sameSlot(GameObject first,GameObject second) {
+        return first.getType()==second.getType()&&first.getLocation().equals(second.getLocation());
+    }
+
     /** Exact identity/type removal; the legacy remover searches neighbouring types. */
     public static void discardCustomObject(GameObject object) {
         Location tile = object.getLocation();
@@ -54,9 +68,7 @@ public class ObjectManager {
 
 	public static GameObject addCustomObject(int objectId, int x, int y, int height, int type, int direction, boolean refresh) {
 		GameObject objectAdded = Region.addObject(objectId, x, y, height, type, direction, false);
-		if (objectAdded != null && removedObjects.contains(objectAdded)) {
-			removedObjects.remove(objectAdded);
-		}
+		if (objectAdded != null) removedObjects.removeIf(old -> sameSlot(old,objectAdded));
 		if (objectAdded != null) {
 			customObjects.add(objectAdded);
 			if (refresh) {
@@ -171,6 +183,13 @@ public class ObjectManager {
 
 	public static void refresh(Player player) {
 		RegionBuilder.refreshObjects(player);
+        for(GameObject object:removedObjects){
+            Location tile=object.getLocation();
+            if(RegionBuilder.getDynamicRegion(tile.getX(),tile.getY())!=null
+                    ||tile.getZ()!=player.getLocation().getZ()||tile.distance(player.getLocation())>32
+                    ||tile.getGameObjectType(object.getType())!=null)continue;
+            ActionSender.deleteObject(player,object.getId(),tile.getX(),tile.getY(),tile.getZ(),object.getType(),object.getRotation());
+        }
 		//		for (GameObject object : removedObjects) {
 			//		//	ActionSender.deleteObject(player, object.getId(), object.getLocation().getX(), object.getLocation().getY(),
 					//			//		object.getLocation().getZ(), object.getType(), object.getRotation());

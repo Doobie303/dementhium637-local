@@ -8,20 +8,23 @@ import org.dementhium.model.npc.*;
 import org.dementhium.model.player.Player;
 import org.dementhium.net.ActionSender;
 
-/** Neitiznot service overlay. Existing shops, encounter entrances and economies stay authoritative. */
+/** Piscatoris service overlay. Existing shops, encounter entrances and economies stay authoritative. */
 public final class HomeHub {
     private HomeHub() {}
     public enum Service {
-        GUIDE(8863,2336,3802), MELEE(549,2340,3802), RANGED(550,2341,3805),
-        MAGIC(553,2343,3806), SUPPLIES(520,2343,3808), SLAYER(1597,2337,3810),
-        REWARDS(9711,2339,3810), GAMBLER(2998,2331,3810), TOOLS(519,2330,3806),
-        SKILLING(1513,2344,3802);
-        public final int id,x,y;
-        Service(int id,int x,int y){this.id=id;this.x=x;this.y=y;}
+        GUIDE(8863,2343,3691,6),
+        MELEE(549,2330,3686,6), RANGED(550,2330,3687,6),
+        MAGIC(553,2330,3688,6), SUPPLIES(520,2330,3689,6),
+        REWARDS(9711,2333,3691,0), SLAYER(1597,2329,3668,0),
+        SKILLING(1513,2318,3670,0), GAMBLER(2998,2334,3695,4),
+        TOOLS(519,2336,3695,4);
+        public final int id,x,y,faceDir;
+        Service(int id,int x,int y,int faceDir){this.id=id;this.x=x;this.y=y;this.faceDir=faceDir;}
         public Location location(){return Location.locate(x,y,0);}
     }
     public enum Portal {
-        PVM(2465,2331,3803), PVP(2466,2331,3805), ACTIVITIES(2467,2331,3807), ALTAR(409,2344,3804);
+        PVM(2465,2332,3684), PVP(2466,2334,3684), ACTIVITIES(2467,2336,3684),
+        ALTAR(47120,2335,3682);
         public final int id,x,y;
         Portal(int id,int x,int y){this.id=id;this.x=x;this.y=y;}
         public Location location(){return Location.locate(x,y,0);}
@@ -65,7 +68,7 @@ public final class HomeHub {
             for(NPC n:World.getWorld().getNpcs())if(n!=null&&n.getId()==s.id&&s.location().equals(n.getOriginalLocation())){found=true;break;}
             if(found)continue;
             NPC n=NPCLoader.getNPC(s.id);n.setLocation(s.location());n.setOriginalLocation(s.location());
-            n.setDoesWalk(false);n.setFaceDir(0);n.loadEntityVariables();World.getWorld().getNpcs().add(n);
+            n.setDoesWalk(false);n.setFaceDir(s.faceDir);n.loadEntityVariables();World.getWorld().getNpcs().add(n);
         }
     }
     public static void spawnObjects(){
@@ -167,10 +170,10 @@ public final class HomeHub {
         if(!usable(p,s.location()))return true;
         Location at=s.location();
         if(s==Service.GUIDE){
-            menu(p,at,"Welcome to Neitiznot",
+            menu(p,at,"Welcome to Piscatoris",
                 option("PvM expeditions",()->travel(p,at,Portal.PVM,0)),option("PvP departures",()->travel(p,at,Portal.PVP,0)),
                 option("Activities / legacy services",()->travel(p,at,Portal.ACTIVITIES,0)),
-                option("Where is everything?",()->DialogueManager.sendDisplayBox(p,-1,"Bank chests are in the centre of town.","The west portals lead to PvM, PvP and activities.","Supplies and the preparation altar are to the east.","Slayer, rewards and the Gambler are by the bank.","Legacy services and skillcapes remain on Activities.")));
+                option("Where is everything?",()->DialogueManager.sendDisplayBox(p,-1,"Bank booths and equipment shops are west of the green.","The south portals lead to PvM, PvP and activities.","The preparation altar is just south of the portals.","Rewards, the Gambler and tools are nearby.","Slayer and skillcapes retain their Piscatoris stands.")));
         }else if(s==Service.MELEE){menu(p,at,"Melee equipment",option("Armour",()->shop(p,549)),option("Swords and equipment",()->shop(p,551)),option("Other weapons",()->shop(p,552)),option("Close",()->close(p)));
         }else if(s==Service.RANGED){menu(p,at,"Ranged equipment",option("Bows, arrows and throwing weapons",()->shop(p,550)),option("Crossbows and bolts",()->shop(p,682)),option("Ranged armour",()->shop(p,683)),option("Close",()->close(p)));
         }else if(s==Service.MAGIC){menu(p,at,"Magic equipment",option("Runes and teleport supplies",()->shop(p,553)),option("Staves",()->shop(p,546)),option("Magic clothing",()->shop(p,461)),option("Close",()->close(p)));
