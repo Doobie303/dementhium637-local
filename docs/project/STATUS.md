@@ -1,75 +1,27 @@
 # Status ledger
 
-Update this file in place. Do not create siblings.
+## Current state
 
-## Current focus
+- The broader NPC/combat Step 2 remains paused. The separately authorized Nex blood-phase repair is staged and accepted by the owner with godmode on; godmode-off fidelity acceptance remains pending. Do not release unrelated God Wars, Corp, or reward work without renewed direction.
+- Owner live testing with godmode on confirms the repaired Nex blood phase and Saradomin behavior. Bandos's distinct smash and melee sequences were also observed; its remaining godmode-off, two-player damage, and active ranged-playback boundaries remain open.
+- God Wars doorway and room reentry behavior is owner-confirmed fixed in live testing.
+- NPC animation/overlap/arena-pursuit work and Piscatoris home are staged with remaining live acceptance. Starfall remains a paused concept; its asset prototype is tests-only, and its statue/native rendering/collision/cache-map work is unproven.
+- The developer-client loading artwork is published through the maintained launcher. Cold startup, native crossfade/OpenGL, and composed login/input acceptance remain pending; lobby branding is deferred.
+- The OSRS equipment expansion (Primordial, Pegasian and Eternal boots; Avernic defender; Max and Infernal max capes) is implemented, verified, and published through the maintained launcher. Owner live review accepted the Avernic but found boot floor and max-cape shoulder fit issues; the focused correction is verified and published from `build/client-batches/osrs-equipment-fit`, with live fit acceptance pending.
 
-Step 2 paused at the owner's request after the Nex blood-phase timer/cancellation fix. Do not run the full regression selection, start further door/reward/boss work, or release this unfinished batch without renewed direction. Separate Starfall work needs a replacement statue sculpt and native preview.
+## Active blockers
 
-## Live vs not live
+- Fight Caves: the Tz-Kek retaliation hit icon is corrected in the working tree with isolated regression coverage; live visual acceptance remains pending. The ground-item refresh ghost is staged with restart and live drop/move/pickup acceptance pending. Local profiles for IDs 2734–2744 remain uncompiled, unstaged, and balance-unaccepted at the owner's request.
+- Verify initial-login interface refresh: the player's name does not appear immediately after login, but appears after clicking the minimap, inventory, or another interface element.
+- God Wars live attack/follower presentation remains pending. Corp's energy/HP/hop behavior is present in the local runtime and awaits owner live validation; ground-projectile timing is staged with isolated packet/scheduler coverage and awaits live visual acceptance.
+- Verify Corporeal Beast projectile impact behavior: a projectile was observed striking the player and producing an explosion effect; confirm that the impact and visual are accurate to the 2011 encounter.
+- Verify Dark Energy Core behavior: when spawned, it did not attack the player, followed the player, and moved underneath the player. Confirm its attack, pursuit, and collision/positioning behavior against the 2011 Corp encounter.
+- Nex godmode-off testing needs further review before Fumus phase activates: attacks appeared unusually fast, and Blood Barrage was confirmed at least two or three times before that phase; whether this behavior is accurate still needs review.
+- Verify Blood Reaver respawn timing: under godmode/high DPS, Reavers appeared to respawn very shortly after being killed. Confirm whether this is a defect or a timing-calibration issue against the 2011 Nex encounter, excluding intentional admin-only features such as godmode.
+- Wider combat calibration remains open, including formulas, reach/equipment/resources, spell coverage, specials, and delayed callbacks. Elysian over-reduction remains unreproduced; Staff of Light is ruled out.
 
-- Live after restart: Latest repairs are not confirmed loaded or live accepted; no restart recorded. Earlier Barrows/Fight Caves acceptance retains its original scope.
-- Staged only: NPC animation/overlap/arena pursuit step 1 and earlier combat repairs; Piscatoris home is staged with live acceptance pending.
-- Tests only: Starfall asset/export workflow prototype and developer-client candidate proofs; no publication or native rendering acceptance.
-- Working tree only: Step 2 includes Nex changes plus earlier God Wars door/room and Corp attack/core edits; none was staged or restarted in this turn. Starfall home migration, cache/map writing and service integration remain unstarted. Final release/live closure is pending.
+## Durable boundaries
 
-## Recent accepted work
-
-- Shared death/reward, reset/status/reflection and movement/timing repairs implemented, verified and staged.
-- Step 1 protects NPC attack animations, separates overlapping followers and repairs God Wars/Nex arena pursuit; automated checks passed, live presentation pending.
-- Starfall unified asset build/import prototype works; arch composition approved as a baseline, further arch/eagle improvement allowed, statue likeness rejected.
-- Documentation control installed: existing AGENTS.md rules retained; index points here; this is the sole new file. No gameplay changes.
-
-### Piscatoris home batch (2026-09-09)
-
-- Restored arrival/default, tutorial returns and shared home/death/return paths to (2344,3691,0); no Wilderness or other destination changed.
-- Removed HomeHub services at (2336,3802), (2340,3802), (2341,3805), (2343,3806), (2343,3808), (2337,3810), (2339,3810), (2331,3810), (2330,3806), (2344,3802); removed objects at (2331,3803), (2331,3805), (2331,3807), (2344,3804).
-- Final services: guide (2343,3691); melee/range/magic/supplies (2330,3686-3689); rewards (2333,3691); Slayer/skilling/Gambler/tools (2332/2335/2338/2341,3697).
-- Final objects: PvM/PvP/Activities (2332/2334/2336,3684); preparation altar reuses 47120 at (2335,3682); prayer restore remains (2340,3687).
-- Existing bank booths remain untouched at (2328,3686-3692); the nearby existing rewards trader is reused. Existing Slayer (2329,3668) failed the arrival path check, so the reachable stand shifted to (2332,3697).
-- HomeHubRegression alone passed 345 checks in 2.181s; coverage includes real clipping/pathing, shops, portals, altar, bank routing, stale-menu boundaries, Gambler conservation, tutorial/default and return objects. No full test folder or live walk was run.
-- Batch `piscatoris-home` staged 11 classes across HomeHub, Mob and TutorialScene with verified backups/hashes. A server restart and live walk remain required.
-
-### Home index alignment (2026-09-09)
-
-- The Home area index row now identifies Piscatoris as the current home.
-- Current references are HomeHub.java, Mob.DEFAULT at (2344, 3691, 0), HomeHubRegression.java and this status file.
-- NEITIZNOT_HOME_IMPLEMENTATION.md and HOME_AREA_REVIEW.md are historical only.
-- STARFALL_HAVEN_PLAN.md and both Starfall client READMEs are historical only.
-- Starfall remains a paused concept; its arch, eagle and banners are not the live home.
-- Nex blood rotation reproduced a pending-special stall: siphon's completed eight-tick action retained its named timer for another 50 ticks. The timer now stops at completion; phase/life cancellation also clears owned special state.
-- One diagnostic suite passed before the stop: `BossEncounterCompletionRegression` (1.853s tests; 41.696s total including compile/candidate/hash work), under `build/batches/boss-encounter-step2-complete-20260909/debug-7314eeee432046e2b2360dfface8988a`. It exercised natural Nex phases/death/fixture loot/respawn, four native entrance crossings and core lifecycle; it is not a release Verify or live acceptance.
-- Preserve all four `tools/batches/boss-encounter-step2*.json` preparations/backups. Earlier preparations retain original source/absent-file evidence; later ones include intermediate states. No full regression selection or Stage was run.
-
-## Open defects
-
-- God Wars doorway restoration/clipping/reentry has working edits and diagnostic coverage; broader affected checks and live attack/follower presentation remain pending.
-- Corp graphic 1826 resolves to core model 42314, confirming the apparent extra-core visual cause. Energy-effect, HP gate and hop/ownership edits remain unreleased; ground-projectile timing still needs correction because the location overload derives duration from its speed argument. Existing BossStepFour helper expectations still need updating for the HP gate and two-tick hop.
-- Nex natural progression now completes in the isolated diagnostic; broader cancellation/affected-caller checks and live timing remain pending. Once a verified fix is loaded, test repeated siphon/sacrifice cycles with godmode off, immediate return to normal attacks, and blood-to-ice transition without lingering siphon/healing/animation locks.
-- Wider combat register remains open: historical/formula calibration, reach/equipment/resources, missing spell coverage, remaining specials and delayed callbacks. Elysian over-reduction remains unreproduced; Staff of Light ruled out.
-- Starfall statue likeness is unaccepted; native rendering/performance/collision and cache/map pipeline remain unproven.
-
-## Do not reopen unless evidence changed
-
-- Completed audits and implemented AoE, Barrows/Berserker, BGS and boss repairs are historical evidence, not fresh defect lists. Recheck current code before reopening.
-- Preserve approved custom rules, rewards, access conveniences, durable recovery state and developer-client visuals/launcher; early-2011 fidelity remains provisional.
-- Summoning-specific work, Dungeoneering overhaul and lobby branding remain deferred; quest implementation and solo minigame proposals remain review-only.
-
-## Login loading artwork — 2026-09-09
-- Owner authorized only the startup/loading switch to the old image; lobby remains deferred.
-- Cause: Class292 AWT startup and Class210 cached loading layouts bypassed the existing interface-744 artwork hook.
-- Implemented the approved bundled image in both paths; native loading suppresses only background fill/sprites and preserves progress/text elements.
-- AWT startup uses the same image with current loading status/percentage; resizing recreates its frame buffer.
-- Packaged checks passed: login (216), interface, capability, cape and texture; 942 baseline entries audited.
-- Coverage includes native old-background overwrite negative control, actual Class210/Class292 drawing entry points, repeated frames, progress ordering and AWT resize.
-- Final Build measured 3.316s; final proof compile/execution logs span about 7s (22:30:18–22:30:25 local), excluding dependency hashing. Earlier restricted compiler failures and a corrected cross-renderer test reference are retained.
-- Published Developer-client-login-loading-20260910.jar through both copies of the same Run Dev Client.bat; old releases and backups retained under build/client-batches/login-loading-20260910.
-- Software/AWT preview inspected. Live cold startup, native crossfade/OpenGL and composed login/input acceptance remain unverified; reopen the developer client. No server restart needed.
-
-## Context-index read order — 2026-09-09
-
-- Documentation-only index maintenance; no Java, tests, staging or release action.
-- Every non-Home work row now begins with STATUS.md, then names current source before archive material.
-- The Home area / service and travel layout row was deliberately left unchanged.
-- REVIEW.md and FIXES.md references remain listed as archive after current source context.
-- The workflow row begins STATUS.md, TESTING.md and tools/README.md; EFFICIENCY_WORKFLOW.md is archive only.
+- Completed audits and implemented repairs are historical evidence, not fresh defect lists; recheck current source before reopening them.
+- Summoning-specific work and Dungeoneering migration remain deferred. Quest implementation and solo-minigame concepts remain review-only.
+- Private friend testing is deferred with two approved options for later review: (1) restrict TCP 43594 to the tester's public IP at the router/Windows Firewall, which is simpler but requires that IP; or (2) add private access-key authentication to both the client and server, which does not require the tester's IP but needs implementation and validation on both sides. No hosting or network exposure is currently authorized.

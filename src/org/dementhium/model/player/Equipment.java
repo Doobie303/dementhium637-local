@@ -320,6 +320,7 @@ public class Equipment {
     }
     
         if(item.getId()==org.dementhium.content.InfernalCape.ID&&!org.dementhium.content.InfernalCape.supported(p)){p.sendMessage("Use the updated development client to equip the Infernal cape.");return;}
+        if(org.dementhium.content.OsrsEquipment.isItem(item.getId())&&!org.dementhium.content.OsrsEquipment.supported(p)){p.sendMessage("Use the updated development client to equip this OSRS item.");return;}
         buttonId3 = getDegradedItem(item, false).getId();
         Item oldInvItem = item;
         item = getDegradedItem(item, true);

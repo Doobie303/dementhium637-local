@@ -1,6 +1,7 @@
 package org.dementhium.model.definition;
 
 import org.dementhium.cache.format.CacheItemDefinition;
+import org.dementhium.content.OsrsEquipment;
 import org.dementhium.model.combat.Ammunition;
 import org.dementhium.model.combat.RangeWeapon;
 import org.dementhium.util.BufferUtils;
@@ -20,7 +21,7 @@ import java.util.List;
  */
 public final class ItemDefinition {
 
-    public static int MAX_SIZE = 20431;
+    public static int MAX_SIZE = OsrsEquipment.LAST_ID + 1;
     private static ItemDefinition[] definitions;
 
     public static void init() throws IOException {
@@ -100,6 +101,9 @@ public final class ItemDefinition {
         }
         loadMiscData();
         definitions[org.dementhium.content.InfernalCape.ID]=org.dementhium.content.InfernalCape.definition();
+        for (int id = org.dementhium.content.OsrsEquipment.FIRST_ID; id <= org.dementhium.content.OsrsEquipment.LAST_ID; id++) {
+            definitions[id] = org.dementhium.content.OsrsEquipment.definition(id);
+        }
         EquipmentAbsorption.apply();
         System.out.println("Loaded " + definitions.length + " item definitions.");
         channel.close();

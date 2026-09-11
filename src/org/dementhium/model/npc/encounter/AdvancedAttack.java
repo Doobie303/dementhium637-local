@@ -63,7 +63,8 @@ public final class AdvancedAttack extends CombatAction {
     /** Explicit per-encounter protection table, evaluated only when the breath lands. */
     public static int dragonfire(Player p,Kind k,int raw){
         if(!CombatStatus.statusAllowed(p))return 0;
-        int shield=p.getEquipment().getSlot(Equipment.SLOT_SHIELD);boolean shielded=shield==1540||shield==11283||shield==11284||shield==8282||shield==16079||shield==16933;
+        int shield=p.getEquipment().getSlot(Equipment.SLOT_SHIELD);boolean dragonfireShield=CombatUtils.isDragonfireShield(shield);boolean shielded=shield==1540||dragonfireShield||shield==8282||shield==16079||shield==16933;
+        if(dragonfireShield)CombatUtils.chargeDragonfireShield(p);
         long now=System.currentTimeMillis();boolean potion=now-p.getAttribute("antiFire",0L)<360000,superPotion=now-p.getAttribute("santiFire",0L)<360000;
         boolean special=k==Kind.ICE||k==Kind.SHOCK||k==Kind.TOXIC;int cap=k.cap;
         if(superPotion||shielded&&potion)cap=special?100:0;else if(shielded||potion)cap=special?200:100;

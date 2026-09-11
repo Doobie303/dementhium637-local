@@ -571,19 +571,23 @@ public class GroundItemManager {
      */
     public static void refresh(Player player) {
         GraveStone grave = GraveStoneManager.forName(player.getUsername());
-       
-        List<GroundItem> tempGroundItems = groundItems;
-
-
-        
-        for (GroundItem item : tempGroundItems) { //this buggs out, and when loading a new reigon will show two of the items you can only pick up one though O.O
+        List<GroundItem> visibleItems = new ArrayList<GroundItem>();
+        for (GroundItem item : groundItems) {
             if (item != null) {
                 if ((item.getPlayer() != null && player != null && item.getPlayer() == player) || (item.getPlayer() != null && player != null && item.getPlayer().getUsername().equals(player.getUsername())) || item.isPublic() || (grave != null && grave.getItems().contains(item))) {
                 	if (!item.isAdminDrop() || (item.isAdminDrop() && player.getRights() >= 2))
-                        //ActionSender.removeGroundItem(player, item);
-                		ActionSender.sendGroundItem(player, item);
+                        visibleItems.add(item);
                 }
             }
+        }
+        // Rebuilds retain ground entries in the overlapping scene. Clear each old
+        // entry before replaying the snapshot. Removal matches one ID at a tile,
+        // so interleaving remove/add would consume newly added same-ID piles.
+        for (GroundItem item : visibleItems) {
+            ActionSender.removeGroundItem(player, item);
+        }
+        for (GroundItem item : visibleItems) {
+            ActionSender.sendGroundItem(player, item);
         }
     }
 }

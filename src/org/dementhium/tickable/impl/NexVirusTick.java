@@ -14,6 +14,8 @@ public class NexVirusTick extends Tick {
 
     private Player victim;
     private final org.dementhium.model.npc.impl.Nex owner;
+    private final long ownerLife;
+    private final org.dementhium.model.combat.NPCCombatContext context;
 
 	private static final String COUGH = "*cough*";
 
@@ -27,6 +29,8 @@ public class NexVirusTick extends Tick {
         super(1);
         this.victim = victim;
         this.owner = NexAreaEvent.getNexAreaEvent().getNex();
+        this.ownerLife = owner == null ? -1 : owner.getCombatGeneration();
+        this.context = new org.dementhium.model.combat.NPCCombatContext(owner, victim);
         this.victim.forceText(COUGH);
     }
 
@@ -44,7 +48,9 @@ public class NexVirusTick extends Tick {
         if (!isRunning()) {
             return;
         }
-        if (++ticksPassed >= 60 || owner == null || owner.isDead()
+        if (++ticksPassed >= 60 || owner == null
+                || !owner.isPhaseCurrent(ownerLife, org.dementhium.model.npc.impl.Nex.NexPhase.SMOKE)
+                || !context.isCurrent()
                 || NexAreaEvent.getNexAreaEvent().getNex() != owner
                 || !victim.isOnline() || victim.isDead()
                 || !NexAreaEvent.getNexAreaEvent().isInNexRoom(victim)) {

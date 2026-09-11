@@ -1,23 +1,20 @@
 # Selecting tests for a change
 
-For new ordinary server Java batches, use `tools/Invoke-ChangeBatch.ps1` and its manifest workflow in `tools/README.md`. Declare each selected suite's reason; compile helpers without automatically executing their suites. Prepare source backups before edits, Verify, then Stage separately. Specialized client/data/recovery pipelines remain separate. Historical runners are unchanged release records.
-
-Owner preference, recorded 2026-09-09: validate the affected behavior thoroughly without automatically running every server suite. This policy governs future selection; historical all-suite reports remain accurate records of what was run.
+Use this guide when the closest useful check is not obvious or a changed runtime contract needs production-path coverage. Reuse an existing focused test first. Release/staging procedure belongs in `tools/README.md` and is read only for explicitly authorized runtime work.
 
 ## Procedure
 
-1. Identify the changed behavior, methods, data and persistence/protocol contracts. Trace callers where a shared operation actually changes. Distinguish new helper methods from changed existing behavior.
-2. Select the smallest sufficient set of scenarios that proves the intended behavior and relevant boundaries. Define expected behavior independently of the implementation: include a concrete trigger, result and important negative case. For an item transfer, this normally means conservation, invalid inputs, capacity/overflow and success/failure behavior.
+1. Identify the changed behavior and trace callers only where a shared operation actually changes.
+2. Select the smallest sufficient existing scenario set that proves the intended result and material boundary.
 3. Include integration coverage for affected entry paths and ordering. A narrow file diff can change a broad runtime contract; use the matrix below. Direct helper tests alone do not validate a changed scheduler, session owner, movement path or packet route. Merely sharing `Container`, `Player`, `World` or a package is insufficient reason to run an unrelated suite.
 4. Compile enough source to catch affected API/linkage errors. A full active-source compilation may be convenient or necessary; it does not imply running every gameplay test.
 5. Run the selected checks. Expand when a failure or newly discovered dependency warrants it. After another code change, rerun checks affected by that change; do not automatically restart the entire suite collection.
-6. Record the selected suite names, reasons, results and material limits in the batch report. Use their success as the new batch's staging gate. Keep source/runtime backups and hash verification separate from behavioral test scope.
 
-Do not repeat successful checks without a changed implementation, relevant failure or unresolved concern. A full sweep is appropriate when requested by the owner, for a deliberately broad release verification, or when a change genuinely affects many subsystems and narrower coverage cannot reasonably bound it. Explain the reason rather than using the number of previous suites as a target.
+Add a regression test only when it is likely to prevent a meaningful future failure: the bug is difficult to reproduce, likely to recur, subtle in timing/state, shared/core, or materially risky. Do not repeat successful checks without a changed implementation, relevant failure, or unresolved concern. A full sweep is appropriate when requested or when narrower coverage cannot bound a genuinely broad change.
 
 ## Integration coverage for changed runtime contracts
 
-Apply only the relevant rows. Reuse an existing test that actually covers the contract; do not add duplicate assertions simply to satisfy a table. Record coverage and remaining limits in the existing batch report or handoff, not a second mandatory report.
+Apply only the relevant rows. Reuse an existing test that actually covers the contract; do not add duplicate assertions simply to satisfy a table.
 
 | Changed contract | Minimum relevant evidence |
 | --- | --- |
@@ -44,23 +41,4 @@ If the test must bypass the relevant production path because a fixture cannot mo
 | Gambler result colors or labels | Result messages/layout and the relevant client acceptance | Gameplay settlement, shared scripts or other interfaces are affected |
 | Documentation or testing policy | Review text, links and consistency | Executable behavior also changes |
 
-## Applying this to the item-transaction batch
-
-The previous batch ran 28 suites. That was broader than necessary for its actual changes.
-
-`ItemTransactionRegression` directly covers bank deposits/charged withdrawals, shop accounting, both trade participants, complete capacity checks, degraded-item restrictions and the bank numeric-input packet route. The changed existing `Container.hasSpaceFor` method is used by ordinary trade; the new copy/replace helpers are used by the patched transaction paths. `tryAddAll` itself was not changed. The new trade-classification method did not alter combat degradation rates or existing combat callers.
-
-Consequently, the presence of Gambler recovery callers of unchanged `tryAddAll` does not by itself require the Gambler game suite. Nor did the fixes require a full boss, combat, instance-load or cape suite sweep. A focused transaction regression, appropriate compilation and relevant live bank/shop/trade acceptance would have been the default selection. Additional checks need a specific affected contract to justify them.
-
-Existing test sources remain available for future applicable changes. Do not delete unrelated suites or rewrite old verification logs, counts or staging gates to suggest they were not run. For a new batch, create a fresh runner with an explicit justified selection instead of copying a historical all-suite runner unchanged.
-
-## Efficient test development and reporting
-
-Owner-approved follow-up (2026-09-09):
-
-- Debug only the failing suite and affected callers using the runner's Debug -Suite option. Once ready to release, run the complete justified manifest selection with Verify once; repeat only if changes or failures require it. A diagnostic pass never authorizes Stage. Keep compilation, backup and hash guards intact.
-- Reuse suitable existing fixtures. Start with tests/support/README.md for headless combat setup. Check real API signatures with rg before adding setup code; do not guess inventory clearing APIs or implicit executor cooldown state. Keep encounter-specific behavior and assertions in their suites. Generalize only when an actual second consumer benefits.
-- Read the relevant context-index row and report sections. Search for the changed method/contract, batch independent reads, and retain full output on disk. Read a compact failure excerpt first and expand only enough to explain it. Do not repeatedly dump full reports, sources, successful logs or unchanged runtime data into the conversation.
-- Report suite names/coverage and measured execution duration first. Label assertion totals as automated assertions and keep them secondary. Distinguish test time from compilation/hash time, and measured duration from estimates. Keep live acceptance limits visible. Do not reduce useful loop coverage merely to lower the count, or promise a weekly-usage percentage from wall time or assertion counts.
-
-These rules apply to server and developer-client work. The new Debug switch belongs to the server batch runner; client proof diagnostics still use their existing proof commands and must be followed by the full justified candidate Verify selection before Publish. No client release gate is relaxed.
+For headless combat setup, consult `tests/support/README.md`. Keep encounter-specific behavior in its suite; generalize a fixture only when another consumer benefits. Do not delete unrelated suites or rewrite historical verification records.

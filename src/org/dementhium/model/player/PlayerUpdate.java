@@ -434,8 +434,10 @@ public class PlayerUpdate {
             	Item item =  p.getEquipment().get(i);
                 if (item == null)
                     appearanceData.writeByte(0);
-                else
-                    appearanceData.writeShort(32768 + org.dementhium.content.InfernalCape.appearanceId(player,item.getId(),item.getDefinition().getEquipId()));
+                else {
+                    int equipId=org.dementhium.content.InfernalCape.appearanceId(player,item.getId(),item.getDefinition().getEquipId());
+                    appearanceData.writeShort(32768 + org.dementhium.content.OsrsEquipment.appearanceId(player,item.getId(),equipId));
+                }
             }
             if (p.getEquipment().get(Equipment.SLOT_CHEST) != null) {
                 appearanceData.writeShort(32768 + p.getEquipment().get(Equipment.SLOT_CHEST).getDefinition().getEquipId());
@@ -443,7 +445,8 @@ public class PlayerUpdate {
                 appearanceData.writeShort(0x100 + p.getAppearance().getLook()[2]);
             }
             if (p.getEquipment().get(Equipment.SLOT_SHIELD) != null) {
-                appearanceData.writeShort(32768 + p.getEquipment().get(Equipment.SLOT_SHIELD).getDefinition().getEquipId());
+                Item item=p.getEquipment().get(Equipment.SLOT_SHIELD);
+                appearanceData.writeShort(32768 + org.dementhium.content.OsrsEquipment.appearanceId(player,item.getId(),item.getDefinition().getEquipId()));
             } else {
                 appearanceData.writeByte((byte) 0);
             }
@@ -483,7 +486,8 @@ public class PlayerUpdate {
                 appearanceData.writeShort(0x100 + p.getAppearance().getLook()[4]);
             }
             if (p.getEquipment().get(Equipment.SLOT_FEET) != null) {
-                appearanceData.writeShort(32768 + p.getEquipment().get(Equipment.SLOT_FEET).getDefinition().getEquipId());
+                Item item=p.getEquipment().get(Equipment.SLOT_FEET);
+                appearanceData.writeShort(32768 + org.dementhium.content.OsrsEquipment.appearanceId(player,item.getId(),item.getDefinition().getEquipId()));
             } else {
                 appearanceData.writeShort(0x100 + p.getAppearance().getLook()[6]);
             }

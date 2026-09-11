@@ -121,6 +121,8 @@ public class RS2ServerBootstrap {
 		System.err.println("Server bound to port - " + port);
 	}
 
+	//Dragonfire Shield charging: still explicitly unimplemented (CombatUtils TODO).
+
 	//	public static void dump() throws IOException {
 	//		RandomAccessFile raf = new RandomAccessFile("data/packedKeys.bin", "rw");
 	//		for(String string : FileUtilities.readFile("data/xtea650.txt")) {

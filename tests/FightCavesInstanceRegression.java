@@ -100,6 +100,11 @@ public class FightCavesInstanceRegression {
             check(a.spawnNpc(FightCaves.TZ_KIH,kek.getLocation(),false)==null,"foreign spawn location rejected");
             FightCaves.onCaveNpcDeath(kih,p);
             check(a.getLiveNpcs().contains(kih),"live NPC callback cannot progress wave");
+            int beforeRetaliation=q.getHitPoints();
+            Damage meleeHit=kek.updateHit(q,20,CombatType.MELEE);
+            DamageManager.DamageHit retaliation=q.getDamageManager().getHits().getLast();
+            check(meleeHit.getHit()==20&&q.getHitPoints()==beforeRetaliation-10,"Tz-Kek returns ten LP after a successful melee hit");
+            check(retaliation.getAttacker()==kek&&retaliation.getType()==DamageManager.DamageType.DEFLECT&&retaliation.getType().toInteger()==4,"Tz-Kek retaliation uses client hit type 4 for reflected damage");
             kill(kek);
             check(b.getLiveNpcs().size()==2,"Tz-Kek creates two owned split NPCs");
             for(NPC split:b.getLiveNpcs()) check(split.getId()==FightCaves.TZ_KEK_SPLIT && split.getOwningInstance()==b.getInstance(),"split ownership");

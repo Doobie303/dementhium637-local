@@ -168,7 +168,7 @@ public class Nex extends NPC {
     public boolean canPursue(Mob target) {
         return target!=null&&target.isPlayer()&&NPCCombatContext.validPair(this,target)
             &&containsArena(target.getLocation())&&containsArena(getLocation())
-            &&phase!=NexPhase.SPAWNED&&!noEscapeAttack&&!changingPhase&&!siphonMode&&!specialPending;
+            &&phase!=NexPhase.SPAWNED&&!noEscapeAttack&&!changingPhase&&!siphonMode&&!specialPending&&!hasTick("ice_attack");
     }
     @Override public void tick() {
         // The arena event owns targeting, empty-room reset and death/respawn.
@@ -185,7 +185,7 @@ public class Nex extends NPC {
         for(String special:new String[]{"siphon","blood_sacrifice","shadow_darkness","ice_attack"})removeTick(special);
         setCanAnimate(true);
         NexAreaEvent event=NexAreaEvent.getNexAreaEvent();
-        if(event.getNex()==this){event.clearShadows();event.clearIcePrison(false);event.clearContainment();event.clearBloodReavers(false);}
+        if(event.getNex()==this){event.clearForcedPlayers();event.clearShadows();event.clearIcePrison(false);event.clearContainment();event.clearBloodReavers(false);}
     }
     private CombatType movementType(Mob target) {
         if(target==null)return phase==NexPhase.SHADOW?CombatType.RANGE:CombatType.MAGIC;
@@ -278,6 +278,13 @@ public class Nex extends NPC {
 		return phase;
 	}
 
+    /** A delayed phase effect belongs to this life, including transition entry. */
+    public boolean isPhaseCurrent(long life, NexPhase expected) {
+        return NexAreaEvent.getNexAreaEvent().getNex() == this
+                && getCombatGeneration() == life && !isDead() && !isDying()
+                && !changingPhase && phase == expected;
+    }
+
 	public void playSound(int sound) {
 		for(Player player : World.getWorld().getPlayers()) {
 			if(player.getLocation().distance(getLocation()) < 18) {
@@ -311,6 +318,8 @@ public class Nex extends NPC {
 		private final List<Location> containmentLocations = new ArrayList<Location>();
 		private Player icePrisonTarget;
 		private final List<Player> icePrisonTargets = new ArrayList<Player>();
+        private final java.util.Map<Player, NPCCombatContext> prisonContexts = new java.util.IdentityHashMap<Player, NPCCombatContext>();
+        private final java.util.Map<Player, int[]> forcedPlayers = new java.util.IdentityHashMap<Player, int[]>();
 		private int icePrisonSequence;
         private int containmentSequence;
 		private Random random = new Random();
@@ -578,6 +587,13 @@ public class Nex extends NPC {
 					|| nex.siphonMode || nex.hasTick("ice_attack")) {
 				return;
 			}
+			// The arena event runs before CombatExecutor decrements its cooldown.
+			// Counting the last auto queues a special; it must still wait
+			// for that attack's full interval before starting the next action.
+			if (nex.autoAttacksSinceSpecial > 0
+					&& nex.getCombatExecutor().getTicks() > 1) {
+				return;
+			}
 			boolean performed = false;
 			switch (nex.phase) {
 			case SMOKE:
@@ -677,13 +693,14 @@ public class Nex extends NPC {
 				target.removeTick("nex_drag");
 				target.removeAttribute("stunned");
 				target.removeAttribute("cantMove");
-				if (applyDamage && nex != null && isInNexRoom(target) && !target.isDead()) {
+				if (applyDamage && prisonContexts.containsKey(target) && prisonContexts.get(target).isCurrent()) {
 					target.sendMessage("The centre of the ice prison freezes you to the bone!");
 					int damage = 500 + random.nextInt(201);
 					target.getDamageManager().damage(nex, damage, 700, DamageType.RED_DAMAGE);
 				}
 			}
 			icePrisonTargets.clear();
+            prisonContexts.clear();
 		}
 
 		public boolean breakIcePrison(Player player, Location location) {
@@ -717,6 +734,7 @@ public class Nex extends NPC {
 			for (Player player : getPlayersInRoom()) {
 				if (!player.isDead() && player.getLocation().equals(centre)) {
 					icePrisonTargets.add(player);
+                    prisonContexts.put(player, new NPCCombatContext(nex, player));
 				}
 			}
 			for (int x = -1; x <= 1; x++) {
@@ -734,13 +752,14 @@ public class Nex extends NPC {
 				prisoner.submitTick("nex_drag", new CountdownTick(prisoner, 6, null));
 			}
 			final Nex prisonOwner = nex;
+            final long prisonLife = nex.getCombatGeneration();
             final int sequence = ++icePrisonSequence;
 			World.getWorld().submit(new Tick(6) {
 				@Override
 				public void execute() {
 					stop();
 					if (sequence == icePrisonSequence && target == icePrisonTarget) {
-						clearIcePrison(nex == prisonOwner && !prisonOwner.isDead());
+						clearIcePrison(prisonOwner.isPhaseCurrent(prisonLife, NexPhase.ICE));
 					}
 				}
 			});
@@ -764,15 +783,19 @@ public class Nex extends NPC {
 			nex.getCombatExecutor().setTicks(5);
 			final Location base = nex.getLocation();
 			final Nex containmentOwner = nex;
+            final long containmentLife = nex.getCombatGeneration();
+            final int containmentAt = World.getTicks() + 5;
             final int sequence = containmentSequence;
-            nex.submitTick("ice_attack", new Tick(5) {
+            nex.submitTick("ice_attack", new Tick(1) {
 				@Override
 				public void execute() {
-					stop();
-					if (nex != containmentOwner || containmentOwner.isDead() || nex.phase != NexPhase.ICE
+                    if (!containmentOwner.isPhaseCurrent(containmentLife, NexPhase.ICE)
                             || sequence != containmentSequence) {
+						stop();
 						return;
 					}
+                    if (World.getTicks() < containmentAt) return;
+                    stop();
 					for (int x = -2; x <= 3; x++) {
 						for (int y = -2; y <= 3; y++) {
 							if (x == -2 || x == 3 || y == -2 || y == 3) {
@@ -787,7 +810,7 @@ public class Nex extends NPC {
 						boolean onRing = xOffset >= -2 && xOffset <= 3 && yOffset >= -2
 								&& yOffset <= 3 && (xOffset == -2 || xOffset == 3
 								|| yOffset == -2 || yOffset == 3);
-						if (!player.isDead() && onRing && containmentLocations.contains(location)) {
+						if (NPCCombatContext.validPair(nex, player) && onRing && containmentLocations.contains(location)) {
 							int damage = random.nextInt(401);
 							player.getDamageManager().damage(nex, damage, 400, DamageType.RED_DAMAGE);
 							disableProtectionPrayers(player);
@@ -800,7 +823,7 @@ public class Nex extends NPC {
 						@Override
 						public void execute() {
 							stop();
-							if (nex == containmentOwner && sequence == containmentSequence) clearContainment();
+							if (containmentOwner.isPhaseCurrent(containmentLife, NexPhase.ICE) && sequence == containmentSequence) clearContainment();
 						}
 					});
 				}
@@ -824,23 +847,35 @@ public class Nex extends NPC {
 				nex.forceText("A siphon will solve this!");
 				nex.playSound(Sounds.NexSiphon);
 				nex.siphonMode = true;
+				nex.getWalkingQueue().reset();
 				nex.animate(SIPHON_ANIMATION);
 				nex.setCanAnimate(false);
 				int reaverCount = 2;
 				for (int i = 0; i < reaverCount; i++) {
-					Location spawn = reaverSpawn();
+					NPC bloodReaver = org.dementhium.model.npc.NPCLoader.getNPC(Nex.REAVER_ID);
+					Location spawn = reaverSpawn(bloodReaver.size());
                     if(spawn==null)break;
-					NPC bloodReaver = World.getWorld().register(Nex.REAVER_ID, spawn);
+					// Encounter adds pursue combat targets, without an idle random
+					// step moving them back into Nex on the spawn cycle.
+					bloodReaver.setDoesWalk(false);
+					bloodReaver.setLocation(spawn);
+					bloodReaver.setOriginalLocation(spawn);
+					bloodReaver.loadEntityVariables();
 					bloodReaver.setUnrespawnable(true);
+					World.getWorld().getNpcs().add(bloodReaver);
 					bloodReavers.add(bloodReaver);
 				}
                 final Nex siphonOwner=nex;
                 final long siphonLife=nex.getCombatGeneration();
-                nex.submitTick("siphon",new Tick(8){
+                // Named NPC ticks also run on the launch cycle. Measure eight
+                // elapsed world ticks so that launch does not consume tick one.
+                final int siphonEnds = World.getTicks() + 8;
+                nex.submitTick("siphon",new Tick(1){
                     @Override public void execute(){
-                        stop();
                         if(nex!=siphonOwner||siphonOwner.getCombatGeneration()!=siphonLife
-                                ||siphonOwner.isDead()||siphonOwner.isDying())return;
+                                ||siphonOwner.isDead()||siphonOwner.isDying()) {stop();return;}
+                        if(World.getTicks() < siphonEnds)return;
+                        stop();
                         siphonOwner.siphonMode=false;siphonOwner.setCanAnimate(true);
                     }
                 });
@@ -890,12 +925,19 @@ public class Nex extends NPC {
 			return false;
 		}
 
-        private Location reaverSpawn(){
+        private Location reaverSpawn(int size){
             for(int radius=1;radius<=4;radius++)for(int x=-radius;x<=radius;x++)for(int y=-radius;y<=radius;y++){
                 Location tile=nex.getLocation().transform(x,y,0);
-                if(!nex.containsArena(tile)||CombatMovement.standingOn(tile,nex.getLocation(),1,nex.size())
-                        ||(Region.getClippingMask(tile.getX(),tile.getY(),tile.getZ())&(256|0x200000|0x40000))!=0)continue;
-                boolean occupied=false;for(NPC reaver:bloodReavers)if(!reaver.isDead()&&reaver.getLocation().equals(tile)){occupied=true;break;}
+                if(CombatMovement.standingOn(tile,nex.getLocation(),size,nex.size()))continue;
+                boolean blocked=false;
+                for(int dx=0;dx<size&&!blocked;dx++)for(int dy=0;dy<size;dy++){
+                    Location body=tile.transform(dx,dy,0);
+                    if(!nex.containsArena(body)||(Region.getClippingMask(body.getX(),body.getY(),body.getZ())
+                            &(256|0x200000|0x40000))!=0){blocked=true;break;}
+                }
+                if(blocked)continue;
+                boolean occupied=false;for(NPC reaver:bloodReavers)if(!reaver.isDead()
+                        &&CombatMovement.standingOn(tile,reaver.getLocation(),size,reaver.size())){occupied=true;break;}
                 if(!occupied)return tile;
             }
             return null;
@@ -905,6 +947,9 @@ public class Nex extends NPC {
 			if (nex == null)
 				return false;
 			if (darkness) {
+                final Nex owner = nex;
+                final long life = nex.getCombatGeneration();
+                final int started = World.getTicks();
 				nex.forceText("Embrace darkness!");
 				nex.playSound(Sounds.NexEmbraceDarkness);
 				nex.getCombatExecutor().setTicks(4);
@@ -912,17 +957,17 @@ public class Nex extends NPC {
 					player.sendMessage("The shadows close in; move away from Nex!");
 				}
 				nex.submitTick("shadow_darkness", new Tick(1) {
-					private int ticks;
 					@Override
 					public void execute() {
-						if (nex == null || nex.phase != NexPhase.SHADOW || ++ticks > 8) {
+                        int ticks = World.getTicks() - started;
+						if (!owner.isPhaseCurrent(life, NexPhase.SHADOW) || ticks > 8) {
 							stop();
 							return;
 						}
-						if ((ticks & 1) == 0) {
+						if (ticks > 0 && (ticks & 1) == 0) {
 							for (Player player : getPlayersInRoom()) {
 								int distance = (int) Math.ceil(player.getLocation().distance(nex.getLocation()));
-								if (!player.isDead() && distance <= 5) {
+								if (NPCCombatContext.validPair(owner, player) && distance <= 5) {
 									int damage = Math.max(50, 350 - (distance * 50));
 									player.getDamageManager().damage(nex, damage, 350, DamageType.RED_DAMAGE);
 								}
@@ -1090,6 +1135,7 @@ public class Nex extends NPC {
             nex.changingPhase = true;
             nex.getWalkingQueue().reset();
             nex.noEscapeAttack=false;nex.cancelForceMovement();
+            clearForcedPlayers();
             nex.removeTick("siphon");nex.removeTick("blood_sacrifice");nex.removeTick("shadow_darkness");nex.removeTick("ice_attack");
             nex.siphonMode=false;nex.setCanAnimate(true);
             clearShadows();clearBloodReavers(false);clearIcePrison(false);clearContainment();
@@ -1128,6 +1174,7 @@ public class Nex extends NPC {
 								nex.changingPhase = false;
 							nex.phase = phase;
 							nex.protectingMinion = false;
+                                nex.protectingCruor = false;
 								resetSpecialRotation(phase);
 								if (phase != NexPhase.BLOOD) {
 									clearBloodReavers(false);
@@ -1258,6 +1305,7 @@ public class Nex extends NPC {
                                                         && attack.getAttribute("cantMove") == null
                                                         && (Region.getClippingMask(movementX, movementY, 0) & 0x1280100) == 0) {
                                                     attack.forceMovement(FALL_BACK_ANIMATION, movementX, movementY, 30, 60, dir, 2, true);
+                                                    forcedPlayers.put(attack, attack.getForceWalk());
                                                 }
 												int maxDamage = nex.phase == NexPhase.FINAL ? 550 : 700;
 												int damage = r.nextInt(maxDamage);
@@ -1328,8 +1376,13 @@ public class Nex extends NPC {
 		}
 
         private boolean chargeCurrent(Nex owner,long life,NexPhase phase) {
-            return nex==owner&&!owner.isDead()&&!owner.isDying()&&owner.getCombatGeneration()==life
-                    &&owner.phase==phase&&!owner.changingPhase&&owner.noEscapeAttack;
+            return owner.isPhaseCurrent(life, phase)&&owner.noEscapeAttack;
+        }
+        private void clearForcedPlayers() {
+            for (java.util.Map.Entry<Player, int[]> entry : forcedPlayers.entrySet()) {
+                if (entry.getKey().getForceWalk() == entry.getValue()) entry.getKey().cancelForceMovement();
+            }
+            forcedPlayers.clear();
         }
 		private List<Player> attackablePlayers(int direction) {
 			if(direction < 0 || direction > 3) {
@@ -1408,15 +1461,28 @@ public class Nex extends NPC {
 			if (destination == null) return false;
 			final Nex owner = nex;
 			final Location landing = destination;
+            final long life = owner.getCombatGeneration();
+            final NexPhase dragPhase = owner.phase;
+            final long victimLife = victim.getCombatRevision();
+            final long victimInstance = victim.getInstanceRevision();
 			nex.getCombatExecutor().setVictim(victim);
 			victim.sendMessage("Nex draws you in...");
 			victim.forceMovement(DRAG_ANIMATION, destination.getX(), destination.getY(), 0, 60, -1, 2, true);
+            final int[] movement = victim.getForceWalk();
+            forcedPlayers.put(victim, movement);
 			victim.submitTick("nex_drag", new Tick(1) {
 				private int cycles = 0;
 				@Override
 				public void execute() {
-					if(cycles >= 5 || nex != owner || owner.isDead() || !victim.isOnline()
+					boolean landed = victim.getLocation().equals(landing) && victim.getForceWalk() == movement;
+                    // The owned landing is itself one player teleport/revision change.
+                    boolean current = victim.getInstanceRevision() == victimInstance
+                            && (victim.getCombatRevision() == victimLife
+                                || landed && victim.getCombatRevision() == victimLife + 1);
+                    if(cycles >= 5 || !owner.isPhaseCurrent(life, dragPhase) || !current || !victim.isOnline()
 							|| victim.isDead() || !isInNexRoom(victim)) {
+                        if (victim.getForceWalk() == movement) victim.cancelForceMovement();
+                        if (forcedPlayers.get(victim) == movement) forcedPlayers.remove(victim);
 						stop();
 						return;
 					}
@@ -1549,7 +1615,7 @@ public class Nex extends NPC {
 
 		@Override
 		public boolean commenceSession() {
-			if(isDead() || isDying() || noEscapeAttack || changingPhase || siphonMode || specialPending) {
+			if(isDead() || isDying() || noEscapeAttack || changingPhase || siphonMode || specialPending || hasTick("ice_attack")) {
 				return false;
 			}
 
@@ -1605,6 +1671,7 @@ public class Nex extends NPC {
 				}
 
 				final NexPhase attackPhase = phase;
+                final long attackLife = getCombatGeneration();
                 final List<Player> attackTargets = new ArrayList<Player>();
                 final java.util.Map<Player,NPCCombatContext> attackContexts=new java.util.IdentityHashMap<Player,NPCCombatContext>();
                 for (Player target : NexAreaEvent.getNexAreaEvent().getPlayersInRoom()) {
@@ -1619,7 +1686,7 @@ public class Nex extends NPC {
 					@Override
 					public void execute() {
 						stop();
-						if (NexAreaEvent.getNexAreaEvent().getNex() != Nex.this || isDead()) return;
+						if (!isPhaseCurrent(attackLife, attackPhase)) return;
                         for(Player other : attackTargets) {
 							if(attacked >= 20) {
 								break;

@@ -48,6 +48,11 @@ public class MagicAction extends CombatAction {
 			if (spell == null) {
 				return false;
 			}
+			if (!hasRequiredStaff(interaction.getSource().getPlayer(), spell)) {
+				interaction.getSource().getPlayer().sendMessage("You need " + spell.getRequiredStaffName() + " to cast this spell.");
+				interaction.getSource().getCombatExecutor().reset();
+				return false;
+			}
 			if (!checkRunes(interaction.getSource(), spell.getRequiredRunes(), true)) {
 				interaction.getSource().getPlayer().sendMessage("You do not have the runes required to cast this spell.");
 				interaction.getSource().getCombatExecutor().reset();
@@ -108,6 +113,17 @@ public class MagicAction extends CombatAction {
 	public static boolean hasInfiniteRunes(Mob mob) {
 		return mob != null && mob.isPlayer()
 				&& Boolean.TRUE.equals(mob.getAttribute("godmode"));
+	}
+
+	/**
+	 * Checks whether a spell's specific staff requirement is met.
+	 * @param player The player casting the spell.
+	 * @param spell The spell being cast.
+	 * @return {@code True} when no staff is required or the required staff is equipped.
+	 */
+	public static boolean hasRequiredStaff(Player player, MagicSpell spell) {
+		int requiredStaff = spell.getRequiredStaff();
+		return requiredStaff == -1 || player.getEquipment().getSlot(3) == requiredStaff;
 	}
 	
 	/**

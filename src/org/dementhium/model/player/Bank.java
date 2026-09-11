@@ -58,8 +58,7 @@ public class Bank {
 		ActionSender.sendBlankClientScript(player, 1451);
 		ActionSender.sendInterface(player, 762);
 		ActionSender.sendInventoryInterface(player, 763);
-		ActionSender.sendString(player, 762, 31, bank.size()+"");
-		ActionSender.sendString(player, 762, 32, SIZE+"");
+		sendBankSpace();
 		ActionSender.sendString(player, 762, 45, "Bank of "+Constants.SERVER_NAME);
 		sendTabConfig();
 		//ActionSender.sendConfig(player, 1248, player.getAttribute("currentTabConfig", -2013265920)); //Sends the currently viewed tab <3
@@ -194,8 +193,20 @@ public class Bank {
 
 	public void refresh() {
 		ActionSender.sendItems(player, 95, bank, false);
-		ActionSender.sendString(player, 762, 31, bank.size()+"");
+		sendBankSpace();
 		sendTabConfig();
+	}
+
+	/** Reassert the dynamic total after the cache-native bank tab script runs. */
+	public void refreshBankSpace() {
+		if (Boolean.TRUE.equals(player.getAttribute("inBank", Boolean.FALSE))) {
+			sendBankSpace();
+		}
+	}
+
+	private void sendBankSpace() {
+		ActionSender.sendString(player, 762, 31, Integer.toString(bank.size()));
+		ActionSender.sendString(player, 762, 32, Integer.toString(SIZE));
 	}
 
 	public void commandAdd(int id, int amount, int tab) {

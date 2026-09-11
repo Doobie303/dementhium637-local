@@ -182,12 +182,15 @@ public class NPCPickpocketAction extends SkillAction {
             npc.turnTo(player, true);
             npc.animate(STUN_ANIMATION);
             player.animate(Animation.create(player.getDefenceAnimation()));
+            final org.dementhium.model.combat.NPCCombatContext context =
+                    new org.dementhium.model.combat.NPCCombatContext(npc, player);
             World.getWorld().submit(new Tick(1) {
                 @Override
                 public void execute() {
+                    stop();
+                    if (!context.isCurrent()) return;
                     player.getDamageManager().damage(npc, npcData.getStunDamage(), -1, DamageType.RED_DAMAGE);
-                    player.stun(npcData.getStunTime(), "You have been stunned!", true);
-                    this.stop();
+                    if (context.isCurrent()) player.stun(npcData.getStunTime(), "You have been stunned!", true);
                 }
             });
             if (npcData.equals(PickpocketableNPC.MASTER_FARMER) || npcData.equals(PickpocketableNPC.FARMER)) {

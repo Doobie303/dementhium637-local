@@ -14,7 +14,7 @@ import org.dementhium.model.player.Skills;
 /** A selected attack determines both movement reach and the immutable pending hit list. */
 public class GodWarsAction extends CombatAction {
     public enum Attack {
-        BANDOS_MELEE(CombatType.MELEE,600,7060,-1,-1), BANDOS_RANGE(CombatType.RANGE,350,7063,-1,-1),
+        BANDOS_MELEE(CombatType.MELEE,600,7060,-1,-1), BANDOS_RANGE(CombatType.RANGE,350,7063,1200,1218),
         SARA_MELEE(CombatType.MELEE,270,6964,-1,-1), SARA_MAGIC(CombatType.MAGIC,200,6970,-1,1194),
         ZAM_MELEE(CombatType.MELEE,460,6945,-1,-1), ZAM_MAGIC(CombatType.MAGIC,300,6947,1211,-1), ZAM_SPECIAL(CombatType.MELEE,490,6947,-1,1210),
         KREE_MELEE(CombatType.MELEE,260,6977,-1,-1), KREE_RANGE(CombatType.RANGE,715,6976,1197,-1), KREE_MAGIC(CombatType.MAGIC,210,6976,1198,-1),

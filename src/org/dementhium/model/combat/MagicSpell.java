@@ -109,4 +109,20 @@ public abstract class MagicSpell {
 	public int getAutocastConfig() {
 		return -1;
 	}
+
+	/**
+	 * Gets the staff that must be equipped to cast this spell.
+	 * @return The staff item id, or {@code -1} when no specific staff is required.
+	 */
+	public int getRequiredStaff() {
+		return -1;
+	}
+
+	/**
+	 * Gets the name used when reporting a missing required staff.
+	 * @return The required staff's display name.
+	 */
+	public String getRequiredStaffName() {
+		return "the required staff";
+	}
 }

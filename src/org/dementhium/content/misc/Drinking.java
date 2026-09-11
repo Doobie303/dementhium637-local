@@ -438,9 +438,13 @@ public class Drinking extends EventListener {
                             int defenceModification = (int) Math.floor(2 + (player.getSkills().getLevelForExperience(Skills.DEFENCE) * 0.10));
                             player.getSkills().decreaseLevelToZero(skill, defenceModification);
                         } else if (skill == Skills.CONSTITUTION) {
+                            final org.dementhium.model.combat.NPCCombatContext context =
+                                    new org.dementhium.model.combat.NPCCombatContext(null, player);
                             World.getWorld().submit(new Tick(3) {
                                 @Override
                                 public void execute() {
+                                    stop();
+                                    if (!context.isCurrent() || !player.isOnline() || player.isDead()) return;
                                     int hitpointsModification = (int) Math.floor(2 + (player.getSkills().getLevel(Skills.CONSTITUTION) * 0.10));
                                     if (player.getSkills().getLevel(Skills.CONSTITUTION) - hitpointsModification < 0) {
                                         hitpointsModification = player.getSkills().getLevel(Skills.CONSTITUTION);
@@ -513,7 +517,8 @@ public class Drinking extends EventListener {
 
                             @Override
                             public void execute() {
-                                if (count < 5 && !player.isDead()) {
+                                if (count < 5 && player.isOnline() && !player.isDead()
+                                        && player.getAttribute("overloads", Boolean.FALSE)) {
                                     player.animate(3170);
                                     player.getDamageManager().miscDamage(100, DamageType.RED_DAMAGE);
                                     count++;

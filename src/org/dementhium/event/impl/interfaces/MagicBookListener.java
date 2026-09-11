@@ -147,6 +147,9 @@ public class MagicBookListener extends EventListener {
         } else if (player.getSkills().getLevel(6) < spell.getRequiredLevel()) {
         	ActionSender.sendMessage(player, "You need a Magic level of "+spell.getRequiredLevel()+" to cast this spell.");
         	return true;
+		} else if (!MagicAction.hasRequiredStaff(player, spell)) {
+			ActionSender.sendMessage(player, "You need " + spell.getRequiredStaffName() + " to cast this spell.");
+			return true;
         } else if (!MagicAction.checkRunes(player, spell.getRequiredRunes(), false)) {
         	ActionSender.sendMessage(player, "You do not have enough runes to cast this spell.");
         	return true;

@@ -73,9 +73,13 @@ public class CacheItemDefinition {
         setDefaultOptions();
         byte[] is = null;
         try {
-            is = id == org.dementhium.content.InfernalCape.ID
-                    ? org.dementhium.content.InfernalCape.cacheDefinition()
-                    : CacheManager.getData(CacheConstants.ITEMDEF_IDX_ID, id >>> 8, id & 0xFF);
+            if (id == org.dementhium.content.InfernalCape.ID) {
+                is = org.dementhium.content.InfernalCape.cacheDefinition();
+            } else if (org.dementhium.content.OsrsEquipment.isItem(id)) {
+                is = org.dementhium.content.OsrsEquipment.cacheDefinition(id);
+            } else {
+                is = CacheManager.getData(CacheConstants.ITEMDEF_IDX_ID, id >>> 8, id & 0xFF);
+            }
         } catch (Exception e) {
             e.printStackTrace();
             System.out.println("Item " + id + " doesn't exist in the cache!");

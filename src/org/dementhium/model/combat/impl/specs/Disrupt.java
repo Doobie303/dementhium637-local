@@ -67,6 +67,7 @@ public class Disrupt extends SpecialAttack {
 					}
 				}
 			}
+			for (ExtraTarget target : finalTargets) attachExperience(interaction, target.getDamage());
 			interaction.setTargets(finalTargets);
 			return true;
 		}
@@ -74,6 +75,7 @@ public class Disrupt extends SpecialAttack {
 		int minimum = maximumHit / 3;
         currentHit = minimum + interaction.getSource().getRandom().nextInt(maximumHit - minimum + 1);
         interaction.setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MAGIC, currentHit));
+        attachExperience(interaction, interaction.getDamage());
 
 		return true;
 	}
@@ -83,53 +85,40 @@ public class Disrupt extends SpecialAttack {
 		return true;
 	}
 
-	@Override
-	public boolean endSpecialAttack(final Interaction interaction) {
-		if (interaction.getDamage() != null) {
-            if (interaction.getDamage().isResolved() || !interaction.getDamage().isInstanceContextCurrent(interaction.getSource(), interaction.getVictim()) || !org.dementhium.model.instance.InstanceAccess.canInteract(interaction.getSource(), interaction.getVictim())) return true;
-			interaction.getVictim().graphics(GRAPHIC);
-			interaction.getVictim().getDamageManager().damage(
-					interaction.getSource(), interaction.getDamage(), DamageType.MAGE);
+    private void attachExperience(Interaction interaction, Damage damage) {
+        final org.dementhium.model.player.Player player = interaction.getSource().getPlayer();
+        final double rate = player.getPersonalCombatXpRate();
+        org.dementhium.model.combat.SpecialHits.awardOnImpact(player, damage, DamageType.MAGE);
+        damage.onImpact(actual -> player.getSkills().addExperience(Skills.MAGIC, actual * 0.4 * rate / 100));
+    }
 
+    private void impact(Interaction interaction, Damage damage) {
+        if (damage.isResolved() || !org.dementhium.model.combat.SpecialEffects.current(interaction, damage, true)) return;
+        interaction.getVictim().graphics(GRAPHIC);
+        interaction.getVictim().getDamageManager().damage(interaction.getSource(), damage, DamageType.MAGE);
+        if (damage.isResolved()) interaction.getVictim().retaliate(interaction.getSource());
+    }
 
-
-			org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), 
-					interaction.getDamage(), DamageType.MAGE);
-			interaction.getSource().getPlayer().getSkills().addExperience(Skills.MAGIC, interaction.getDamage().getHit() * 0.4 * interaction.getSource().getPlayer().getPersonalCombatXpRate() / 100);
-			interaction.getVictim().retaliate(interaction.getSource());
-			return true;
-		}
-		Tick hitTick = new Tick(1) {
-			private int index = 0;
-			@Override
-			public void execute() {
-				if (index == 3 || index >= interaction.getTargets().size()) {
-					stop();
-					return;
-				}
-				ExtraTarget e = interaction.getTargets().get(index++);
-                if (e.getDamage().isResolved() || interaction.getSource().getHitPoints() <= 0 || !e.getDamage().isInstanceContextCurrent(interaction.getSource(), e.getVictim()) || !org.dementhium.model.instance.InstanceAccess.canInteract(interaction.getSource(), e.getVictim()) || e.getVictim().getHitPoints() <= 0) return;
-				e.getVictim().graphics(GRAPHIC);
-				e.getVictim().getDamageManager().damage(
-						interaction.getSource(), e.getDamage(), DamageType.MAGE);
-
-
-
-				org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), 
-						e.getDamage(), DamageType.MAGE);
-				interaction.getSource().getPlayer().getSkills().addExperience(Skills.MAGIC, 
-						e.getDamage().getHit() * 0.4 * interaction.getSource().getPlayer().getPersonalCombatXpRate() / 100);
-				e.getVictim().retaliate(interaction.getSource());
-				org.dementhium.model.combat.SpecialHits.awardOnImpact(interaction.getSource().getPlayer(), 
-						e.getDamage(), DamageType.MAGE);
-			}		
-		};
-		hitTick.execute();
-		org.dementhium.model.instance.GameInstance owner = org.dementhium.model.instance.InstanceAccess.owner(interaction.getSource());
-        if (owner == null) World.getWorld().submit(hitTick); else owner.submitTask(hitTick);
-		return true;
-	}
-
+    @Override
+    public boolean endSpecialAttack(final Interaction interaction) {
+        if (interaction.getDamage() != null) {
+            impact(interaction, interaction.getDamage());
+            return true;
+        }
+        final List<ExtraTarget> targets = new ArrayList<ExtraTarget>(interaction.getTargets());
+        Tick hitTick = new Tick(1) {
+            private int index;
+            @Override public void execute() {
+                if (index >= targets.size() || index == 3) { stop(); return; }
+                ExtraTarget target = targets.get(index++);
+                impact(new Interaction(interaction.getSource(), target.getVictim()), target.getDamage());
+                if (index >= targets.size() || index == 3) stop();
+            }
+        };
+        hitTick.execute();
+        if (hitTick.isRunning()) org.dementhium.model.combat.SpecialEffects.submit(interaction.getSource(), hitTick);
+        return true;
+    }
 	@Override
 	public CombatType getCombatType() {
 		return CombatType.MELEE;

@@ -150,6 +150,65 @@ public class NPCDefinition {
         this.lifepoints = 100;
     }
 
+    private NPCDefinition(NPCDefinition source) {
+        this.faction = source.faction;
+        this.def = source.def;
+        this.bonuses = source.bonuses.clone();
+        this.name = source.name;
+        this.examine = source.examine;
+        this.combatLevel = source.combatLevel;
+        this.lifepoints = source.lifepoints;
+        this.respawn = source.respawn;
+        this.attackAnimation = source.attackAnimation;
+        this.defenceAnimation = source.defenceAnimation;
+        this.deathAnimation = source.deathAnimation;
+        this.strengthLevel = source.strengthLevel;
+        this.attackLevel = source.attackLevel;
+        this.defenceLevel = source.defenceLevel;
+        this.rangeLevel = source.rangeLevel;
+        this.magicLevel = source.magicLevel;
+        this.attackSpeed = source.attackSpeed;
+        this.startGraphics = source.startGraphics;
+        this.projectileId = source.projectileId;
+        this.endGraphics = source.endGraphics;
+        this.usingMelee = source.usingMelee;
+        this.usingRange = source.usingRange;
+        this.usingMagic = source.usingMagic;
+        this.poisonImmune = source.poisonImmune;
+        this.aggressive = source.aggressive;
+        this.id = source.id;
+    }
+
+    /**
+     * Returns an isolated copy with explicit combat formula inputs. The loaded
+     * definition and every other NPC using it remain unchanged.
+     */
+    public NPCDefinition withCombatProfile(int attack, int strength, int defence,
+            int range, int magic, int[] bonuses) {
+        if (bonuses == null || bonuses.length != 14) {
+            throw new IllegalArgumentException("An NPC combat profile needs fourteen bonuses");
+        }
+        for (int level : new int[]{attack, strength, defence, range, magic}) {
+            if (level < 0 || level > Short.MAX_VALUE) {
+                throw new IllegalArgumentException("NPC combat level is out of range: " + level);
+            }
+        }
+        NPCDefinition profile = new NPCDefinition(this);
+        profile.attackLevel = (short) attack;
+        profile.strengthLevel = (short) strength;
+        profile.defenceLevel = (short) defence;
+        profile.rangeLevel = (short) range;
+        profile.magicLevel = (short) magic;
+        for (int index = 0; index < bonuses.length; index++) {
+            int bonus = bonuses[index];
+            if (bonus < Short.MIN_VALUE || bonus > Short.MAX_VALUE) {
+                throw new IllegalArgumentException("NPC combat bonus is out of range: " + bonus);
+            }
+            profile.bonuses[index] = (short) bonus;
+        }
+        return profile;
+    }
+
     /**
      * The...faction?
      */

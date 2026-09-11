@@ -25,6 +25,7 @@ import org.dementhium.event.EventListener;
 import org.dementhium.event.EventManager;
 import org.dementhium.model.Item;
 import org.dementhium.model.World;
+import org.dementhium.model.combat.CombatUtils;
 import org.dementhium.model.definition.ItemDefinition;
 import org.dementhium.model.mask.Animation;
 import org.dementhium.model.mask.ForceText;
@@ -62,6 +63,25 @@ public class InventoryListener extends EventListener {
 		Item slotItem = player.getInventory().get(slot);
 		if (slotItem == null || slotItem.getId() != itemId)
 			return false;
+		if (CombatUtils.isDragonfireShield(itemId)) {
+			int charges = CombatUtils.getDragonfireShieldCharges(slotItem);
+			if (opcode == 0) {
+				player.sendMessage("The shield has " + charges + " charge"
+						+ (charges == 1 ? "" : "s") + ".");
+				return true;
+			}
+			if (opcode == 15) {
+				if (charges < 1) {
+					player.sendMessage("Your dragonfire shield has no charges to empty.");
+					return true;
+				}
+				slotItem.setHealth(0);
+				player.getInventory().set(slot, new Item(11284, slotItem.getAmount()));
+				player.getInventory().refresh();
+				player.sendMessage("You empty your dragonfire shield.");
+				return true;
+			}
+		}
 		if (opcode == 0 && DegradingHandler.checkCharges(player, slotItem)) {
 			return true;
 		}

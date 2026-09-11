@@ -1,64 +1,22 @@
-## Documentation control (owner rule)
-
-Do not create new markdown files unless the owner explicitly says:
-"Create a file named ..."
-
-Allowed documentation edits:
-
-- Update the matching row in docs/project/CONTEXT\_INDEX.md
-- Update docs/project/STATUS.md
-- Update an existing report only if a decision changed
-
-Forbidden:
-
-- New \*FIXES.md, \*REVIEW\.md, \*HANDOFF.md, or dated notes
-- Rewriting AGENTS.md, EFFICIENCY\_WORKFLOW\.md, or old audits
-- Copying test results into a new report
-
-Memory lives in:
-
-- source and tests
-- docs/project/STATUS.md
-- the current CONTEXT\_INDEX row
-
-After a task, write the result in chat and add 5-15 lines to STATUS.md.
-Do not create a handoff file.
-
-Reviews:
-
-- A review is read-only unless the owner asks for a patch
-- A system review may read the code, CONTEXT\_INDEX, STATUS.md,
-  and at most one existing report for that system
-- Do not write a new document
-- Return findings in chat, then put accepted conclusions in STATUS.md
-
 # Project instructions
 
-## Always preserve
+## Normal work
+
 - Work in `src`; loose root `combat/` is not the configured source root. Preserve unrelated local changes.
-- Target early-2011 pre-EoC combat provisionally; no exact 2011 date is selected. Preserve approved custom definitions. Recheck current code before treating historical findings as active defects.
-- Preserve godmode, personal XP, rewards and all private-server access conveniences, teleports and entrances. Do not restore historical quest/travel/killcount restrictions. Validate fidelity with godmode disabled.
-- Summoning-specific work is deferred except necessary shared dependencies; managed instances exclude familiars. Dungeoneering migration/overhaul is deferred. Quest implementation and solo minigame ideas are review-only, not authorized by their reports.
-- Keep custom PvP timers/rewards and EP policy. Barrows boosts remain 1.5x equipment chance/runes/bolt racks and 1.25x coins. Degraded items (including noted/worn forms) are untradeable even for admins.
-- Preserve durable duel/gamble journals, escrow, account/house backups and saved custom items. Recover DUL2/GAM1 state before runtime downgrade; never discard duel-commit.bin or gamble-commit.bin. Read the relevant report before recovery work.
-- Use the name **developer client** and the single launcher `build/gambler-interface/dev-client/Run Dev Client.bat`, maintained at `client/gambler-interface/Run Dev Client.bat`. Update it on releases; remove only superseded developer-client launchers, not originals/server launchers/backups. Preserve item 20430 and approved visuals. Lobby/startup branding fixes remain explicitly deferred.
+- Make the smallest correct change for the request. Do not add unrelated cleanup, refactors, reports, or audits.
+- For normal Java work: inspect the relevant code, edit source, compile affected code into the normal local `bin` output when practical, run the closest useful check when warranted, review `git diff --check`, `git status --short`, and the expected changed files, then stop. This is ordinary local development, not guarded release staging; use the repository's normal compilation inputs or another lightweight non-release method if needed, and report a genuine blocker rather than falling back to batch/release tooling. Do not run a full build or broad suite for a small isolated edit without a concrete reason.
+- Prefer existing focused checks. Expand validation only for an affected shared/runtime contract, a concrete caller, a failed check, or unresolved risk. Add regression coverage only when it protects a meaningful reusable or subtle behavior.
+- For movement, timing, sessions, lifecycle, packets, persistence, or comparable runtime contracts, use the relevant production-path guidance in `tests/TESTING.md`.
 
-## Read only the relevant context
-Before planning or editing a subsystem, read its row in `docs/project/CONTEXT_INDEX.md` and the applicable reports. For combat, include the shared combat row. Those reports retain implementation details, owner decisions, confidence limits and live acceptance requirements. Read relevant sections, not every report on each task.
+## Context and authorization
 
-The exact previous instructions are preserved in `docs/project/AGENTS_HISTORY_2026-09-09.md`; consult its matching topic for historical nuances absent from a report. It is an archive, not a list of current defects or new authorizations. Later explicit decisions supersede only the behavior they address. Never repeat a completed audit merely to reconstruct context.
+- Read the relevant `docs/project/CONTEXT_INDEX.md` row only when the requested subsystem has a durable constraint, prior decision, or uncertainty that matters to the change. Historical reports are evidence, not a default reading list.
+- Updating local `bin` by compiling affected Java source is ordinary development and normally makes a change locally test-ready. Phrases such as “so I can test it in game” authorize that normal local compilation, but do not authorize release manifests, guarded staging, deployment, publication, or restart. Leave a stopped server stopped; if it is running, the compiled output is for the owner's later restart. Restart always requires explicit owner intent.
+- For explicitly requested server staging, deployment, recovery, or restart work, read `tools/README.md`; only those release operations use `tools/batches` manifests, `build/batches` receipts, or `Invoke-ChangeBatch.ps1`. For developer-client source/assets, Build, Verify, client-specific validation, or publication work, read `client/DEVELOPMENT.md`; server-only work does not need it.
 
-## Validation and release
-- Read `tests/TESTING.md` when selecting checks. Test changed contracts and affected callers; broaden only for a concrete dependency, failure or unresolved risk. Stop after justified checks pass. Documentation-only changes need no gameplay regressions. Full compilation and full behavioral testing are separate decisions.
-- For movement, timing, session, lifecycle or packet changes, include the affected production entry path and ordering in validation; direct helper tests alone are insufficient. State the behavior expected before writing assertions. See the integration matrix in `tests/TESTING.md`.
-- Keep existing tests and historical verification logs. Old all-suite scripts/counts are release records, not future staging gates. Record selected suites, coverage, measured duration and untested boundaries; assertion totals are secondary. Debug failures with Debug -Suite before a full justified release Verify. Reuse tests/support fixtures where applicable.
-- Use `tools/Invoke-ChangeBatch.ps1` for ordinary server Java batches; read `tools/README.md` first. Prepare before edits, verify selected suites, then stage exact declared class families with backups and SHA-256 checks. Specialized client/cache/data pipelines remain separate.
-- Preserve source/runtime backups and hash manifests. Staged classes require server restart; automated checks do not certify live rendering/network/gameplay. Report relevant live acceptance. Do not restart or downgrade merely because staging succeeds.
-- New instance code retains MapAllocation handles, publishes changes on the game thread and cancels owned tasks before releasing maps. Read instance reports before changing lifecycle/admission/recovery.
+## Documentation control
 
-## Efficient continuation
-Keep batch scope explicit. Reuse settled evidence and server definitions; investigate again when behavior or evidence changes. Batch independent reads, keep full logs on disk and return useful summaries. At a subsystem handoff, use `docs/project/HANDOFF_TEMPLATE.md`; record remaining work and acceptance, not another release-history copy. A fresh task is appropriate at a subsystem boundary only when the owner requests one.
-
-Follow the current policy at the top of `docs/project/EFFICIENCY_WORKFLOW.md`: bounded context retrieval, coherent behavior batches, evidence reuse and explicit implementation/verification/staging/live-acceptance states. Repair a reproduced shared defect before extending that same defective mechanism to more content; continue independent authorized work. Efficiency never means omitting affected integration coverage or calling an untested encounter complete.
-
-Keep this file compact. Add detail to the relevant report and update its index row, rather than appending every release here. No reduction in model capability, safeguards or required validation is implied by this workflow.
+- Do not create new Markdown files unless the owner explicitly says “Create a file named ...” or asks to keep useful notes. New ordinary notes belong only under `docs/project/notes/`; reuse/update relevant notes when practical, consolidate overlaps, and do not scatter task-specific reports, summaries, or handoffs.
+- Remove obsolete notes with no continuing value; archive useful superseded history only under `docs/project/notes/archive/`, not automatically. Routine fixes do not require a note.
+- `docs/project/STATUS.md` is concise durable project-wide state, not scratch notes; update a context-index row only when its routing or durable constraints change.
+- Reviews are read-only unless the owner asks for a patch. Return findings in chat; record only accepted durable conclusions in `STATUS.md`.

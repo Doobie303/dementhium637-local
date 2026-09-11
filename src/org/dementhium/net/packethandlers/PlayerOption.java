@@ -114,48 +114,7 @@ public class PlayerOption extends PacketHandler {
     		if (player.getAttribute("superhit") != null) {
     			final int damage = player.getAttribute("superhit");
     			player.removeAttribute("superhit");
-    			player.animate(842);
-    			final Player p = player;
-    			final Player o = other;
-    			p.setCanAnimate(false);
-    			World.getWorld().submit(new Tick(3) {
-    				@Override
-    				public void execute() {
-    					p.setCanAnimate(true);
-    					p.animate(1500);
-    					p.setCanAnimate(false);
-    					stop();
-    				}
-    			});
-    			World.getWorld().submit(new Tick(5) {
-    				@Override
-    				public void execute() {
-    					p.setCanAnimate(true);
-    					p.animate(1501);
-    					p.setCanAnimate(false);
-    					stop();
-    				}
-    			});
-    			World.getWorld().submit(new Tick(8) {
-    				@Override
-    				public void execute() {
-    					p.setCanAnimate(true);
-    					p.animate(1502);
-    					p.setCanAnimate(false);
-    					stop();
-    				}
-    			});
-    			World.getWorld().submit(new Tick(9) {
-    				@Override
-    				public void execute() {
-    					p.setCanAnimate(true);
-    					p.getMask().setAppearanceUpdate(true);
-    					p.graphics(287);
-    					o.getDamageManager().miscDamage(damage, DamageType.MAGE);
-    					p.getCombatExecutor().setVictim(o);
-    					stop();
-    				}
-    			});
+                org.dementhium.model.combat.DirectCombatActions.superhit(player, other, damage);
     		} else
     			player.getCombatExecutor().setVictim(other);
         }

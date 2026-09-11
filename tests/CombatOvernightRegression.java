@@ -182,8 +182,17 @@ public class CombatOvernightRegression {
         check(!v.getPrayer().usingPrayer(0,org.dementhium.content.skills.Prayer.PROTECT_FROM_MELEE),"Scimitar prevents protection reactivation");
         v.setAttribute("protectionDisabledUntil",World.getTicks());v.getPrayer().switchPrayer(org.dementhium.content.skills.Prayer.PROTECT_FROM_MELEE,false);
         check(v.getPrayer().usingPrayer(0,org.dementhium.content.skills.Prayer.PROTECT_FROM_MELEE),"Protection returns at expiry");
-        RangeWeapon weapon=RangeWeapon.get(861);Field range=RangeWeapon.class.getDeclaredField("attackRange");range.setAccessible(true);
-        int original=range.getInt(weapon);try{range.setInt(weapon,7);check(weapon.getAttackRange(false)==7&&weapon.getAttackRange(true)==9,"Per-weapon reach plus longrange");range.setInt(weapon,9);check(weapon.getAttackRange(true)==10,"Longrange cap");}finally{range.setInt(weapon,original);}
+        check(RangeWeapon.get(861).getAttackRange(false)==7&&RangeWeapon.get(861).getAttackRange(true)==9,"Shortbow reach plus longrange");
+        check(RangeWeapon.get(859).getAttackRange(false)==10&&RangeWeapon.get(859).getAttackRange(true)==10,"Longbow reach cap");
+        check(RangeWeapon.get(811).getAttackRange(false)==3&&RangeWeapon.get(811).getAttackRange(true)==5,"Dart reach");
+        check(RangeWeapon.get(9185).getAttackRange(false)==7&&RangeWeapon.get(9185).getAttackRange(true)==9,"Crossbow reach");
+        check(RangeWeapon.get(8880).getAttackRange(false)==6&&RangeWeapon.get(8880).getAttackRange(true)==8,"Dorgeshuun crossbow reach");
+        check(RangeWeapon.get(15241).getAttackRange(false)==9&&RangeWeapon.get(15241).getAttackRange(true)==10,"Hand cannon reach cap");
+        p=player();v=player();CombatEnhancementsRegression.gear(p,3,861);p.setLocation(Location.locate(3200,3200,0));v.setLocation(Location.locate(3207,3200,0));
+        check(CombatMovement.combatFollow(p,v,CombatType.RANGE),"Shortbow attacks at configured seven-tile boundary");
+        v.setLocation(Location.locate(3208,3200,0));check(!CombatMovement.combatFollow(p,v,CombatType.RANGE),"Shortbow follows beyond configured range");
+        p=player();v=player();CombatEnhancementsRegression.gear(p,3,861);p.getSettings().setCombatStyle(WeaponInterface.STYLE_LONG_RANGE);p.setLocation(Location.locate(3200,3200,0));v.setLocation(Location.locate(3209,3200,0));
+        check(CombatMovement.combatFollow(p,v,CombatType.RANGE),"Longrange shortbow attacks at nine-tile boundary");
         inter=new Interaction(p,v);inter.setSpecialWarmup(3);check(!inter.finishSpecialWarmup()&&!inter.finishSpecialWarmup()&&inter.finishSpecialWarmup()&&!inter.finishSpecialWarmup(),"Cannon projectile released once after owned warmup");
     }
     static void miasmicRequirements() {
@@ -212,6 +221,8 @@ public class CombatOvernightRegression {
     }
     public static void main(String[] args)throws Exception {
         Cache.init();ItemDefinition.init();NPCDefinition.init();org.dementhium.model.misc.GroundItemManager.load();
+        Field areas=World.class.getDeclaredField("areaManager");areas.setAccessible(true);areas.set(World.getWorld(),new org.dementhium.content.areas.AreaManager());
+        org.dementhium.model.map.Region region=org.dementhium.model.map.Region.forCoords(3200,3200);region.clippingMasks=new int[4][128][128];region.setClipped(true);
         if(args.length>0 && args[0].equals("miasmic")){miasmicRequirements();System.out.println("PASS: Miasmic requirement checks");return;}
         status();
         equipment();

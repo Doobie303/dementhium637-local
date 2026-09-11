@@ -10,6 +10,8 @@ import org.dementhium.net.ActionSender;
 
 /** A selection owns its targets; each queued impact also owns its source and victim life. */
 public final class EncounterAttack extends CombatAction {
+ private static final int CORP_GROUND_IMPACT_TICKS=3;
+ private static final int CLIENT_CYCLES_PER_TICK=30;
  public enum Kind {
   CORP_MELEE(CombatType.MELEE,513,10057,-1,-1),CORP_MAGIC(CombatType.MAGIC,699,10053,1825,-1),CORP_DRAIN(CombatType.MAGIC,499,10053,1823,-1),CORP_SPLIT(CombatType.MAGIC,399,10053,1824,1824),
   SUPREME(CombatType.RANGE,300,2855,475,-1),PRIME(CombatType.MAGIC,610,2854,162,163),REX(CombatType.MELEE,280,2851,-1,-1),
@@ -77,10 +79,10 @@ public final class EncounterAttack extends CombatAction {
  }
  private void ground(Player target){
   final Location center=target.getLocation();final long life=npc.getCombatGeneration();
-  ProjectileManager.sendProjectile(1824,npc.getLocation(),center,52,0,90,0,0,11);
+  Projectile projectile=Projectile.create(npc,null,Kind.CORP_SPLIT.projectile,52,0,0,CORP_GROUND_IMPACT_TICKS*CLIENT_CYCLES_PER_TICK,0,11);projectile.setEndLocation(center);ProjectileManager.sendProjectile(projectile);
   // 1826 uses the dark core's model; use the split energy effect for ground warnings.
   for(Player viewer:npc.players())ActionSender.sendPositionedGraphic(viewer,center,Kind.CORP_SPLIT.graphic);
-  npc.schedule(3,()->{if(npc.isDead()||npc.getCombatGeneration()!=life)return;groundHit(center,1,399);for(int[] d:new int[][]{{-2,0},{2,0},{0,2}}){Location tile=center.transform(d[0],d[1],0);if(!npc.contains(tile))continue;for(Player viewer:npc.players())ActionSender.sendPositionedGraphic(viewer,tile,Kind.CORP_SPLIT.graphic);npc.schedule(2,()->groundHit(tile,0,150));}});
+  npc.schedule(CORP_GROUND_IMPACT_TICKS,()->{if(npc.isDead()||npc.getCombatGeneration()!=life)return;groundHit(center,1,399);for(int[] d:new int[][]{{-2,0},{2,0},{0,2}}){Location tile=center.transform(d[0],d[1],0);if(!npc.contains(tile))continue;for(Player viewer:npc.players())ActionSender.sendPositionedGraphic(viewer,tile,Kind.CORP_SPLIT.graphic);npc.schedule(2,()->groundHit(tile,0,150));}});
   interaction.setDamage(new Damage(0));interaction.getDamage().setMaximum(399);
  }
  private void groundHit(Location tile,int radius,int max){

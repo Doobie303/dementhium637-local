@@ -17,10 +17,13 @@ public class GameSession {
     private boolean inLobby;
     private boolean gamblerInterface;
     private boolean infernalCape;
+    private boolean osrsEquipment;
     public boolean supportsInfernalCape(){return infernalCape;}
+    public boolean supportsOsrsEquipment(){return osrsEquipment;}
     /** Cosmetic capability only; never grants permission to wager or claim. */
     public void readClientSettings(String settings) {
         infernalCape = settings != null && settings.contains("|infernal-cape=1|");
+        osrsEquipment = settings != null && settings.contains("|osrs-equipment=1|");
         gamblerInterface = settings != null && settings.endsWith("|gambler-ui=1");
     }
     public boolean supportsGamblerInterface() { return gamblerInterface; }

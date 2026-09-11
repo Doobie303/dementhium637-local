@@ -14,14 +14,15 @@ import org.dementhium.net.ActionSender;
 public class SkillGuideListener extends EventListener {
 
     /**
-     * The skill guide data. (actionbuttonId, levelup config value, normal config value)
+     * The skill guide data, indexed by skill id.
+     * (actionbuttonId, levelup config value, normal config value)
      */
     private static final int[][] SKILL_GUIDE_DATA = {
             {200, 10, 1}, {28, 40, 5}, {11, 20, 2}, {193, 50, 6}, {52, 30, 3},
             {76, 60, 7}, {93, 33, 4}, {68, 641, 16}, {165, 660, 18}, {101, 665, 19},
             {44, 120, 15}, {172, 649, 17}, {84, 90, 11}, {179, 115, 14}, {186, 110, 13},
             {36, 75, 9}, {19, 65, 8}, {60, 80, 10}, {118, 673, 20}, {126, 681, 21}, {110, 100, 12},
-            {134, 689, 22}, {142, 698, 23}, {150, 705, 24}, {158, 715, 25}
+            {142, 698, 23}, {134, 689, 22}, {150, 705, 24}, {158, 715, 25}
     };
 
     @Override

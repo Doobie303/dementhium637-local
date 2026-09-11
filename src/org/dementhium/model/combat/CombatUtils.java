@@ -29,6 +29,56 @@ import org.dementhium.net.ActionSender;
  * @author 'Mystic Flow
  */
 public class CombatUtils {
+	public static final int MAX_DRAGONFIRE_SHIELD_CHARGES = 50;
+
+	public static boolean isDragonfireShield(int itemId) {
+		return itemId == 11283 || itemId == 11284;
+	}
+
+	public static int getDragonfireShieldCharges(Item shield) {
+		return shield == null || !isDragonfireShield(shield.getId()) ? 0
+				: Math.min(MAX_DRAGONFIRE_SHIELD_CHARGES,
+						Math.max(0, shield.getHealth()));
+	}
+
+	/** Adds one absorbed breath to the equipped shield, up to its charge cap. */
+	public static boolean chargeDragonfireShield(Player player) {
+		Item shield = player.getEquipment().get(Equipment.SLOT_SHIELD);
+		int charges = getDragonfireShieldCharges(shield);
+		if (shield == null || !isDragonfireShield(shield.getId())) {
+			return false;
+		}
+		if (charges >= MAX_DRAGONFIRE_SHIELD_CHARGES) {
+			player.sendMessage("Your dragonfire shield is already fully charged.");
+			return false;
+		}
+		if (shield.getId() == 11284) {
+			shield = new Item(11283, shield.getAmount());
+			shield.setHealth(charges + 1);
+			player.getEquipment().set(Equipment.SLOT_SHIELD, shield);
+		} else {
+			shield.setHealth(charges + 1);
+		}
+		player.sendMessage(charges + 1 == MAX_DRAGONFIRE_SHIELD_CHARGES
+				? "Your dragonfire shield is fully charged."
+				: "Your shield glows more brightly.");
+		return true;
+	}
+
+	/** Consumes one charge from the currently equipped shield. */
+	public static boolean consumeDragonfireShieldCharge(Player player) {
+		Item shield = player.getEquipment().get(Equipment.SLOT_SHIELD);
+		int charges = getDragonfireShieldCharges(shield);
+		if (charges < 1) {
+			return false;
+		}
+		shield.setHealth(charges - 1);
+		if (charges == 1 && shield.getId() == 11283) {
+			player.getEquipment().set(Equipment.SLOT_SHIELD,
+					new Item(11284, shield.getAmount()));
+		}
+		return true;
+	}
 
 	/**
 	 * Checks if an NPC is using protection prayers/curses.
@@ -425,8 +475,8 @@ public class CombatUtils {
 		}
 		int itemId = mob.getPlayer().getEquipment()
 				.getSlot(Equipment.SLOT_SHIELD);
-		if (itemId == 11283 || itemId == 11284) {
-			// TODO: Charging.
+		if (isDragonfireShield(itemId)) {
+			chargeDragonfireShield(mob.getPlayer());
 			message = "Your shield absorbs most of the dragon's "
 					+ source.getAttribute("dragonfireName") + ".";
 			hit *= 0.1;

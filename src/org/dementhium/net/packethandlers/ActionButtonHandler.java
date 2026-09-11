@@ -244,10 +244,6 @@ public class ActionButtonHandler extends PacketHandler {
 			}
 			break;
 		case 762:
-			if (buttonId >= 46 && buttonId <= 62) { //Fixed bank glitch
-				player.setLastBankTab(Bank.getArrayIndex(buttonId));
-				ActionSender.sendString(player, 762, 45, "Bank of "+Constants.SERVER_NAME);
-			}
 			switch (buttonId) {
 			case 117:
 				if (player.getAttribute("inBank", Boolean.FALSE) == Boolean.TRUE) {
@@ -293,6 +289,7 @@ public class ActionButtonHandler extends PacketHandler {
 					player.setLastBankTab(Bank.getArrayIndex(buttonId));
 					player.setAttribute("currentTabConfig",
 							Bank.getViewedTabConfig(buttonId));
+					player.getBank().refreshBankSpace();
 					break;
 				case 13:
 					player.getBank().collapseTab(Bank.getArrayIndex(buttonId));
@@ -866,21 +863,12 @@ public class ActionButtonHandler extends PacketHandler {
 					break;
 				}
 			} else if (packet.getOpcode() == 13) {
-				/*
-				 * Operate options. TODO: Do this better, this is just for
-				 * testing DFS spec.
-				 */
+				/* Operate options. */
 				if (item != null) {
 					switch (item.getId()) {
 					case 11283:
 					case 11284:
-						/*
-						 * If you want to do it correct you have to gain charges from dragon fire.
-						 * You can have 50 charges at max.
-						 * The right click option in the inventory called 'Inspect' shows you how many charges you have atm.
-						 * using 'Empty' you lose all charges (so that you can trade the dfs).
-						 * But I think it's fine like this =P.
-						 */
+						// The production discharge consumes one of the shield's stored charges.
 						if (player.getAttribute("dischargeDelay", 0) > World
 								.getTicks()) {
 							player.sendMessage("Your dragonfire shield is recharging.");
@@ -902,26 +890,7 @@ public class ActionButtonHandler extends PacketHandler {
 						}
 						final Mob dfsTarget = player.getCombatExecutor().getVictim() == null ?
 						player.getCombatExecutor().getLastAttacker() : player.getCombatExecutor().getVictim();
-						player.setAttribute("dischargeDelay", World.getTicks() + 200);
-                        player.animate(6696);
-                        player.graphics(1165);
-                        player.turnTo(dfsTarget, false);
-            			World.getWorld().submit(new Tick(3) {
-                            @Override
-                            public void execute() {
-                            	stop();
-                            	int speed = (int) (27 + (player.getLocation().distance(dfsTarget.getLocation()) * 5));
-                            	ProjectileManager.sendProjectile(Projectile.create(player, dfsTarget, 1166, 40, 36, 20, speed, 15, 11));
-                            }
-                        });
-            			World.getWorld().submit(new Tick(4) {
-                            @Override
-                            public void execute() {
-                            	stop();
-                            	dfsTarget.getDamageManager().miscDamage(Misc.random(290), DamageType.MAGE);
-                            	//add def xp, constitution and magic..
-                            }
-                        });
+						org.dementhium.model.combat.DirectCombatActions.discharge(player, dfsTarget);
 						return;
 					case 12645: //chocatrice cape
 						//player.animate(???);

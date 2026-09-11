@@ -17,12 +17,48 @@ import org.dementhium.model.npc.NPC;
  * any unrelated NPC spawned elsewhere.
  */
 public class FightCaveNPC extends NPC {
+	private static final int[] ZERO_BONUSES = new int[14];
+	private static final int[] KET_ZEK_BONUSES = {
+			0, 0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+	};
 	private final CombatAction combatAction;
 
 	public FightCaveNPC(int id) {
 		super(id);
+		applyCombatProfile(id);
 		setHp(getCaveHitpoints(id));
 		combatAction = new FightCaveNPCAction(this);
+	}
+
+	private void applyCombatProfile(int id) {
+		switch (id) {
+		case 2734: // Tz-Kih
+		case 2735: // Tz-Kih spawn variant
+			setDefinition(getDefinition().withCombatProfile(20, 30, 15, 30, 15, ZERO_BONUSES));
+			break;
+		case 2736: // Tz-Kek
+		case 2737: // Tz-Kek spawn variant
+			setDefinition(getDefinition().withCombatProfile(40, 60, 30, 60, 30, ZERO_BONUSES));
+			break;
+		case 2738: // Tz-Kek (split)
+			setDefinition(getDefinition().withCombatProfile(20, 30, 15, 30, 15, ZERO_BONUSES));
+			break;
+		case 2739: // Tok-Xil
+		case 2740: // Tok-Xil spawn variant
+			setDefinition(getDefinition().withCombatProfile(80, 120, 60, 120, 60, ZERO_BONUSES));
+			break;
+		case 2741: // Yt-MejKot
+		case 2742: // Yt-MejKot spawn variant
+			setDefinition(getDefinition().withCombatProfile(160, 240, 120, 240, 120, ZERO_BONUSES));
+			break;
+		case 2743: // Ket-Zek
+		case 2744: // Ket-Zek spawn variant
+			setDefinition(getDefinition().withCombatProfile(320, 480, 240, 480, 240, KET_ZEK_BONUSES));
+			break;
+		default:
+			// Jad and his healers deliberately retain their established definitions.
+			break;
+		}
 	}
 
 	private static int getCaveHitpoints(int id) {
@@ -66,7 +102,7 @@ public class FightCaveNPC extends NPC {
 		int id = getId();
 		if ((id == 2736 || id == 2737 || id == 2738) && source != null
 				&& source.isPlayer() && type == CombatType.MELEE && damage.getHit() > 0) {
-			source.getDamageManager().damage(this, 10, 10, DamageType.RED_DAMAGE);
+			source.getDamageManager().damage(this, 10, 10, DamageType.DEFLECT);
 		}
 		return damage;
 	}

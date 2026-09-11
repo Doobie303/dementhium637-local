@@ -1,3 +1,17 @@
+# OSRS equipment expansion and fit follow-up
+
+The `osrs-equipment` server/client build adds Primordial boots (20431), Pegasian boots (20432), Eternal boots (20433), the Avernic defender (20434), the Max cape (20435), and the Infernal max cape (20436). These IDs continue after the existing custom Infernal cape (20430), and wearable mappings 5157–5162 continue after its mapping 5156 without replacing native 2011 definitions.
+
+The server implements the current OSRS combat bonuses, weights, base values, tradeability, and wear requirements. The Max cape has +9 to all five defences and +4 Prayer; in this server it requires 99 in all 25 available skills. The Infernal max cape has the Infernal cape bonus vector, 0.453 kg weight, and the same all-99 server requirement. This build does not add OSRS Max-cape teleports/perks, item-combination flows, Cerberus/Theatre reward sources, broken-item states, or noted boot variants. `::osrsgear` is an administrator-only test grant.
+
+The client uses the original OSRS inventory, male, and female source meshes. Boots and both capes come from OpenRS2 cache 426 (OSRS revision 144, 2017-06-15); the Avernic defender comes from cache 38 (OSRS revision 171, 2018-06-07). The Infernal max cape maps its original OSRS texture 59 to the existing lossless animated material 915. The new `|osrs-equipment=1|` capability prevents older clients from equipping/spawning these IDs and supplies dragon/ranger/infinity boots, dragon defender, Dungeoneering master cape, or Infernal/Fire cape appearance fallbacks to legacy viewers.
+
+The initial `osrs-equipment` build passed 7,373 packaged item/model checks, 66,157 existing texture/collar checks, the packaged capability proof, and 164 focused server checks, then was published through the maintained launcher. Owner live review accepted the Avernic defender and identified that all three boot pairs crossed the floor plane and both max-cape variants needed the established upper-shoulder clearance.
+
+The `osrs-equipment-fit` follow-up raises only the six boot wearer meshes by six original model units, bringing their measured maximum vertical coordinate from 6 to the floor plane at 0 without scaling them or changing animation weights. It applies the same bounded upper-back clearance already used by the Infernal cape only to the four Max/Infernal-max wearer meshes; inventory meshes, the lower cape silhouette, and the Avernic are unchanged. The build passes 17,143 cape/model checks and 66,157 texture/collar checks and is verified and published from `build/client-batches/osrs-equipment-fit` through the maintained launcher. Live male/female idle/walk/run acceptance remains required.
+
+---
+
 # Original-texture and Torva fit follow-up
 
 This v6 update supersedes the v5 Fire Cape material adaptation described below. The owner explicitly requested replication of the original Infernal Cape appearance, reported good movement, and identified Torva as the armour in the fit screenshot.
