@@ -252,7 +252,7 @@ public class CombatExecutor {
 	 */
 	public void setTicks(int cooldownTicks) {
 		setTicks(cooldownTicks, mob.getAttribute("miasmicTime", -1) > World.getTicks() 
-				&& combatAction.getCombatType() != CombatType.MAGIC);
+				&& combatAction != null && combatAction.getCombatType() != CombatType.MAGIC);
 	}
 
 	/**

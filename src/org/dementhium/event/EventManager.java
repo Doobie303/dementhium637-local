@@ -6,7 +6,6 @@ import org.dementhium.model.map.GameObject;
 import org.dementhium.model.player.Player;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileReader;
 import java.util.*;
 
@@ -28,35 +27,20 @@ public class EventManager {
     public void load() throws Exception {
         System.out.println("Loading event listeners...");
 
-        BufferedReader reader = new BufferedReader(new FileReader("data/eventlisteners.txt"));
-        String string;
-        while ((string = reader.readLine()) != null) {
-            if (!string.startsWith(">")) {
-                continue;
-            }
-            string = string.substring(1);
-            EventListener listener = (EventListener) Class.forName(string).newInstance();
-            listener.register(this);
+        try (BufferedReader reader = new BufferedReader(new FileReader("data/eventlisteners.txt"))) {
+            String string;
+            while ((string = reader.readLine()) != null) {
+                if (!string.startsWith(">")) {
+                    continue;
+                }
+                string = string.substring(1);
+                EventListener listener = (EventListener) Class.forName(string).newInstance();
+                listener.register(this);
 
-            listeners.add(listener); // we add it just in case
+                listeners.add(listener); // we add it just in case
+            }
         }
         System.out.println("Loaded " + interfaceListeners.size() + " interface listeners and " + objectListeners.size() + " object listeners.");
-    }
-
-    public List<File> allFiles(File[] files) {
-        List<File> list = new ArrayList<File>();
-        addDirectoryFiles(list, files);
-        return list;
-    }
-
-    public void addDirectoryFiles(List<File> list, File[] files) {
-        for (File f : files) {
-            if (f.isDirectory()) {
-                addDirectoryFiles(list, f.listFiles());
-            } else {
-                list.add(f);
-            }
-        }
     }
 
     public boolean handleObjectOption(Player player, int objectId, GameObject gameObject, Location location, ClickOption option) {

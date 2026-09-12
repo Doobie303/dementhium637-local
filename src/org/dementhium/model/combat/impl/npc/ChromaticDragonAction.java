@@ -42,9 +42,13 @@ public class ChromaticDragonAction extends CombatAction {
 	@Override
 	public boolean commenceSession() {
 		interaction.getSource().getCombatExecutor().setTicks(interaction.getSource().getAttackDelay());
+		int id = interaction.getSource().getNPC().getId();
+		// Registered dungeon variants use native render1755, not the later
+		// ordinary chromatic rig. Preserve the existing attack behavior.
+		boolean dungeonRig = id >= 10219 && id <= 10224 || id >= 10815 && id <= 10820;
 		if (interaction.getSource().getRandom().nextInt(10) < 3) {
 			damageType = DamageType.RED_DAMAGE;
-			interaction.getSource().animate(DRAGONFIRE_ANIMATION);
+			interaction.getSource().animate(dungeonRig ? Animation.create(13152) : DRAGONFIRE_ANIMATION);
 			interaction.getSource().graphics(DRAGONFIRE_GFX);
 			interaction.setDamage(Damage.getDamage(interaction.getSource(), 
 					interaction.getVictim(), CombatType.DRAGONFIRE, 
@@ -56,7 +60,7 @@ public class ChromaticDragonAction extends CombatAction {
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
 		}
-		interaction.getSource().animate(BITE_ANIMATION);
+		interaction.getSource().animate(dungeonRig ? Animation.create(13155) : BITE_ANIMATION);
 		interaction.setDamage(
 				Damage.getDamage(interaction.getSource(), interaction.getVictim(), 
 						CombatType.MELEE, MeleeFormulae.getDamage(interaction.getSource(), 

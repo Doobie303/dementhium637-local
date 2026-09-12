@@ -28,6 +28,7 @@ public class EquipmentAbsorptionRegression {
     static Map<Integer,Boolean> visible = new HashMap<Integer,Boolean>();
     static Map<Integer,String> itemStatsText = new HashMap<Integer,String>();
     static List<Integer> scripts = new ArrayList<Integer>();
+    static List<String> events = new ArrayList<String>();
     static int intV2(Message m) {
         int a=m.readByte()&255,b=m.readByte()&255,c=m.readByte()&255,d=m.readByte()&255;
         return (b<<24)|(a<<16)|(d<<8)|c;
@@ -39,7 +40,7 @@ public class EquipmentAbsorptionRegression {
                 if (method.getName().equals("isConnected") || method.getName().equals("isOpen")) return true;
                 if (method.getName().equals("write") && args[0] instanceof Message) {
                     Message m = (Message) args[0];
-                    if (m.getOpcode() == 33) { String value=m.readRS2String(); labels.put(m.readLEInt(),value); }
+                    if (m.getOpcode() == 33) { String value=m.readRS2String(); int component=m.readLEInt(); labels.put(component,value); events.add("text:"+component); }
                     if (m.getOpcode() == 61) closes.add(m.readLEInt());
                     if (m.getOpcode() == 88) { String value=m.readRS2String(); itemStatsText.put(m.readLEShortA(),value); }
                     if (m.getOpcode() == 16 && m.readRS2String().isEmpty()) scripts.add(m.readInt());
@@ -53,7 +54,7 @@ public class EquipmentAbsorptionRegression {
                         // Decode V2 bytes explicitly: Message.readInt2 currently masks the high bytes incorrectly.
                         int a=m.readByte()&255,b=m.readByte()&255,c=m.readByte()&255,d=m.readByte()&255;
                         int parent=(b<<24)|(a<<16)|(d<<8)|c;
-                        opens.add(parent+":"+m.readLEShortA());
+                        String opened=parent+":"+m.readLEShortA(); opens.add(opened); events.add("open:"+opened);
                     }
                 }
                 if (method.getReturnType()==boolean.class) return false;
@@ -126,7 +127,7 @@ public class EquipmentAbsorptionRegression {
             p.submitTick("following_mob",new Tick(1){public void execute(){throw new AssertionError("Follow must stop");}});
             p.getCombatExecutor().setVictim(player());
             p.setAttribute("godmode",true);p.setAttribute("freezeTime",10000);
-            labels.clear();opens.clear();closes.clear();
+            labels.clear();opens.clear();closes.clear();events.clear();
             click(p,387,39,-1);
             check((configs.get(1248)&Integer.MIN_VALUE)==0,"Ordinary stats disables bank return varbit 4894");
             check(Boolean.FALSE.equals(visible.get((667<<16)|48)),"Ordinary stats hides bank return parent");
@@ -140,6 +141,11 @@ public class EquipmentAbsorptionRegression {
             check("Absorb Magic: +0%".equals(labels.get((667<<16)|42)),"Melee armour has no magic soak");
             check("Absorb Range: +26%".equals(labels.get((667<<16)|43)),"Fresh ranged display");
             int root=mode<2?548:746,main=mode<2?18:9,inv=mode<2?197:84;
+            check("9 kg".equals(labels.get((667<<16)|24)),"Weight uses the worn definitions and native integer format");
+            check(events.indexOf("open:"+((root<<16)|main)+":667")<events.indexOf("text:"+((667<<16)|24)),"Weight refresh follows equipment on-load defaults");
+            check(p.hasTick("equipment_screen_refresh"),"Equipment open schedules a post-clientscript refresh");
+            labels.clear();p.processTicks();
+            check("9 kg".equals(labels.get((667<<16)|24))&&!p.hasTick("equipment_screen_refresh"),"Post-clientscript refresh restores weight without an equipment action");
             check(opens.contains(((root<<16)|main)+":667"),"Main panel mode "+mode);
             check(opens.contains(((root<<16)|inv)+":670"),"Inventory panel mode "+mode);
             p.closeAll(true,true);

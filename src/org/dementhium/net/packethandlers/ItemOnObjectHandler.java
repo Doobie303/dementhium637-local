@@ -4,6 +4,7 @@ import org.dementhium.cache.format.CacheObjectDefinition;
 import org.dementhium.content.activity.ActivityManager;
 import org.dementhium.content.activity.impl.warriorsguild.AnimationGame;
 import org.dementhium.content.areas.CoordinateEvent;
+import org.dementhium.content.home.HomeHub;
 import org.dementhium.content.dialogue.Dialogue;
 import org.dementhium.content.dialogue.DialogueManager;
 import org.dementhium.content.dialogue.DialogueType;
@@ -20,6 +21,7 @@ import org.dementhium.model.World;
 import org.dementhium.model.definition.ItemDefinition;
 import org.dementhium.model.map.GameObject;
 import org.dementhium.model.map.path.DefaultPathFinder;
+import org.dementhium.model.map.path.PathState;
 import org.dementhium.model.mask.Animation;
 import org.dementhium.model.player.Player;
 import org.dementhium.model.player.Skills;
@@ -36,6 +38,19 @@ import org.dementhium.tickable.Tick;
 public class ItemOnObjectHandler extends PacketHandler {
 
 	private static final int ITEM_ON_OBJECT = 11;
+	private static final class EdgePath {
+		private final PathState path;
+		private final int distance;
+		private final int x;
+		private final int y;
+
+		private EdgePath(PathState path, int distance, int x, int y) {
+			this.path = path;
+			this.distance = distance;
+			this.x = x;
+			this.y = y;
+		}
+	}
 
 	@Override
 	public void handlePacket(Player player, Message packet) {
@@ -62,8 +77,6 @@ public class ItemOnObjectHandler extends PacketHandler {
 		if (player.getRights() > 1) {
 			player.sendMessage("Incoming item on object opcode - id: " + objectId + ", item id: " + itemUsed + ", x: " + objX + ", y:" + objY + ".");
 		}
-		World.getWorld().doPath(new DefaultPathFinder(), player, objX, objY);
-
 		final GameObject gameObject = location.getGameObject(objectId);
         if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,gameObject)) return;
 
@@ -74,8 +87,30 @@ public class ItemOnObjectHandler extends PacketHandler {
 			return;
 		}
 		final CacheObjectDefinition definition = gameObject.getDefinition();
+		int eventX = objX;
+		int eventY = objY;
+		int eventSizeX = definition.getSizeX();
+		int eventSizeY = definition.getSizeY();
+		if (objectId == HomeHub.Portal.ALTAR.id && location.equals(HomeHub.Portal.ALTAR.location())) {
+			EdgePath edge = findObjectEdgePath(player, gameObject, definition);
+			if (edge == null) {
+				player.sendMessage("I can't reach that!");
+				return;
+			}
+			World.getWorld().doPath(player, edge.path);
+			eventX = edge.x;
+			eventY = edge.y;
+			eventSizeX = 1;
+			eventSizeY = 1;
+		} else {
+			World.getWorld().doPath(new DefaultPathFinder(), player, objX, objY);
+		}
 		final int objectClicked = objectId;
-		World.getWorld().submitAreaEvent(player, new CoordinateEvent(player, objX, objY, definition.getSizeX(), definition.getSizeY()) {
+		final int areaX = eventX;
+		final int areaY = eventY;
+		final int areaSizeX = eventSizeX;
+		final int areaSizeY = eventSizeY;
+		World.getWorld().submitAreaEvent(player, new CoordinateEvent(player, areaX, areaY, areaSizeX, areaSizeY) {
 
 			@Override
 			public void execute() {
@@ -85,6 +120,54 @@ public class ItemOnObjectHandler extends PacketHandler {
 
 		});
 
+	}
+
+	private EdgePath findObjectEdgePath(Player player, GameObject object, CacheObjectDefinition definition) {
+		int width = definition.getSizeX();
+		int height = definition.getSizeY();
+		if ((object.getRotation() & 1) != 0) {
+			int swap = width;
+			width = height;
+			height = swap;
+		}
+		int minX = object.getLocation().getX();
+		int minY = object.getLocation().getY();
+		EdgePath best = null;
+		for (int x = minX; x < minX + width; x++) {
+			best = nearerEdgePath(player, x, minY - 1, best);
+			best = nearerEdgePath(player, x, minY + height, best);
+		}
+		for (int y = minY; y < minY + height; y++) {
+			best = nearerEdgePath(player, minX - 1, y, best);
+			best = nearerEdgePath(player, minX + width, y, best);
+		}
+		return best;
+	}
+
+	private EdgePath nearerEdgePath(Player player, int x, int y, EdgePath best) {
+		int distance = Math.abs(player.getLocation().getX() - x) + Math.abs(player.getLocation().getY() - y);
+		if (best != null && distance >= best.distance) {
+			return best;
+		}
+		PathState path = World.getWorld().doPath(new DefaultPathFinder(), player, x, y, false, false, true);
+		if (!reaches(path, player, x, y)) {
+			return best;
+		}
+		return new EdgePath(path, distance, x, y);
+	}
+
+	private boolean reaches(PathState path, Player player, int x, int y) {
+		if (path == null || !path.isRouteFound()) {
+			return false;
+		}
+		if (player.getLocation().getX() == x && player.getLocation().getY() == y) {
+			return true;
+		}
+		if (path.getPoints().isEmpty()) {
+			return false;
+		}
+		org.dementhium.model.map.Position destination = path.getPoints().getLast();
+		return destination.getX() == x && destination.getY() == y;
 	}
 
 	protected void doObjectAction(final Player player, Message packet, GameObject object, int itemUsed, int objX, int objY, int objId, CacheObjectDefinition definition) {
@@ -180,7 +263,8 @@ public class ItemOnObjectHandler extends PacketHandler {
 				return;
 			}
 			
-		} else if (def.getName().toLowerCase().equals("altar")) {
+		} else if (def.getName().toLowerCase().equals("altar")
+				|| objId == HomeHub.Portal.ALTAR.id && object.getLocation().equals(HomeHub.Portal.ALTAR.location())) {
 			if (itemUsed == 13734 || itemUsed == 13754) {
 				if (player.getSkills().getLevel(Skills.PRAYER) < 85) {
 					Dialogue dial = new Dialogue();

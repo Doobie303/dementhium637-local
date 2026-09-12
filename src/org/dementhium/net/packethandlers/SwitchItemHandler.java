@@ -31,58 +31,26 @@ public class SwitchItemHandler extends PacketHandler {
         int fromItemId = packet.readShort();
         int toInterfaceHash = packet.readLEInt();
         int toInterfaceId = toInterfaceHash >> 16;
-        int tabId = (toInterfaceHash & 0xFF);
+        int tabId = (toInterfaceHash & 0xFFFF);
         int fromId = packet.readLEShortA();
         int toId = packet.readLEShort();
         int tabIndex = Bank.getArrayIndex(tabId);
         int fromTab;
         switch (fromInterfaceId) {
             case 762:
-                /*
-                 * Bank.
-                 */
-                if (player.getBank().isCheckingBank()) {
-                	return;
-                }
+                if (fromInterfaceHash != ((762 << 16) | 93) || toInterfaceId != 762
+                        || !player.getBank().matchesItem(fromId, fromItemId, false)) return;
                 if (tabId == 93) {
-                    if (fromId < 0 || fromId >= Bank.SIZE || toId < 0 || toId >= Bank.SIZE) {
-                        break;
-                    }
-                    if (!isInserting(player)) {
-                        Item temp = player.getBank().getContainer().get(fromId);
-                        Item temp2 = player.getBank().getContainer().get(toId);
-                        player.getBank().getContainer().set(fromId, temp2);
-                        player.getBank().getContainer().set(toId, temp);
-                        player.getBank().refresh();
-                    } else {
-                        if (toId > fromId) {
-                            player.getBank().insert(fromId, toId - 1);
-                        } else if (fromId > toId) {
-                            player.getBank().insert(fromId, toId);
-                        }
-                        player.getBank().refresh();
-                    }
-                    break;
-                } else {
-                    System.out.println(tabIndex);
-                    if (tabIndex > -1) {
-                        toId = tabIndex == 10 ? player.getBank().getContainer().getFreeSlot() : player.getBank().getTab()[tabIndex] + player.getBank().getItemsInTab(tabIndex);
-                        fromTab = player.getBank().getTabByItemSlot(fromId);
-                        if (toId > fromId) {
-                            player.getBank().insert(fromId, toId - 1);
-                        } else if (fromId > toId) {
-                            player.getBank().insert(fromId, toId);
-                        }
-                        player.getBank().increaseTabStartSlots(tabIndex);
-                        player.getBank().decreaseTabStartSlots(fromTab);
-                        player.getBank().refresh();
-                        player.getBank().sendTabConfig();
-                        break;
-                    }
+                    if (!player.getBank().matchesItem(toId, toItemId, false)) return;
+                    player.getBank().moveItem(fromId, toId, isInserting(player));
+                } else if (tabIndex >= 2 && tabIndex <= 10) {
+                    player.getBank().moveToTab(fromId, tabIndex);
                 }
                 break;
             case 149:
             case 763:
+                if ((fromInterfaceId == 763 || toInterfaceId == 763) && !player.getBank().isOpen()) return;
+                if ((fromInterfaceHash & 0xFFFF) != 0 || (toInterfaceHash & 0xFFFF) != 0) return;
                 switch (toInterfaceId) {
                     case 149:
                     case 763:
@@ -90,9 +58,11 @@ public class SwitchItemHandler extends PacketHandler {
                             toId -= 28;
                         if (fromId < 0 || fromId >= Inventory.SIZE || player.getInventory().getContainer().get(fromId) == null)
                             return;
-                        if (toId < 0 || fromId >= Inventory.SIZE)
+                        if (toId < 0 || toId >= Inventory.SIZE)
                             return;
                         Item toSlotItem = player.getInventory().getContainer().get(toId);
+                        if (player.getInventory().get(fromId).getId() != fromItemId
+                                || (toSlotItem == null ? toItemId != -1 && toItemId != 65535 : toSlotItem.getId() != toItemId)) return;
                         player.getInventory().getContainer().set(toId, player.getInventory().getContainer().get(fromId));
                         player.getInventory().getContainer().set(fromId, toSlotItem);
                         player.getInventory().refresh();

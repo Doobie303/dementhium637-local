@@ -13,6 +13,9 @@ import org.dementhium.net.ActionSender;
  */
 public class SkillGuideListener extends EventListener {
 
+    private static final int COMBAT_MILESTONE_FLAG = 1 << 1;
+    private static final int TOTAL_MILESTONE_FLAG = 1 << 2;
+
     /**
      * The skill guide data, indexed by skill id.
      * (actionbuttonId, levelup config value, normal config value)
@@ -76,7 +79,8 @@ public class SkillGuideListener extends EventListener {
             }
         }
         if (player.getSettings().getLeveledUpConfig()[slot]) {
-            ActionSender.sendConfig(player, 1230, SKILL_GUIDE_DATA[slot][1]);
+            int levelUpConfig = SKILL_GUIDE_DATA[slot][1] & ~(COMBAT_MILESTONE_FLAG | TOTAL_MILESTONE_FLAG);
+            ActionSender.sendConfig(player, 1230, levelUpConfig);
             ActionSender.sendInterface(player, 741);
             player.getSettings().getLeveledUpConfig()[slot] = false;
             LevelUp.sendFlashIcons(player);

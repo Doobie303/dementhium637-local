@@ -29,16 +29,7 @@ public final class XMLHandler {
     private static XStream xmlHandler;
 
     static {
-        xmlHandler = new XStream();
-        xmlHandler.alias("item", Item.class);
-        xmlHandler.alias("rectangle", RectangularArea.class);
-        xmlHandler.alias("circle", CircularArea.class);
-        xmlHandler.alias("irregular", IrregularArea.class);
-        xmlHandler.alias("position", Location.class);
-        xmlHandler.alias("identifier", Identifier.class);
-        xmlHandler.alias("ban", String.class);
-        xmlHandler.alias("npcDefinition", NPCDefintion.class);
-        xmlHandler.alias("weaponInterface", WeaponInterface.class);
+        setXmlHandler(new XStream());
     }
 
     public static void toXML(String file, Object object) throws IOException {

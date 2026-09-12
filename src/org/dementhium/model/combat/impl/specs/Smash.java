@@ -35,14 +35,11 @@ public class Smash extends SpecialAttack {
 		if (interaction.getVictim().isPlayer()) {
 			interaction.setDeflected(interaction.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
 			if (interaction.getDamage().getHit() > 0) {
-				int defenceLevel = (int) (interaction.getVictim().getPlayer().getSkills().getLevel(Skills.DEFENCE) * 0.35);
-				interaction.getVictim().getPlayer().getSkills().set(Skills.DEFENCE, 
-						interaction.getVictim().getPlayer().getSkills().getLevel(Skills.DEFENCE) - defenceLevel);
-				if (interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON) != null
-						 && interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().doesPoison()) {
-					interaction.getVictim().getPoisonManager().poison(interaction.getSource(), 
-							interaction.getSource().getPlayer().getEquipment().get(Equipment.SLOT_WEAPON).getDefinition().getPoisonAmount());
-				}
+				interaction.getDamage().onImpact(actual -> {
+					int defenceLevel = (int) (interaction.getVictim().getPlayer().getSkills().getLevel(Skills.DEFENCE) * 0.35);
+					interaction.getVictim().getPlayer().getSkills().set(Skills.DEFENCE,
+							interaction.getVictim().getPlayer().getSkills().getLevel(Skills.DEFENCE) - defenceLevel);
+				});
 			}
 		}
 		interaction.getSource().animate(ANIMATION);

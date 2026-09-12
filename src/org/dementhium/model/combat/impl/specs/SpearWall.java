@@ -34,7 +34,7 @@ public class SpearWall extends SpecialAttack {
 	@Override
 	public boolean commenceSpecialAttack(Interaction interaction) {
 		if (interaction.getSource().isMulti() && interaction.getVictim().isMulti()) {
-			interaction.setTargets(CombatUtils.getTargetList(interaction.getSource(), interaction.getSource(), 1, 8));
+			interaction.setTargets(CombatUtils.getTargetList(interaction.getSource(), interaction.getVictim(), interaction.getSource(), 1, 8));
 		} else {
 			List<ExtraTarget> target = new ArrayList<ExtraTarget>();
 			target.add(new ExtraTarget(interaction.getVictim()));
@@ -51,8 +51,8 @@ public class SpearWall extends SpecialAttack {
 						MeleeFormulae.getDamage(interaction.getSource(), interaction.getVictim())));
 				e.getDamage().setMaximum(maximum);
 			} else {
-				e.setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, 
-						MeleeFormulae.getDamage(interaction.getSource(), interaction.getVictim()) > 0 ? halfMaximum : 0));
+				e.setDamage(Damage.getDamage(interaction.getSource(), e.getVictim(), CombatType.MELEE,
+						MeleeFormulae.getDamage(interaction.getSource(), e.getVictim()) > 0 ? halfMaximum : 0));
 				e.getDamage().setMaximum(halfMaximum);
 			}
 

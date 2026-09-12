@@ -48,6 +48,11 @@ public class MagicAction extends CombatAction {
 			if (spell == null) {
 				return false;
 			}
+			if (interaction.getSource().getPlayer().getSkills().getLevel(Skills.MAGIC) < spell.getRequiredLevel()) {
+				interaction.getSource().getPlayer().sendMessage("You need a Magic level of " + spell.getRequiredLevel() + " to cast this spell.");
+				interaction.getSource().getCombatExecutor().reset();
+				return false;
+			}
 			if (!hasRequiredStaff(interaction.getSource().getPlayer(), spell)) {
 				interaction.getSource().getPlayer().sendMessage("You need " + spell.getRequiredStaffName() + " to cast this spell.");
 				interaction.getSource().getCombatExecutor().reset();
@@ -183,7 +188,7 @@ public class MagicAction extends CombatAction {
 
 	@Override
 	public int getCooldownTicks() {
-		return 5;
+		return interaction.getSource().isNPC() ? interaction.getSource().getAttackDelay() : 5;
 	}
 
 }

@@ -2,6 +2,7 @@ package org.dementhium.util;
 
 import org.dementhium.model.player.Player;
 import org.dementhium.net.ActionSender;
+import org.dementhium.content.interfaces.StaffTools;
 
 public class InterfaceSettings {
 
@@ -177,6 +178,10 @@ public class InterfaceSettings {
 			// ActionSender.sendInterface(player, 1, 746, 6, 667);
 			break;
 		}
+		ActionSender.sendString(player, 182, 0,
+				"When you have finished playing " + Constants.SERVER_NAME
+				+ ", always use a button below to exit the game and logout safely.");
+		StaffTools.installTab(player);
 	}
 
 	public static void normalIFaces(Player p) {

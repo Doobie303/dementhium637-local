@@ -3,6 +3,7 @@ package org.dementhium.model.player;
 import org.dementhium.model.Item;
 import org.dementhium.model.definition.ItemDefinition;
 import org.dementhium.net.ActionSender;
+import org.dementhium.tickable.Tick;
 
 public final class Bonuses {
 
@@ -94,17 +95,26 @@ public final class Bonuses {
         ActionSender.sendInterfaceConfig(player, 667, 49, fromBank);
         ActionSender.sendInterfaceConfig(player, 667, 50, fromBank);
         ActionSender.sendInterfaceConfig(player, 667, 51, false);
-        calculate();
         ActionSender.sendInterface(player, 667);
         ActionSender.sendInventoryInterface(player, 670);
         // sendInterfaceConfig's legacy boolean means visible on the wire.
         // Set the root and return parent after the interface's on-load script.
         ActionSender.sendInterfaceConfig(player, 667, 0, true);
         ActionSender.sendInterfaceConfig(player, 667, 48, fromBank);
+        // Interface 667's queued on-load script can restore stock labels,
+        // including "0 kg". Send now, then reassert on the next server tick.
+        calculate();
+        player.submitTick("equipment_screen_refresh", new Tick(1) {
+            @Override
+            public void execute() {
+                calculate();
+                stop();
+            }
+        }, true);
     }
     public void refreshEquipScreen() {
         // Weight
-        ActionSender.sendString(player, 667, 24, Math.ceil(weight) + " kg");
+        ActionSender.sendString(player, 667, 24, (int) Math.ceil(weight) + " kg");
 
         // Attack bonus
         ActionSender.sendString(player, 667, 30, "Stab: " + (bonuses[STAB_ATTACK] >= 0 ? "+" : "") + bonuses[STAB_ATTACK]);

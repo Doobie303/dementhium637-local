@@ -157,6 +157,28 @@ public class HomeHubRegression extends GamblerRegression {
         click(a,Portal.ALTAR);pick(a,2);pick(a,1);check(a.getPrayer().isAncientCurses(),"curses selection");
         click(a,Portal.ALTAR);pick(a,2);pick(a,0);check(!a.getPrayer().isAncientCurses(),"standard prayers selection");
     }
+    static void boneOfferings(){
+        GameObject altar=Portal.ALTAR.location().getGameObjectType(10);
+        int width=altar.getDefinition().getSizeX(),height=altar.getDefinition().getSizeY();
+        int[][] starts={{altar.getLocation().getX()-3,altar.getLocation().getY()+1},
+                {altar.getLocation().getX()+width+2,altar.getLocation().getY()+1},
+                {altar.getLocation().getX()+1,altar.getLocation().getY()-3},
+                {altar.getLocation().getX()+1,altar.getLocation().getY()+height+2}};
+        for(int[] start:starts){
+            Player p=at(Location.locate(start[0],start[1],0));p.getInventory().getContainer().set(0,new Item(526));
+            p.getRegion().setLastMapRegion(p.getLocation());
+            org.dementhium.net.message.Message packet=new org.dementhium.net.message.MessageBuilder(11)
+                    .writeLEInt(0).writeLEShortA(0).writeShort(526).writeShort(altar.getLocation().getX())
+                    .writeByteS(0).writeShortA(altar.getId()).writeLEShortA(altar.getLocation().getY()).toMessage();
+            new org.dementhium.net.packethandlers.ItemOnObjectHandler().handlePacket(p,packet);
+            for(int tick=0;tick<20;tick++){p.getWalkingQueue().getNextEntityMovement();p.processTicks();}
+            int dx=p.getLocation().getX()-altar.getLocation().getX(),dy=p.getLocation().getY()-altar.getLocation().getY();
+            boolean adjacent=dx==-1&&dy>=0&&dy<height||dx==width&&dy>=0&&dy<height
+                    ||dy==-1&&dx>=0&&dx<width||dy==height&&dx>=0&&dx<width;
+            check(adjacent,"bone offering stops beside altar from "+Arrays.toString(start)+": "+p.getLocation());
+            check(!p.getInventory().contains(526),"bone offering completes from "+Arrays.toString(start));
+        }
+    }
     static void homeGambler()throws Exception{
         npc=find(Service.GAMBLER);check(HomeHub.isGamblerStand(npc),"registered home stand");
         Player a=at(npc.getLocation().transform(1,0,0));a.getInventory().getContainer().set(0,new Item(995,100000));
@@ -177,7 +199,7 @@ public class HomeHubRegression extends GamblerRegression {
         root=Files.createTempDirectory(Paths.get("build/gambler"),"home-test-");CombatFixtures.init();MapXTEA.loadPackedFile();GroundItemManager.load();
         field(World.getWorld(),World.class,"playerLoader",new PlayerLoader(root));InstanceManager.getSingleton().beginCycle();
         LandscapeParser.parseLandscape((36<<8)|57,MapXTEA.getMapKeys().get((36<<8)|57));
-        World.getWorld().getShopManager().load();geometry();landings();menus();homeGambler();returns();
+        World.getWorld().getShopManager().load();geometry();landings();menus();boneOfferings();homeGambler();returns();
         System.out.println("Home hub: "+checks+" checks passed; isolated storage "+root);
     }
 }

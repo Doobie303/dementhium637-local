@@ -430,7 +430,7 @@ public class NpcOption extends PacketHandler {
 			player.sendMessage("I can't reach that!");
 			return;
 		}
-		World.getWorld().submitAreaEvent(player, new CoordinateEvent(player, locationToWalk.getX(), locationToWalk.getX(), npc.getDefinition().getCacheDefinition().size, npc.getDefinition().getCacheDefinition().size) {
+		World.getWorld().submitAreaEvent(player, new CoordinateEvent(player, locationToWalk.getX(), locationToWalk.getY(), npc.getDefinition().getCacheDefinition().size, npc.getDefinition().getCacheDefinition().size) {
 			@Override
 			public void execute() {
                 if (!org.dementhium.model.instance.InstanceAccess.canInteract(player,npc)) return;
@@ -508,31 +508,10 @@ public class NpcOption extends PacketHandler {
 				}
 				switch (id) {
 				case 9462:
-					player.turnTo(npc, false);
-					player.animate(4278);
-					npc.getMask().setSwitchId(9463);
-					npc.turnTo(player, false);
-					npc.setHp(npc.getMaxHp());
-					npc.setDead(false);
-					npc.animate(12795);
-					return;
 				case 9464:
-					player.turnTo(npc, false);
-					player.animate(4278);
-					npc.getMask().setSwitchId(9465);
-					npc.turnTo(player, false);
-					npc.setHp(npc.getMaxHp());
-					npc.setDead(false);
-					npc.animate(12795);
-					return;
 				case 9466:
-					player.turnTo(npc, false);
-					player.animate(4278);
-					npc.getMask().setSwitchId(9467);
-					npc.turnTo(player, false);
-					npc.setHp(npc.getMaxHp());
-					npc.setDead(false);
-					npc.animate(12795);
+					if (npc instanceof org.dementhium.model.npc.impl.Strykewyrm)
+						((org.dementhium.model.npc.impl.Strykewyrm) npc).activate(player);
 					return;
 				}
 				Dialogue dialogue = org.dementhium.content.dialogue.DialogueManager.getForNPC(npc.getId());

@@ -51,7 +51,7 @@ public class NPCLoader {
 			}
 			String[] spawn = string.split(" ");
 			int id = Integer.parseInt(spawn[0]), x = Integer.parseInt(spawn[1]), y = Integer.parseInt(spawn[2]), z = Integer.parseInt(spawn[3]), faceDir = Integer.parseInt(spawn[4]);
-			if (id > NPCDefinition.definitionSize()) {
+			if (id < 0 || id >= NPCDefinition.definitionSize()) {
 				continue;
 			}
 			boolean doesWalk = Boolean.parseBoolean(spawn[5]);
@@ -102,13 +102,13 @@ public class NPCLoader {
 		}
 		NodeList nodeList = doc.getDocumentElement().getChildNodes();
 		System.out.println("Loading customized NPC classes...");
-		for (short i = 1; i < nodeList.getLength(); i += 2) {
+		for (int i = 0; i < nodeList.getLength(); i++) {
 			Node n = nodeList.item(i);
 			if (n != null) {
 				if (n.getNodeName().equalsIgnoreCase("npc")) {
 					NodeList list = n.getChildNodes();
 					Class<?> npcObject = null;
-					for (int a = 1; a < list.getLength(); a += 2) {
+					for (int a = 0; a < list.getLength(); a++) {
 						Node node = list.item(a);
 						if (node.getNodeName().equalsIgnoreCase("handler")) {
 							try {

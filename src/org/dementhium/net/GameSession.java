@@ -16,17 +16,24 @@ public class GameSession {
     private int displayMode;
     private boolean inLobby;
     private boolean gamblerInterface;
+    private boolean staffToolsInterface;
     private boolean infernalCape;
     private boolean osrsEquipment;
     public boolean supportsInfernalCape(){return infernalCape;}
     public boolean supportsOsrsEquipment(){return osrsEquipment;}
-    /** Cosmetic capability only; never grants permission to wager or claim. */
+    /** Client feature markers only; they never grant gameplay or staff permission. */
     public void readClientSettings(String settings) {
-        infernalCape = settings != null && settings.contains("|infernal-cape=1|");
-        osrsEquipment = settings != null && settings.contains("|osrs-equipment=1|");
-        gamblerInterface = settings != null && settings.endsWith("|gambler-ui=1");
+        infernalCape = hasCapability(settings, "infernal-cape");
+        osrsEquipment = hasCapability(settings, "osrs-equipment");
+        gamblerInterface = hasCapability(settings, "gambler-ui");
+        staffToolsInterface = hasCapability(settings, "staff-tools");
     }
     public boolean supportsGamblerInterface() { return gamblerInterface; }
+    public boolean supportsStaffToolsInterface() { return staffToolsInterface; }
+
+    private static boolean hasCapability(String settings, String capability) {
+        return settings != null && (settings + "|").contains("|" + capability + "=1|");
+    }
 
     public Channel getChannel() {
         return channel;

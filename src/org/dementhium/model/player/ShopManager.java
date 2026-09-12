@@ -10,8 +10,7 @@ public class ShopManager {
     public HashMap<Integer, Shop> shops = new HashMap<Integer, Shop>();
 
     public void load() {
-        try {
-            RandomAccessFile shopFile = new RandomAccessFile("data/shops.bin", "r");
+        try (RandomAccessFile shopFile = new RandomAccessFile("data/shops.bin", "r")) {
             int shopsAmt = shopFile.readShort();
             for (int shopId = 0; shopId < shopsAmt; shopId++) {
                 int npcId = shopFile.readShort();

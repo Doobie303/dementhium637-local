@@ -2,6 +2,7 @@ package org.dementhium.cache.format;
 
 import org.dementhium.cache.CacheConstants;
 import org.dementhium.cache.CacheManager;
+import org.dementhium.content.items.CustomItems;
 import org.dementhium.util.BufferUtils;
 
 import java.nio.ByteBuffer;
@@ -44,8 +45,8 @@ public class CacheItemDefinition {
 
     private int colourEquip1;
     private int colourEquip2;
-    private int certId;
-    private int certTemplateId;
+    private int certId = -1;
+    private int certTemplateId = -1;
     private int[] stackIds;
     private int[] stackAmounts;
     private int teamId;
@@ -73,11 +74,8 @@ public class CacheItemDefinition {
         setDefaultOptions();
         byte[] is = null;
         try {
-            if (id == org.dementhium.content.InfernalCape.ID) {
-                is = org.dementhium.content.InfernalCape.cacheDefinition();
-            } else if (org.dementhium.content.OsrsEquipment.isItem(id)) {
-                is = org.dementhium.content.OsrsEquipment.cacheDefinition(id);
-            } else {
+            is = CustomItems.cacheDefinition(id);
+            if (is == null) {
                 is = CacheManager.getData(CacheConstants.ITEMDEF_IDX_ID, id >>> 8, id & 0xFF);
             }
         } catch (Exception e) {
@@ -342,7 +340,7 @@ public class CacheItemDefinition {
                 //certId = buffer.getShort();
                 break;
             case 97:
-                certTemplateId = buffer.getShort();
+                certId = buffer.getShort() & 0xFFFF;
                 break;
             case 95:
             case 93:

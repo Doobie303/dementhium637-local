@@ -30,6 +30,10 @@ public final class NPCCombatContext {
     }
     public static boolean validPair(Mob source,Mob victim){
         if(source==null||victim==null)return false;
+        // Nex's mages remain passive until she calls them and drops their shield.
+        if(source.isNPC() && source.getNPC().getId()>=org.dementhium.model.npc.impl.Nex.FUMUS
+                && source.getNPC().getId()<=org.dementhium.model.npc.impl.Nex.GLACIES
+                && !Boolean.TRUE.equals(source.getAttribute("nex_vulnerable")))return false;
         boolean nex=source instanceof org.dementhium.model.npc.impl.Nex||victim instanceof org.dementhium.model.npc.impl.Nex;
         if(nex&&!org.dementhium.model.npc.impl.Nex.arenaPair(source,victim))return false;
         if(!org.dementhium.model.npc.encounter.EncounterNPC.pair(source,victim))return false;

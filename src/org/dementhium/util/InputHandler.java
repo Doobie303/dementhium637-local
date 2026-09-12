@@ -16,6 +16,9 @@ import org.dementhium.net.ActionSender;
 public class InputHandler {
 
     public static void handleStringInput(Player player, String string) {
+        if (org.dementhium.content.interfaces.StaffTools.handleStringInput(player, string)) {
+            return;
+        }
         int inputId = (Integer) player.getAttribute("inputId", -1);
         if (inputId > -1) {
             switch (inputId) {
@@ -57,6 +60,9 @@ public class InputHandler {
     }
 
     public static void handleIntegerInput(Player player, int value) {
+        if (org.dementhium.content.interfaces.StaffTools.handleIntegerInput(player, value)) {
+            return;
+        }
         int inputId = (Integer) player.getAttribute("inputId", -1);
 
         if (inputId > -1) {
@@ -88,19 +94,11 @@ public class InputHandler {
                     break;
                 case 3:
                     int bankSlot = (Integer) player.getAttribute("slotId", -1);
-                    if (bankSlot > -1) {
-                        player.getSettings().setLastXAmount(value);
-                        ActionSender.sendConfig(player, 1249, value);
-                        player.getBank().removeItem(bankSlot, value);
-                    }
+                    player.getBank().submitAmount(bankSlot, value, false);
                     break;
                 case 4:
                     int bankInventorySlot = (Integer) player.getAttribute("slotId", -1);
-                    if (bankInventorySlot > -1) {
-                        player.getSettings().setLastXAmount(value);
-                        ActionSender.sendConfig(player, 1249, value);
-                        player.getBank().addItem(bankInventorySlot, value);
-                    }
+                    player.getBank().submitAmount(bankInventorySlot, value, true);
                     break;
                 case 5:
                     org.dementhium.event.impl.interfaces.DuelArenaListener.input(player,value,true);break;
@@ -120,6 +118,12 @@ public class InputHandler {
                     int pouchId = player.getAttribute("inputXItemId", -1);
                     Summoning.createPouch(player, pouchId, slotId, value);
                 	break;
+                case 9:
+                case 10:
+                    if (player.getFamiliar() != null) {
+                        player.getFamiliar().submitAmount(player.getAttribute("slotId", -1), value, inputId == 9);
+                    }
+                    break;
             }
         }
         player.setAttribute("slotId", 0);

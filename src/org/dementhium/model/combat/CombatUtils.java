@@ -423,13 +423,23 @@ public class CombatUtils {
 	 */
     /** Maximum is the total accepted target count, including the selected victim. */
     public static List<ExtraTarget> getTargetList(Mob attacker, Mob source, int distance, int maximum) {
+        return getTargetList(attacker, source, source, distance, maximum);
+    }
+
+    /** Selected victim determines target kind; center determines the area of the attack. */
+    public static List<ExtraTarget> getTargetList(Mob attacker, Mob selected, Mob center, int distance, int maximum) {
         java.util.List<Mob> candidates = new java.util.ArrayList<Mob>();
-        if (source.isPlayer()) candidates.addAll(Region.getLocalPlayers(source.getLocation(), distance));
-        else candidates.addAll(Region.getLocalNPCs(source.getLocation(), distance));
-        return selectTargets(attacker, source, distance, maximum, candidates);
+        if (selected.isPlayer()) candidates.addAll(Region.getLocalPlayers(center.getLocation(), distance));
+        else candidates.addAll(Region.getLocalNPCs(center.getLocation(), distance));
+        return selectTargets(attacker, selected, center, distance, maximum, candidates);
     }
 
     public static List<ExtraTarget> selectTargets(Mob attacker, Mob selected, int distance, int maximum,
+            java.util.List<? extends Mob> candidates) {
+        return selectTargets(attacker, selected, selected, distance, maximum, candidates);
+    }
+
+    private static List<ExtraTarget> selectTargets(Mob attacker, Mob selected, Mob center, int distance, int maximum,
             java.util.List<? extends Mob> candidates) {
         List<ExtraTarget> targets = new ArrayList<ExtraTarget>();
         if (maximum <= 0 || distance < 0) return targets;
@@ -438,8 +448,8 @@ public class CombatUtils {
         ordered.add(selected); ordered.addAll(candidates);
         for (Mob target : ordered) {
             if (target == null || target == attacker || !seen.add(target) || target.getHitPoints() <= 0
-                    || target.getLocation().getZ() != selected.getLocation().getZ()
-                    || Math.floor(target.getLocation().distance(selected.getLocation())) > distance
+                    || target.getLocation().getZ() != center.getLocation().getZ()
+                    || Math.floor(target.getLocation().distance(center.getLocation())) > distance
                     || !target.isMulti() || !target.isAttackable(attacker)
                     || !org.dementhium.model.instance.InstanceAccess.canInteract(attacker, target)) continue;
             targets.add(new ExtraTarget(target));

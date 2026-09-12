@@ -37,6 +37,50 @@ public final class NexBloodPhaseRegression {
     }
     static void cycle() throws Exception { BossEncounterCompletionRegression.cycle(); }
     static int now() { return World.getTicks(); }
+    static long sacrificeProjectiles() {
+        return BossEncounterCompletionRegression.packets.get(player).stream()
+                .filter(m->m.getOpcode()==15&&m.getBuffer().getUnsignedShort(9)==374).count();
+    }
+    static void sacrificeDeadline() throws Exception {
+      for(boolean escape:new boolean[]{false,true}) {
+        Nex n=setup();set(n,Nex.class,"specialStep",1);event.setTime(1);player.updateRegionArea();
+        cycle();int start=now();
+        // Retain the NPC timer path, isolating sacrifice damage from autos/reavers.
+        BossEncounterCompletionRegression.active.remove(event);n.getCombatExecutor().setVictim(null);
+        int hp=player.getHitPoints();
+        for(int elapsed=1;elapsed<=7;elapsed++) {
+            // Move after the projectile launches: the escape decision must use impact-time position.
+            if(escape&&elapsed==6){player.getWalkingQueue().setIsRunning(true);player.getWalkingQueue().reset();player.getWalkingQueue().addToWalkingQueue(player.getViewportX()+4,player.getViewportY());}
+            cycle();check(elapsed==7?player.getHitPoints()<hp:player.getHitPoints()==hp,
+                    "Sacrifice resolves exactly seven subsequent world ticks after marking: "+elapsed);
+            check(sacrificeProjectiles()==(elapsed>=5?1:0),"Sacrifice projectile precedes impact, elapsed="+elapsed);
+        }
+        int lost=hp-player.getHitPoints();
+        check((player.getLocation().distance(n.getLocation())>=5)==escape,"Running scenario reaches the existing five-tile escape boundary");
+        cycle();cycle();
+        check(escape?lost>=50&&lost<=100:lost>=600&&lost<=760,"Sacrifice evaluates actual running position at the deadline");
+        check(n.getHitPoints()==15000+(escape?0:lost),"Sacrifice healing accompanies only the unescaped hit");
+        check(hp-player.getHitPoints()==lost,"Sacrifice applies once on its deadline");
+        check(sacrificeProjectiles()==1,"Sacrifice projectile emits once");
+        System.out.println("Sacrifice mark="+start+", deadline="+(start+7)+", escaped="+escape);
+      }
+    }
+    static void lateReaverKills() throws Exception {
+        for(boolean god:new boolean[]{false,true}) {
+            Nex n=setup();player.setAttribute("godmode",god);event.setTime(1);
+            for(int t=0;t<80 && !(counter(n,"specialStep")==2&&counter(n,"autoAttacksSinceSpecial")==3);t++)cycle();
+            check(counter(n,"specialStep")==2&&counter(n,"autoAttacksSinceSpecial")==3,"Natural blood rotation reaches late-kill boundary");
+            List<NPC> old=reavers();int killedAt=now();
+            for(NPC add:old)for(int hit=0;hit<30&&!add.isDead();hit++)BossEncounterCompletionRegression.damage(player,add,1000);
+            for(int elapsed=1;elapsed<=4;elapsed++) {
+                cycle();List<NPC> current=reavers();
+                check(elapsed==4?!current.contains(old.get(0)):current.contains(old.get(0)),
+                        "Late reaver kills are replaced only by next siphon, godmode="+god+", elapsed="+elapsed);
+            }
+            check(n.isSiphonMode()&&reavers().size()==2,"Next scheduled siphon owns two new reavers");
+            System.out.println("Late reaver kills godmode="+god+" at "+killedAt+", next siphon="+now());
+        }
+    }
     static void cadence() throws Exception {
         Nex n=setup();int lastAuto=-1,siphonAt=-1,previousStep=0,previousAutos=0,siphons=0;
         List<NPC> killed=new ArrayList<NPC>();
@@ -48,6 +92,7 @@ public final class NexBloodPhaseRegression {
                 System.out.println("Blood special "+step+" at tick "+now()+", last auto="+lastAuto+", cooldown="+n.getCombatExecutor().getTicks());
                 if(lastAuto>=0)check(now()-lastAuto>=4,"Blood special must wait the full four-tick interval after its third auto");
                 if(n.isSiphonMode()) {
+                    if(siphonAt>=0)check(now()-siphonAt==40,"Stationary blood rotation keeps its established rhythm plus two sacrifice ticks");
                     siphonAt=now();siphons++;
                     List<NPC> adds=reavers();check(adds.size()==2,"Each siphon owns exactly two reavers");
                     for(int i=0;i<adds.size();i++) {
@@ -138,7 +183,7 @@ public final class NexBloodPhaseRegression {
     public static void main(String[] args) throws Exception {
         CombatFixtures.init();
         org.dementhium.model.misc.GroundItemManager.load();
-        cadence();healingAndCancellation();phaseCancellation();reaverCombat();
+        sacrificeDeadline();cadence();lateReaverKills();healingAndCancellation();phaseCancellation();reaverCombat();
         System.out.println("Blood contract failures: "+failures);
         call("resetEncounter",false);
         // Existing complete-fight production-path proof, including Cruor -> ice and one fixture loot drop.

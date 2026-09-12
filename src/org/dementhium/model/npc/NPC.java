@@ -418,7 +418,7 @@ public class NPC extends Mob {
                     break;
             }
         }
-        switch (npcId) {
+        if (killer != null && killer.isPlayer()) switch (npcId) {
 		case 10203:
 			killer.getPlayer().getSkills().addExperience(Skills.DUNGEONEERING, 12);
 			break;

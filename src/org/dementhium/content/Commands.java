@@ -1,5 +1,7 @@
 package org.dementhium.content;
 
+import org.dementhium.content.items.CustomItems;
+
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -125,9 +127,9 @@ public final class Commands {
 	}
 
 	public static void handle(Player player, String[] command) {
-        if(command.length>0&&command[0].equalsIgnoreCase("infernalcape")){spawnItem(player,InfernalCape.ID,1);return;}
+        if(command.length>0&&command[0].equalsIgnoreCase("infernalcape")){spawnItem(player,CustomItems.INFERNAL_CAPE,1);return;}
         if(command.length>0&&command[0].equalsIgnoreCase("osrsgear")){
-            for(int id=OsrsEquipment.FIRST_ID;id<=OsrsEquipment.LAST_ID;id++)spawnItem(player,id,1);
+            for(int id : CustomItems.osrsEquipmentIds())spawnItem(player,id,1);
             return;
         }
         if(command.length>0 && command[0].equalsIgnoreCase("gamblerui")) {
@@ -4106,8 +4108,9 @@ public final class Commands {
 	}
 
 	public static boolean spawnItem(Player player,	int itemId, int amount){
-        if(itemId==InfernalCape.ID&&!InfernalCape.supported(player)){player.sendMessage("Use the updated development client to test the Infernal cape.");return false;}
-        if(OsrsEquipment.isItem(itemId)&&!OsrsEquipment.supported(player)){player.sendMessage("Use the updated development client to test this OSRS item.");return false;}
+        if (!CustomItems.canSpawn(player, itemId)) {
+            return false;
+        }
 		if (player.getRights() < 2) {
 				player.sendMessage("You can't spawn, try using some of the spawn commands!");
 				return false;

@@ -43,9 +43,12 @@ public class Sunder extends SpecialAttack {
 		if (interaction.getDamage().getHit() > 0 && interaction.getVictim().isPlayer()) {
 			int slot = 0;
 			while((slot = interaction.getSource().getRandom().nextInt(7)) == 5);
-			interaction.getVictim().getPlayer().sendMessage("Your " + Skills.SKILL_NAME[slot] + " level has been lowered by the anchor attack.");
-			interaction.getVictim().getPlayer().getSkills().set(slot, 
-					(int) (interaction.getVictim().getPlayer().getSkills().getLevel(slot) - (interaction.getDamage().getHit() * 0.1)));
+			final int skill = slot;
+			interaction.getDamage().onImpact(actual -> {
+				interaction.getVictim().getPlayer().sendMessage("Your " + Skills.SKILL_NAME[skill] + " level has been lowered by the anchor attack.");
+				interaction.getVictim().getPlayer().getSkills().set(skill,
+						(int) (interaction.getVictim().getPlayer().getSkills().getLevel(skill) - (actual * 0.1)));
+			});
 		}
 		interaction.getSource().animate(ANIMATION);
 		interaction.getSource().graphics(GRAPHICS);

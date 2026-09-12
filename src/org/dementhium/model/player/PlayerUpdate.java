@@ -1,5 +1,7 @@
 package org.dementhium.model.player;
 
+import org.dementhium.content.items.CustomItems;
+
 import org.dementhium.model.Item;
 import org.dementhium.model.Location;
 import org.dementhium.model.World;
@@ -435,8 +437,7 @@ public class PlayerUpdate {
                 if (item == null)
                     appearanceData.writeByte(0);
                 else {
-                    int equipId=org.dementhium.content.InfernalCape.appearanceId(player,item.getId(),item.getDefinition().getEquipId());
-                    appearanceData.writeShort(32768 + org.dementhium.content.OsrsEquipment.appearanceId(player,item.getId(),equipId));
+                    appearanceData.writeShort(32768 + CustomItems.appearanceId(player, item.getId(), item.getDefinition().getEquipId()));
                 }
             }
             if (p.getEquipment().get(Equipment.SLOT_CHEST) != null) {
@@ -446,7 +447,7 @@ public class PlayerUpdate {
             }
             if (p.getEquipment().get(Equipment.SLOT_SHIELD) != null) {
                 Item item=p.getEquipment().get(Equipment.SLOT_SHIELD);
-                appearanceData.writeShort(32768 + org.dementhium.content.OsrsEquipment.appearanceId(player,item.getId(),item.getDefinition().getEquipId()));
+                appearanceData.writeShort(32768 + CustomItems.appearanceId(player, item.getId(), item.getDefinition().getEquipId()));
             } else {
                 appearanceData.writeByte((byte) 0);
             }
@@ -487,7 +488,7 @@ public class PlayerUpdate {
             }
             if (p.getEquipment().get(Equipment.SLOT_FEET) != null) {
                 Item item=p.getEquipment().get(Equipment.SLOT_FEET);
-                appearanceData.writeShort(32768 + org.dementhium.content.OsrsEquipment.appearanceId(player,item.getId(),item.getDefinition().getEquipId()));
+                appearanceData.writeShort(32768 + CustomItems.appearanceId(player, item.getId(), item.getDefinition().getEquipId()));
             } else {
                 appearanceData.writeShort(0x100 + p.getAppearance().getLook()[6]);
             }

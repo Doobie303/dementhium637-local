@@ -335,7 +335,7 @@ public enum SummoningPouch {
 	/**
 	 * Represents a hydra pouch.
 	 */
-	HYDRA_POUCH(12025, 80, 21, 9488, 1.6, 9, new Item(12159), new Item(571), new Item(12155), new Item( 12183, 128)),
+	HYDRA_POUCH(12025, 80, 21, 6811, 1.6, 9, new Item(12159), new Item(571), new Item(12155), new Item( 12183, 128)),
 
 	/**
 	 * Represents a spirit dagannoth pouch.

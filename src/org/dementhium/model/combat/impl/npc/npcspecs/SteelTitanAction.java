@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.dementhium.model.Projectile;
 import org.dementhium.model.combat.CombatAction;
+import org.dementhium.model.combat.CombatMovement;
 import org.dementhium.model.combat.CombatType;
 import org.dementhium.model.combat.Damage;
 import org.dementhium.model.combat.ExtraTarget;
@@ -95,6 +96,7 @@ public class SteelTitanAction extends CombatAction {
 	 * The current attack.
 	 */
 	private Attack attack = Attack.RANGE;
+	private boolean magicImpactDelayed;
 
 	/**
 	 * Constructs a new {@code SteelTitanAction} {@code Object}.
@@ -106,6 +108,21 @@ public class SteelTitanAction extends CombatAction {
 	@Override
 	public boolean commenceSession() {
 		interaction.getSource().getCombatExecutor().setTicks(4);
+		// Familiar supplies a fresh action each tick. Choose the ordinary attack
+		// at launch; the old endSession selection never reached the next action.
+		if (!interaction.getSource().getAttribute("specialMove", false)) {
+			int choice = interaction.getSource().getRandom().nextInt(10);
+			if (choice < 2) {
+				attack = Attack.MAGIC;
+				type = CombatType.MAGIC;
+			} else if (choice < 6 && CombatMovement.canMelee(interaction.getSource(), interaction.getVictim())) {
+				attack = Attack.MELEE;
+				type = CombatType.MELEE;
+			} else {
+				attack = Attack.RANGE;
+				type = CombatType.RANGE;
+			}
+		}
 		if (interaction.getSource().getAttribute("specialMove", false)) {
 			interaction.getSource().setAttribute("specialMove", false);
 			Player owner = interaction.getSource().getFamiliar().getOwner();
@@ -175,12 +192,11 @@ public class SteelTitanAction extends CombatAction {
 	public boolean endSession() {
 		if (type != CombatType.MAGIC) {
 			interaction.getVictim().graphics(attack.end);
-		} else if (!interaction.getSource().getAttribute("delayedMagic", false)) {
+		} else if (!magicImpactDelayed) {
 			interaction.getVictim().graphics(attack.end);
-			interaction.getSource().setAttribute("delayedMagic", true);
+			magicImpactDelayed = true;
 			return false;
 		}
-		interaction.getSource().setAttribute("delayedMagic", false);
 		if (interaction.getTargets() == null) {
 			ExtraTarget victim = new ExtraTarget(interaction.getVictim());
 			victim.setDamage(interaction.getDamage());

@@ -24,7 +24,7 @@ public final class HomeHub {
     }
     public enum Portal {
         PVM(2465,2332,3684), PVP(2466,2334,3684), ACTIVITIES(2467,2336,3684),
-        ALTAR(47120,2335,3682);
+        ALTAR(47120,2335,3680);
         public final int id,x,y;
         Portal(int id,int x,int y){this.id=id;this.x=x;this.y=y;}
         public Location location(){return Location.locate(x,y,0);}

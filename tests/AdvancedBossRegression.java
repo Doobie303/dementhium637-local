@@ -56,6 +56,42 @@ public class AdvancedBossRegression {
   for(Kind k:new Kind[]{Kind.KBD_MELEE,Kind.FROST_MELEE,Kind.TD_MELEE}){Fixture f=new Fixture(id(k));f.p.setLocation(Location.locate(3212,3200,0));check(!action(f,k).commenceSession(),"Contact-only melee "+k);}
   Fixture f=new Fixture(3200);f.p.setLocation(Location.locate(3208,3200,0));check(action(f,Kind.CHAOS_MELEE).commenceSession(),"Chaos projectile has deliberately distant melee damage");
  }
+ static List<Integer> frostProjectiles(Fixture f){
+  List<Integer> ids=new ArrayList<Integer>();
+  org.jboss.netty.channel.Channel channel=(org.jboss.netty.channel.Channel)Proxy.newProxyInstance(org.jboss.netty.channel.Channel.class.getClassLoader(),new Class[]{org.jboss.netty.channel.Channel.class},(proxy,method,args)->{
+   if(method.getName().equals("isConnected")||method.getName().equals("isOpen"))return true;
+   if(method.getName().equals("write")&&args[0] instanceof org.dementhium.net.message.Message){
+    org.dementhium.net.message.Message m=(org.dementhium.net.message.Message)args[0];
+    if(m.getOpcode()==15){org.jboss.netty.buffer.ChannelBuffer b=m.getBuffer();check(b.readableBytes()==20&&b.getUnsignedByte(3)==13,"Native projectile packet route");ids.add(b.getUnsignedShort(9));check(b.getUnsignedShort(13)<b.getUnsignedShort(15),"Projectile has a positive flight duration");}
+   }
+   return null;
+  });
+  f.p.setConnection(new GameSession(channel));f.p.getRegion().setLastMapRegion(f.p.getLocation());return ids;
+ }
+ static void frostVisuals()throws Exception{
+  for(Kind k:new Kind[]{Kind.FROST_MAGIC,Kind.FROST_FIRE})for(boolean distant:new boolean[]{false,true}){
+   Fixture f=new Fixture(51);if(distant)f.p.setLocation(f.p.getLocation().transform(4,0,0));List<Integer> ids=frostProjectiles(f);
+   check(action(f,k).commenceSession(),"Frost attack launch "+k+" distant="+distant);
+   boolean mouth=k==Kind.FROST_FIRE&&!distant;org.dementhium.model.mask.Graphic g=f.n.getMask().getLastGraphics();
+   if(mouth)check(g!=null&&g.getId()==2465&&g.getDelay()==0&&g.getHeight()==0&&ids.isEmpty(),"Close dragonfire uses the complete mouth effect");
+   else check(g==null&&ids.equals(Arrays.asList(k==Kind.FROST_MAGIC?2705:393)),"Magic and distant fire use their own travelling projectiles");
+   check(f.n.getMask().getLastAnimation().getId()==(mouth?13152:13155),"Matching breath/spit animation");
+   check(f.n.getCombatExecutor().getTicks()==5,"One-tick slower frost cooldown");
+  }
+  Fixture f=new Fixture(51);f.p.setAttribute("godmode",true);f.n.getCombatExecutor().setVictim(f.p);
+  Field clock=World.class.getDeclaredField("ticksPassed");clock.setAccessible(true);
+  List<Integer> ids=frostProjectiles(f);int breath=0,magic=0,melee=0,previous=-1;
+  for(int tick=0;tick<60;tick++){
+   clock.setInt(null,World.getTicks()+1);f.n.getMask().reset();ids.clear();f.n.getNPCTasks()[0].execute();
+   if(f.n.getMask().getLastAnimation()==null)continue;
+   if(previous>=0)check(tick-previous==5,"Frost natural attacks are five ticks apart");previous=tick;
+   if(f.n.getMask().getLastAnimation().getId()==13152){
+    breath++;check(f.n.getMask().getLastGraphics()!=null&&f.n.getMask().getLastGraphics().getId()==2465,"Executor routes breath through NPC graphics mask");
+   }else if(ids.contains(2705)){magic++;check(f.n.getMask().getLastAnimation().getId()==13155&&f.n.getMask().getLastGraphics()==null,"Magic spits a projectile without dragonfire");}
+   else{melee++;check(f.n.getMask().getLastAnimation().getId()==13155&&f.n.getMask().getLastGraphics()==null,"Melee does not breathe fire");}
+  }
+  check(breath>0&&magic>0&&melee>0,"Natural frost fire, magic and melee launches");CombatFixtures.clearPlayers();
+ }
  static void boundaries()throws Exception{
   for(Kind k:new Kind[]{Kind.TD_MAGIC,Kind.TOXIC,Kind.ICE,Kind.DISARM,Kind.TELEPORT,Kind.FROST_MAGIC})for(int mode=0;mode<7;mode++){
    Fixture f=new Fixture(id(k));f.p.getEquipment().set(3,new Item(4151));AdvancedAttack a=action(f,k);check(a.commenceSession(),"Owned launch");
@@ -100,7 +136,7 @@ public class AdvancedBossRegression {
   for(String line:Files.readAllLines(Paths.get("data/npcs/npcspawns.txt"))){if(!line.matches("(50|51|3200|8349|8353|8357|8361) .*"))continue;String[] p=line.split(" ");int id=Integer.parseInt(p[0]),x=Integer.parseInt(p[1]),y=Integer.parseInt(p[2]),z=Integer.parseInt(p[3]),region=((x>>6)<<8)|(y>>6);if(loaded.add(region))check(org.dementhium.cache.format.LandscapeParser.parseLandscape(region,org.dementhium.util.MapXTEA.getMapKeys().get(region)),"Real map "+region);AdvancedNPC n=(AdvancedNPC)NPCLoader.getNPC(id);n.setLocation(Location.locate(x,y,z));n.setOriginalLocation(n.getLocation());if(id==51)frost++;check(n.contains(n.getLocation()),"Spawn in controller bounds "+id);}
   check(frost==19,"All 19 existing frost spawns wired");
  }
- public static void main(String[] args)throws Exception{runtimeOnly=args.length>0&&args[0].equals("runtime");init();profiles();attacks();boundaries();demons();dragonfire();chaos();routing();maps();System.out.println("Advanced bosses: "+checks+" checks passed.");}
+ public static void main(String[] args)throws Exception{runtimeOnly=args.length>0&&args[0].equals("runtime");init();if(args.length>0&&args[0].equals("frost")){frostVisuals();System.out.println("Frost visuals: "+checks+" checks passed.");return;}profiles();attacks();frostVisuals();boundaries();demons();dragonfire();chaos();routing();maps();System.out.println("Advanced bosses: "+checks+" checks passed.");}
 }
 
 

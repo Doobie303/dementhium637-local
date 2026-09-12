@@ -2,6 +2,7 @@ package org.dementhium.content.skills.summoning;
 
 import java.util.List;
 
+import org.dementhium.cache.format.CacheNPCDefinition;
 import org.dementhium.content.activity.impl.CastleWarsActivity;
 import org.dementhium.content.misc.Following;
 import org.dementhium.content.misc.Eating.Food;
@@ -58,9 +59,9 @@ public class Familiar extends NPC {
 	 * @param specialPoints The amount of special points.
 	 */
 	public Familiar(Player owner, int id, int ticks) {
-		super(id, owner.getLocation());
+		super(normalizeId(id), owner.getLocation());
 		this.owner = owner;
-		this.id = id;
+		this.id = normalizeId(id);
 		//this.maximumTicks = ticks;
 		this.ticks = ticks;
 		if (Summoning.getIsBeastOfBurdenFromId(id)) {
@@ -176,6 +177,10 @@ public class Familiar extends NPC {
 	public boolean canCastAttack(Mob victim) {
 		if (victim == null || victim.isDead() || isDead())
 			return false;
+		if (!isCombatFamiliar()) {
+			owner.sendMessage("This familiar helps with skills and cannot fight.");
+			return false;
+		}
 		if (isBeastOfBurden()) {
 			owner.sendMessage("Your familiar is a beast of burden and will only fight when being attacked."); 
 			return false;
@@ -322,7 +327,34 @@ public class Familiar extends NPC {
 	 * @return {@code true} if so.
 	 */
 	public boolean isCombatFamiliar() {
-		return isBeastOfBurden;
+		return combatFormId() != id;
+	}
+
+	/** The old Hydra pouch used a non-combat display NPC. Also migrates saved familiars. */
+	private static int normalizeId(int id) {
+		return id == 9488 ? 6811 : id;
+	}
+
+	/** Only genuine local-cache pairs may change presentation in a combat area. */
+	private int combatFormId() {
+		switch (id) {
+		case 6808: // Beaver
+		case 6851: // Macaw
+		case 6824: // Magpie
+		case 6991: // Ibis
+		case 6817: // Fruit bat
+			return id;
+		default:
+			CacheNPCDefinition base = CacheNPCDefinition.forID(id);
+			CacheNPCDefinition combat = CacheNPCDefinition.forID(id + 1);
+			return combat.combatLevel > 0 && base.name.equals(combat.name)
+					&& base.size == combat.size && base.renderEmote == combat.renderEmote ? id + 1 : id;
+		}
+	}
+
+	@Override
+	public void retaliate(Mob other) {
+		if (isCombatFamiliar()) super.retaliate(other);
 	}
 
 	public void summon() {
@@ -440,6 +472,8 @@ public class Familiar extends NPC {
 		}
 		if (this.isDead())
 			return;
+		if (!isCombatFamiliar() && getCombatExecutor().getVictim() != null)
+			getCombatExecutor().reset();
 		if (ticks % 50 == 0) {
 			updateSpecialPoints(-15);
 			owner.getSkills().decreaseLevelToZero(Skills.SUMMONING, 1);
@@ -461,21 +495,18 @@ public class Familiar extends NPC {
 	    		dismiss(true, null);
 	    	return;
 	    }
-		if ((getMask().getSwitchId() == id || getMask().getSwitchId() == -1) 
-				&& (inWilderness() 
+		boolean combatArea = inWilderness()
 				|| (World.getWorld().getAreaManager().getAreaByName("SummoningArena").contains(getLocation()) && owner.getAttribute("duelingWith") != null)
 				|| (World.getWorld().getAreaManager().getAreaByName("CastleWarsArea").contains(getLocation()) && owner.getActivity() != null && owner.getActivity().getActivityId() == 0)
-				|| inPVPZone())
-				&& id != 6824) { //magpie can't switch I think..
-			getMask().setSwitchId(getId() + 1);
-		} else if (getMask().getSwitchId() != id) {
-			getMask().setSwitchId(id);
-		}
+				|| inPVPZone();
+		int presentationId = combatArea ? combatFormId() : id;
+		if (getMask().getSwitchId() != presentationId)
+			getMask().setSwitchId(presentationId);
 		if (getLocation().getDistance(owner.getLocation()) >= 10) {
 			callToOwner();
 			return;
 		}
-		if ((owner.getCombatExecutor().getVictim() == null && getCombatExecutor().getVictim() == null)
+		if (!isCombatFamiliar() || (owner.getCombatExecutor().getVictim() == null && getCombatExecutor().getVictim() == null)
 				|| (!owner.getSettings().isAutoRetaliate() && isBeastOfBurden)) {
 			turnTo(owner, false);
 			if (isBeastOfBurden && getCombatExecutor().getVictim() != null)
@@ -597,6 +628,7 @@ public boolean inSafeZone() { //When you update this, also update this in Famili
 	 * Handled in FamiliarDefaults
 	 */
 	public int getPouchId() {
+		if (id == 6811) return 12025;
 		return FamiliarDefaults.getPouchId(getId(), pouchId);
 	}
 	
@@ -614,6 +646,8 @@ public boolean inSafeZone() { //When you update this, also update this in Famili
 		}
 		if (id == 7339 || id == 7340)
 			return new GeyserTitanAction();
+		if (id == 7343 || id == 7344)
+			return new SteelTitanAction();
 		return super.getCombatAction(); //?
 	}
 
@@ -760,12 +794,14 @@ public boolean inSafeZone() { //When you update this, also update this in Famili
 			if (item2 == null || item2.getId() != itemId2) {
 				return;
 			}
+			if (itemId2 == 12435 && owner.getInventory().numberOf(12435) < 2) return;
+			if (!owner.getBank().depositFromFamiliar(slot2)) {
+				owner.sendMessage("You don't have enough bank space left to bank this item.");
+				return;
+			}
 			updateSpecialPoints(getSpecialCost());
 			owner.getInventory().deleteItem(12435, 1);
 			owner.getInventory().refresh();
-			owner.setAttribute("inBank", true);
-			owner.getBank().addItem(slot2, 1/*item2.getAmount()*/);
-			owner.setAttribute("inBank", false);
 			owner.sendMessage("Your magpie sends the item to your bank.");
 			break;
 		case 6873:
@@ -783,12 +819,14 @@ public boolean inSafeZone() { //When you update this, also update this in Famili
 			if (item3 == null || item3.getId() != itemId3) {
 				return;
 			}
+			if (itemId3 == 12435 && owner.getInventory().numberOf(12435) < 2) return;
+			if (!owner.getBank().depositFromFamiliar(slot3)) {
+				owner.sendMessage("You don't have enough bank space left to bank this item.");
+				return;
+			}
 			updateSpecialPoints(getSpecialCost());
 			owner.getInventory().deleteItem(12435, 1);
 			owner.getInventory().refresh();
-			owner.setAttribute("inBank", true);
-			owner.getBank().addItem(slot3, 1/*item.getAmount()*/);
-			owner.setAttribute("inBank", false);
 			owner.sendMessage("Your pack yak sends the item to your bank.");
 			owner.animate(7660);
 			owner.graphics(1316);
@@ -1089,6 +1127,8 @@ public boolean inSafeZone() { //When you update this, also update this in Famili
 	
 	public void close() {
 		InputHandler.resetInput(owner);
+		owner.removeAttribute("familiarInputItem");
+		owner.removeAttribute("familiarInputOwner");
 		owner.getInventory().refresh();
 		owner.getInventory().refresh();
 		if (owner != null && owner.getConnection() != null) {
@@ -1106,7 +1146,7 @@ public boolean inSafeZone() { //When you update this, also update this in Famili
 	
 	public boolean store(int itemId, int slot, int amount) {
 		Item item = owner.getInventory().get(slot);
-		if (item == null || item.getId() != itemId) {
+		if (item == null || item.getId() != itemId || itemId < 0 || itemId >= ItemDefinition.MAX_SIZE || item.getHash() < 0) {
 			return false;
 		}
 		if (amount <= 0) {
@@ -1120,27 +1160,10 @@ public boolean inSafeZone() { //When you update this, also update this in Famili
 			owner.sendMessage("Your familiar cannot carry this item.");
 			return false;
 		}
-		int familiarFreeSlots = items.getFreeSlots();
-		if (familiarFreeSlots <= 0) {
+		if (transferItems(owner.getInventory().getContainer(), slot, amount, items) == 0) {
 			owner.sendMessage("Your familiar cannot carry any more items.");
 			return false;
 		}
-		if (amount > familiarFreeSlots && !item.getDefinition().isStackable())
-			amount = familiarFreeSlots;
-		int playerAmount = owner.getInventory().getContainer().getNumberOf(item);
-		if (amount > playerAmount)
-			amount = playerAmount;
-		int familiarAmount = items.getNumberOf(item);
-		if ((amount + familiarAmount) < 0) {
-			amount = Integer.MAX_VALUE - familiarAmount;
-			if (amount == 0) {
-				owner.sendMessage("Your familiar cannot carry more of that item.");
-				return false;
-			}
-		}
-		item = new Item(item.getId(), amount);
-		owner.getInventory().deleteItem(item);
-		items.add(item);
 		refresh(false);
 		owner.animate(STORE_ANIMATION);
 		owner.turnTo(this, false);
@@ -1149,71 +1172,79 @@ public boolean inSafeZone() { //When you update this, also update this in Famili
 
 	public boolean withdraw(int itemId, int slot, int amount, boolean refresh) {
 		Item item = items.get(slot);
-		if (item == null || item.getId() != itemId) {
-			return false;
-		}
-		if (amount <= 0) {
-			return false;
-		}
-		int freeSlots = owner.getInventory().getFreeSlots();
-		if (freeSlots <= 0) {
+		if (item == null || item.getId() != itemId || item.getHash() < 0 || amount <= 0) return false;
+		if (transferItems(items, slot, amount, owner.getInventory().getContainer()) == 0) {
 			owner.sendMessage("You don't have enough inventory space to withdraw this item.");
 			return false;
 		}
-		int containerAmount = items.getItemCount(itemId);
-		if (amount > containerAmount) {
-			amount = containerAmount;
-		}
-		if (amount > freeSlots && !item.getDefinition().isStackable()) {
-			amount = freeSlots;
-		}
-		int playerAmount = owner.getInventory().numberOf(item.getId());
-		if ((amount + playerAmount) < 0) {
-			amount = Integer.MAX_VALUE - playerAmount;
-			if (amount == 0) {
-				owner.sendMessage("You don't have enough inventory space to withdraw this item.");
-				return false;
-			}
-		}
-		item = new Item(item.getId(), amount);
-		items.remove(item);
-		owner.getInventory().addItem(item);
-		if (refresh)
-			refresh(true);
+		if (refresh) refresh(true);
 		return true;
 	}
-	
+
+	/** Preserve each copy's charges, and debit only additions that committed. */
+	private int transferItems(Container source, int slot, int requested, Container destination) {
+		Item selected = source.get(slot);
+		if (selected == null || selected.getId() < 0 || selected.getId() >= ItemDefinition.MAX_SIZE || requested <= 0) return 0;
+		int remaining = requested;
+		for (int n = -1; n < source.getSize() && remaining > 0; n++) {
+			int index = n == -1 ? slot : n;
+			if (n == slot) continue;
+			Item item = source.get(index);
+			if (item == null || item.getId() != selected.getId() || item.getHash() < 0 || item.getAmount() <= 0) continue;
+			int amount = Math.min(remaining, item.getAmount());
+			if (item.getDefinition().isStackable()) {
+				long held = 0;
+				for (Item existing : destination.toArray()) {
+					if (existing != null && existing.getId() == item.getId() && existing.getHealth() == item.getHealth()) held += existing.getAmount();
+				}
+				amount = (int) Math.min(amount, Math.max(0L, Integer.MAX_VALUE - held));
+			} else amount = Math.min(amount, destination.freeSlots());
+			if (amount <= 0) continue;
+			Container addition = new Container(1, false);
+			Item moved = new Item(item); moved.setAmount(amount); addition.set(0, moved);
+			if (!destination.tryAddAll(addition)) continue;
+			if (amount == item.getAmount()) source.set(index, null);
+			else {
+				Item rest = new Item(item); rest.setAmount(item.getAmount() - amount); source.set(index, rest);
+			}
+			remaining -= amount;
+		}
+		return requested - remaining;
+	}
+
 	public boolean quickWithdraw() {
-		int itemId = owner.getAttribute("beastOfBurdenStore", -1);
-		if (itemId == -1) {
-			return false;
+		if (!isBeastOfBurden()) return false;
+		boolean moved = false;
+		for (int slot = 0; slot < items.getSize(); slot++) {
+			Item item = items.get(slot);
+			if (item != null && item.getHash() >= 0) moved |= withdraw(item.getId(), slot, item.getAmount(), false);
 		}
-		int amount = owner.getInventory().get(0).getAmount();
-		if (amount <= 0) {
-			return false;
-		}
-		int freeSlots = owner.getInventory().getFreeSlots();
-		if (freeSlots <= 0) {
-			owner.sendMessage("You don't have enough inventory space to withdraw this item.");
-			return false;
-		}
-		if (amount > freeSlots && !ItemDefinition.forId(itemId).isStackable()) {
-			amount = freeSlots;
-		}
-		int playerAmount = owner.getInventory().numberOf(itemId);
-		if ((amount + playerAmount) < 0) {
-			amount = Integer.MAX_VALUE - playerAmount;
-			if (amount == 0) {
-				owner.sendMessage("You don't have enough inventory space to withdraw this item.");
-				return false;
-			}
-		}
-		Item item = new Item(itemId, amount);
-		items.remove(item);
-		owner.getInventory().addItem(item);
-		return true;
+		if (moved) refresh(true);
+		return moved;
 	}
-	
+
+	public void requestAmount(int slot, int itemId, boolean storing) {
+		Item item = storing ? owner.getInventory().get(slot) : items.get(slot);
+		if (!open || item == null || item.getId() != itemId) return;
+		InputHandler.requestIntegerInput(owner, storing ? 9 : 10,
+				storing ? "How many would you like to store?" : "How many would you like to withdraw?");
+		owner.setAttribute("slotId", slot);
+		owner.setAttribute("familiarInputItem", new Item(item));
+		owner.setAttribute("familiarInputOwner", this);
+	}
+
+	public void submitAmount(int slot, int amount, boolean storing) {
+		Item expected = owner.getAttribute("familiarInputItem", null);
+		Familiar expectedOwner = owner.getAttribute("familiarInputOwner", null);
+		owner.removeAttribute("familiarInputItem");
+		owner.removeAttribute("familiarInputOwner");
+		Item current = storing ? owner.getInventory().get(slot) : items.get(slot);
+		if (!open || expectedOwner != this || expected == null || current == null || amount <= 0
+				|| current.getId() != expected.getId() || current.getHash() != expected.getHash()) return;
+		if (storing) store(current.getId(), slot, amount);
+		else withdraw(current.getId(), slot, amount, true);
+	}
+
 	public void withdrawAll() {
 		if (items.size() < 1) {
 			owner.sendMessage("Your familiar isn't carrying any items.");
@@ -1221,7 +1252,7 @@ public boolean inSafeZone() { //When you update this, also update this in Famili
 		}
 		for (int i = 0; i < SIZE; i++) {
 			Item item = items.get(i);
-			if (item != null) {
+			if (item != null && item.getHash() >= 0) {
 				withdraw(item.getId(), i, item.getAmount(), false);
 			}
 		}

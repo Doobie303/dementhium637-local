@@ -25,6 +25,9 @@ public class GESearchHandler extends PacketHandler {
 
 	private void handleSearch(Player player, Message packet) {
 		int itemId = packet.readShort();
+		if (org.dementhium.content.interfaces.StaffTools.handleItemSearchSelection(player, itemId)) {
+			return;
+		}
 		ItemDefinition def = ItemDefinition.forId(itemId);
 		if (def != null) {
 

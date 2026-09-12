@@ -3,6 +3,7 @@ package org.dementhium.model.definition;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.nio.BufferUnderflowException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 
@@ -39,50 +40,68 @@ public class NPCDefinition {
      */
     public static void init() throws IOException {
         NPCDefinitionPacker.pack();
-        definitions = new NPCDefinition[Cache.getAmountOfNpcs()];
+        NPCDefinition[] loaded;
         System.out.println("Loading npc definitions...");
-        FileChannel channel = new RandomAccessFile("./NDE/NPCDefinitions.bin", "r").getChannel();
-        ByteBuffer buffer = channel.map(MapMode.READ_ONLY, 0, channel.size());
-        NPCDefinition def = null;
-        for (int i = 0; i < Cache.getAmountOfNpcs(); i++) {
-            int id = buffer.getShort();
-            def = new NPCDefinition(i);
-            if (id == -1) {
-                definitions[i] = def;
-                continue;
-            }
-            def.combatLevel = buffer.getShort();
-            def.examine = BufferUtils.readRS2String(buffer);
-            for (int x = 0; x < 14; x++) {
-                def.bonuses[x] = buffer.getShort();
-            }
-            def.lifepoints = buffer.getShort();
-            def.respawn = buffer.get();
-            def.attackAnimation = buffer.getShort();
-            def.defenceAnimation = buffer.getShort();
-            def.deathAnimation = buffer.getShort();
-            def.strengthLevel = buffer.getShort();
-            def.attackLevel = buffer.getShort();
-            def.defenceLevel = buffer.getShort();
-            def.rangeLevel = buffer.getShort();
-            def.magicLevel = buffer.getShort();
-            def.attackSpeed = buffer.get();
-            def.startGraphics = buffer.getShort();
-            def.projectileId = buffer.getShort();
-            def.endGraphics = buffer.getShort();
-            def.usingMelee = buffer.get() == 1;
-            def.usingRange = buffer.get() == 1;
-            def.usingMagic = buffer.get() == 1;
-            def.aggressive = buffer.get() == 1;
-            def.poisonImmune = buffer.get() == 1;
-            Faction f = GodwarsUtils.getFaction(def.getId());
-            if (f != null) {
-                def.setFaction(f);
-            }
-            definitions[i] = def;
+        try (RandomAccessFile file = new RandomAccessFile("./NDE/NPCDefinitions.bin", "r");
+                FileChannel channel = file.getChannel()) {
+            loaded = readDefinitions(channel.map(MapMode.READ_ONLY, 0, channel.size()));
         }
-        channel.close();
+        // A failed reload must not replace the last complete definition set.
+        definitions = loaded;
         System.out.println("Loaded " + NPCDefinition.definitions.length + " npc definitions.");
+    }
+
+    private static NPCDefinition[] readDefinitions(ByteBuffer buffer) throws IOException {
+        NPCDefinition[] loaded = new NPCDefinition[Cache.getAmountOfNpcs()];
+        try {
+            NPCDefinition def = null;
+            for (int i = 0; i < Cache.getAmountOfNpcs(); i++) {
+                int id = buffer.getShort();
+                if (id != -1 && id != i) {
+                    throw new IOException("NPC definition slot " + i + " contains id " + id);
+                }
+                def = new NPCDefinition(i);
+                if (id == -1) {
+                    loaded[i] = def;
+                    continue;
+                }
+                def.combatLevel = buffer.getShort();
+                def.examine = BufferUtils.readRS2String(buffer);
+                for (int x = 0; x < 14; x++) {
+                    def.bonuses[x] = buffer.getShort();
+                }
+                def.lifepoints = buffer.getShort();
+                def.respawn = buffer.get();
+                def.attackAnimation = buffer.getShort();
+                def.defenceAnimation = buffer.getShort();
+                def.deathAnimation = buffer.getShort();
+                def.strengthLevel = buffer.getShort();
+                def.attackLevel = buffer.getShort();
+                def.defenceLevel = buffer.getShort();
+                def.rangeLevel = buffer.getShort();
+                def.magicLevel = buffer.getShort();
+                def.attackSpeed = buffer.get();
+                def.startGraphics = buffer.getShort();
+                def.projectileId = buffer.getShort();
+                def.endGraphics = buffer.getShort();
+                def.usingMelee = buffer.get() == 1;
+                def.usingRange = buffer.get() == 1;
+                def.usingMagic = buffer.get() == 1;
+                def.aggressive = buffer.get() == 1;
+                def.poisonImmune = buffer.get() == 1;
+                Faction f = GodwarsUtils.getFaction(def.getId());
+                if (f != null) {
+                    def.setFaction(f);
+                }
+                loaded[i] = def;
+            }
+            if (buffer.hasRemaining()) {
+                throw new IOException("Unexpected trailing NPC definition data: " + buffer.remaining());
+            }
+        } catch (BufferUnderflowException e) {
+            throw new IOException("Truncated NPC definitions", e);
+        }
+        return loaded;
     }
 
     /**
@@ -99,7 +118,7 @@ public class NPCDefinition {
             }
             return rareDropTable;
         }
-        if (id > definitions.length) {
+        if (id < 0 || id >= definitions.length) {
             return null;
         }
         NPCDefinition def = definitions[id];
@@ -118,7 +137,7 @@ public class NPCDefinition {
      */
     public static NPCDefinition forName(String id) {
         for (NPCDefinition def : NPCDefinition.definitions) {
-            if (def.getName() != null && def.getName().equalsIgnoreCase(id)) {
+            if (def != null && def.getName() != null && def.getName().equalsIgnoreCase(id)) {
                 return def;
             }
         }

@@ -563,6 +563,7 @@ public abstract class Mob extends Entity {
     }
 
     public void stun(int cycles, String stunMessage, boolean performGraphics) {
+        getWalkingQueue().reset();
         if (isPlayer() && stunMessage != null) {
             getPlayer().sendMessage(stunMessage);
         }

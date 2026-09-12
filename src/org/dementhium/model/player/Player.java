@@ -611,6 +611,7 @@ public final class Player extends Mob {
 	}
 
 	public void closeAll(boolean resetTurnTo, boolean doStopRestEmote) {
+        org.dementhium.content.interfaces.StaffTools.clearPending(this);
         if(getActivity() instanceof org.dementhium.content.minigames.gambler.GamblerSession
                 ||getActivity() instanceof org.dementhium.content.minigames.gambler.GamblerInterfacePreview)getActivity().forceEnd(this);
 		if (getTradeSession() != null) {
@@ -1201,7 +1202,8 @@ public final class Player extends Mob {
 	}
 
 	private void saveItemCharges(ChannelBuffer buffer) {
-		Container[] containers = { inventory.getContainer(), equipment.getContainer(), bank.getContainer() };
+		Container[] containers = { inventory.getContainer(), equipment.getContainer(), bank.getContainer(),
+				familiar != null && familiar.isBeastOfBurden() ? familiar.getContainer() : new Container(0, false) };
 		int count = 0;
 		for (Container container : containers) {
 			for (int slot = 0; slot < container.getSize(); slot++) {
@@ -1234,6 +1236,8 @@ public final class Player extends Mob {
 			return equipment.getContainer();
 		case 2:
 			return bank.getContainer();
+		case 3:
+			return familiar != null && familiar.isBeastOfBurden() ? familiar.getContainer() : null;
 		default:
 			return null;
 		}

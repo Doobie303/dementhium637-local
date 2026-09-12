@@ -99,6 +99,7 @@ public class ActionButtonHandler extends PacketHandler {
 		}
 		System.out.println("interfaceId=" + interfaceId + " buttonId="
 				+ buttonId + " slot=" + slot + " itemId=" + itemId);
+		if (org.dementhium.content.interfaces.StaffTools.button(player,interfaceId,buttonId,packet.getOpcode()))return;
 		if (org.dementhium.content.minigames.gambler.GamblerInterfacePreview.button(player,interfaceId,buttonId,packet.getOpcode()))return;
         if (org.dementhium.content.minigames.gambler.GamblerSession.button(player,interfaceId,buttonId,packet.getOpcode()))return;
         if (eventManager.handleInterfaceOption(player, interfaceId, buttonId,
@@ -204,6 +205,7 @@ public class ActionButtonHandler extends PacketHandler {
 			Emotes.handleButton(player, buttonId, slot, itemId);
 			break;
 		case 763:
+			if (!player.getBank().matchesItem(slot, itemId, true)) return;
 			if (buttonId == 0) {
 				switch (packet.getOpcode()) {
 				case 6:
@@ -220,17 +222,10 @@ public class ActionButtonHandler extends PacketHandler {
 							player.getSettings().getLastXAmount());
 					break;
 				case 67:
-					Item item = player.getInventory().getContainer().get(slot);
-					player.getBank().addItem(
-							slot,
-							player.getInventory().getContainer()
-									.getNumberOf(item));// getContainer(slot).getAmount());
+					player.getBank().addItem(slot, Integer.MAX_VALUE);
 					break;
 				case 46:
-					InputHandler.requestIntegerInput(player, 2,
-							"Please enter an amount:");
-					player.setAttribute("inputId", 4);
-					player.setAttribute("slotId", slot);
+					player.getBank().requestAmount(slot, true);
 					break;
 				case 58:
 					//player.sendMessage(player.getInventory().getContainer()
@@ -244,7 +239,17 @@ public class ActionButtonHandler extends PacketHandler {
 			}
 			break;
 		case 762:
+			if (!Boolean.TRUE.equals(player.getAttribute("inBank", false))) return;
+			if (player.getBank().isCheckingBank() && buttonId != 17
+					&& !(packet.getOpcode() == 6 && buttonId >= 46 && buttonId <= 62 && buttonId % 2 == 0)) return;
 			switch (buttonId) {
+			case 17:
+				if (packet.getOpcode() == 6 && Boolean.TRUE.equals(player.getAttribute("inBank", false))) {
+					// Script 1471 disables Search until script 1472 observes this
+					// acknowledgement. Without it, Search works only once per open.
+					ActionSender.sendBConfig(player, 190, 1);
+				}
+				break;
 			case 117:
 				if (player.getAttribute("inBank", Boolean.FALSE) == Boolean.TRUE) {
 					player.getBonuses().openEquipmentScreen(true);
@@ -286,7 +291,7 @@ public class ActionButtonHandler extends PacketHandler {
 			case 46:
 				switch (packet.getOpcode()) {
 				case 6:
-					player.setLastBankTab(Bank.getArrayIndex(buttonId));
+					player.getBank().selectTab(Bank.getArrayIndex(buttonId));
 					player.setAttribute("currentTabConfig",
 							Bank.getViewedTabConfig(buttonId));
 					player.getBank().refreshBankSpace();
@@ -299,6 +304,7 @@ public class ActionButtonHandler extends PacketHandler {
 				break;
 
 			case 93:
+				if (!player.getBank().matchesItem(slot, itemId, false)) return;
 				switch (packet.getOpcode()) {
 				case 6:
 					player.getBank().removeItem(slot, 1);
@@ -316,18 +322,14 @@ public class ActionButtonHandler extends PacketHandler {
 				case 67:
 					Item item = player.getBank().getContainer().get(slot);
 					player.getBank().removeItem(slot,
-							player.getBank().getContainer().getNumberOf(item));
+							item.getAmount());
 					break;
 				case 46:
-					InputHandler.requestIntegerInput(player, 2,
-							"Please enter an amount:");
-					player.setAttribute("inputId", 3);
-					player.setAttribute("slotId", slot);
+					player.getBank().requestAmount(slot, false);
 					break;
 				case 82:
 					Item item2 = player.getBank().getContainer().get(slot);
-					int itemAmt = player.getBank().getContainer()
-							.getNumberOf(item2);
+					int itemAmt = item2.getAmount();
 					player.getBank().removeItem(slot, itemAmt - 1);
 					break;
 				case 58:

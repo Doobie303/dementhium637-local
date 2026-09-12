@@ -14,7 +14,7 @@ public final class AdvancedAttack extends CombatAction {
         TD_MELEE(CombatType.MELEE,189,10922,-1,1886),TD_RANGE(CombatType.RANGE,269,10919,1887,-1),TD_MAGIC(CombatType.MAGIC,269,10918,1884,1883),
         KBD_MELEE(CombatType.MELEE,250,80,-1,-1),FIRE(CombatType.DRAGONFIRE,620,81,393,-1),SHOCK(CombatType.DRAGONFIRE,620,84,396,-1),TOXIC(CombatType.DRAGONFIRE,620,82,394,-1),ICE(CombatType.DRAGONFIRE,620,83,395,-1),
         CHAOS_MAGIC(CombatType.MAGIC,284,314,557,558),CHAOS_RANGE(CombatType.RANGE,284,314,557,558),CHAOS_MELEE(CombatType.MELEE,284,314,557,558),TELEPORT(CombatType.MAGIC,0,314,554,555),DISARM(CombatType.MAGIC,0,314,551,552),
-        FROST_MELEE(CombatType.MELEE,214,13155,-1,-1),FROST_MAGIC(CombatType.MAGIC,250,13152,2465,-1),FROST_FIRE(CombatType.DRAGONFIRE,595,13152,2465,-1);
+        FROST_MELEE(CombatType.MELEE,214,13155,-1,-1),FROST_MAGIC(CombatType.MAGIC,250,13155,2705,2711),FROST_FIRE(CombatType.DRAGONFIRE,595,13152,2465,-1);
         public final CombatType style;public final int cap,animation,projectile,graphic;
         Kind(CombatType style,int cap,int animation,int projectile,int graphic){this.style=style;this.cap=cap;this.animation=animation;this.projectile=projectile;this.graphic=graphic;}
     }
@@ -43,9 +43,13 @@ public final class AdvancedAttack extends CombatAction {
         Player p=interaction.getVictim().getPlayer();Kind k=kind();
         if(!npc.allows(p)||EncounterNPC.gap(npc,p)>npc.reach()||!GodWarsAction.clear(npc,p))return false;
         if(k.style==CombatType.MELEE&&k!=Kind.CHAOS_MELEE&&!GodWarsAction.contact(npc,p))return false;
-        launched=true;npc.getCombatExecutor().setTicks(npc.getAttackDelay());npc.animate(k.animation);
+        boolean distantFrostFire=k==Kind.FROST_FIRE&&!GodWarsAction.contact(npc,p);
+        launched=true;npc.getCombatExecutor().setTicks(npc.getAttackDelay());npc.animate(distantFrostFire?13155:k.animation);
         if(npc instanceof ChaosElemental)npc.graphics(k==Kind.TELEPORT?553:k==Kind.DISARM?550:556);
-        if(k.projectile>=0)ProjectileManager.sendProjectile(Projectile.create(npc,p,k.projectile,30,32,52,75,3,11));
+        // Close frost dragonfire is a mouth effect with a 46-frame startup.
+        // A projectile lasting only 75 - 52 frames expires before it appears.
+        if(k==Kind.FROST_FIRE&&!distantFrostFire)npc.graphics(k.projectile);
+        else if(k.projectile>=0)ProjectileManager.sendProjectile(Projectile.create(npc,p,distantFrostFire?393:k.projectile,30,32,52,75,3,11));
         final NPCCombatContext context=new NPCCombatContext(npc,p);int delay=k.projectile<0?1:Math.max(1,(int)(npc.getLocation().distance(p.getLocation())*.3));
         int raw=k.cap==0?0:roll(k,p);final Damage damage=k.style==CombatType.DRAGONFIRE?new Damage(raw):Damage.getDamage(npc,p,k.style,raw);damage.setMaximum(k.cap);interaction.setDamage(damage);
         npc.schedule(delay,()->{

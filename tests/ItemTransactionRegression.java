@@ -19,7 +19,7 @@ public class ItemTransactionRegression {
  static Item worn(int id,int health){Item i=new Item(id);i.setHealth(health);return i;}
  static void fill(Container c,int first){for(int i=first;i<c.getSize();i++)c.set(i,new Item(4151));}
  static TradeSession trade(Player a,Player b){a.getDefinition().setRights(2);b.getDefinition().setRights(2);TradeSession t=new TradeSession(a,b);a.setTradeSession(t);b.setTradePartner(a);return t;}
- static void numeric(Player p,int amount){p.setAttribute("inputId",4);p.setAttribute("slotId",0);ChannelBuffer b=ChannelBuffers.dynamicBuffer();b.writeInt(amount);new InputPacketHandler().handlePacket(p,new Message(34,Message.PacketType.STANDARD,b));}
+ static void numeric(Player p,int amount){p.getBank().requestAmount(0,true);ChannelBuffer b=ChannelBuffers.dynamicBuffer();b.writeInt(amount);new InputPacketHandler().handlePacket(p,new Message(34,Message.PacketType.STANDARD,b));}
  static void bank(){
   for(int amount:new int[]{Integer.MIN_VALUE,-100,-1,0}){
    Player p=p();p.setAttribute("inBank",true);p.getInventory().set(0,new Item(995,100));String inv=image(p.getInventory().getContainer()),bank=image(p.getBank().getContainer());

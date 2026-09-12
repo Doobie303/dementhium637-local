@@ -41,10 +41,12 @@ public class Weaken extends SpecialAttack {
 		
 		if (interaction.getDamage().getHit() > 0) {
 			if (interaction.getVictim().isPlayer()) {
-				Skills s = interaction.getVictim().getPlayer().getSkills();
-				s.set(Skills.ATTACK, s.getLevel(Skills.ATTACK) - (int) (s.getLevelForExperience(Skills.ATTACK) * 0.05));
-				s.set(Skills.STRENGTH, s.getLevel(Skills.STRENGTH) - (int) (s.getLevelForExperience(Skills.STRENGTH) * 0.05));
-				s.set(Skills.DEFENCE, s.getLevel(Skills.DEFENCE) - (int) (s.getLevelForExperience(Skills.DEFENCE) * 0.05));
+				interaction.getDamage().onImpact(actual -> {
+					Skills s = interaction.getVictim().getPlayer().getSkills();
+					s.set(Skills.ATTACK, s.getLevel(Skills.ATTACK) - (int) (s.getLevelForExperience(Skills.ATTACK) * 0.05));
+					s.set(Skills.STRENGTH, s.getLevel(Skills.STRENGTH) - (int) (s.getLevelForExperience(Skills.STRENGTH) * 0.05));
+					s.set(Skills.DEFENCE, s.getLevel(Skills.DEFENCE) - (int) (s.getLevelForExperience(Skills.DEFENCE) * 0.05));
+				});
 			} else {
 				//TODO: NPCs + Demons.
 			}

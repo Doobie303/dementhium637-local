@@ -92,7 +92,10 @@ public class IconManager {
         if (mob == null) {
             return;
         }
-        int slot = freeIconSlot(player, mob);
+        int slot = findIconSlot(player, mob);
+        if (slot == -1) {
+            return;
+        }
         Icon icon = player.getAttribute("icon_slot" + slot);
         if (icon != null) {
             icon.targetType = 0;
@@ -106,7 +109,10 @@ public class IconManager {
         if (l == null) {
             return;
         }
-        int slot = freeIconSlot(player, l);
+        int slot = findIconSlot(player, l);
+        if (slot == -1) {
+            return;
+        }
         Icon icon = player.getAttribute("icon_slot" + slot);
         if (icon != null) {
             icon.targetType = 0;
@@ -116,6 +122,23 @@ public class IconManager {
     }
 
     private static int freeIconSlot(Player player, Object o) {
+        if (!(o instanceof Mob) && !(o instanceof Location)) {
+            return -1;
+        }
+        int existing = findIconSlot(player, o);
+        if (existing != -1) {
+            return existing;
+        }
+        for (int i = 0; i < MAX_ICONS; i++) {
+            if (player.getAttribute("icon_slot" + i) == null) {
+                return i;
+            }
+        }
+        // Preserve replacement of slot zero when all icon slots are occupied.
+        return 0;
+    }
+
+    private static int findIconSlot(Player player, Object o) {
         boolean isMob = o instanceof Mob;
         boolean isLocation = o instanceof Location;
         if (!isMob && !isLocation) {
@@ -125,15 +148,13 @@ public class IconManager {
         Location l = isLocation ? (Location) o : null;
         for (int i = 0; i < MAX_ICONS; i++) {
             Icon icon = player.getAttribute("icon_slot" + i);
-            if (icon != null && ((mob != null && icon.getIndex() == mob.getIndex())
+            if (icon != null && ((mob != null && icon.getIndex() == mob.getIndex()
+                    && icon.getTargetType() == (mob.isPlayer() ? 10 : 1))
                     || (l != null && icon.getLocation() == l))) {
                 return i;
             }
-            if (icon == null) {
-                return i;
-            }
         }
-        return 0;
+        return -1;
     }
 
     public static int iconOnCoordinate(Player player, Location l, int arrowId, int modelId) {
@@ -145,18 +166,5 @@ public class IconManager {
         }
         return slot;
     }
-
-    /*public static int freeIconSlot(Player player, Mob mob) {
-         for(int i = 0; i < MAX_ICONS; i++) {
-             Icon icon = player.getAttribute("icon_slot" + i);
-             if(mob != null && icon != null && icon.getIndex() == mob.getIndex()) {
-                 return i;
-             }
-             if(icon == null) {
-                 return i;
-             }
-         }
-         return -1;
-     }*/
 
 }

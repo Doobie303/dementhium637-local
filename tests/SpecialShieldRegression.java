@@ -8,8 +8,23 @@ public class SpecialShieldRegression {
  static Player p(){Player p=CombatEnhancementsRegression.player();p.getSkills().setLevelAndXP(Skills.CONSTITUTION,99,13034431);p.getSkills().setMaximumLifePoints(1000);p.getSkills().setHitPoints(1000);return p;}
  static void gear(Player p,int slot,int id){CombatEnhancementsRegression.gear(p,slot,id);}
  static void flush()throws Exception {Field f=World.class.getDeclaredField("ticksToAdd");f.setAccessible(true);List<Tick> ticks=new ArrayList<Tick>((List<Tick>)f.get(World.getWorld()));((List<?>)f.get(World.getWorld())).clear();for(Tick t:ticks)t.execute();}
+ static void slowedStaffActivation() {
+  Player source=p(),defender=p();defender.setHasReceivedStarter(true);defender.setOnline(true);gear(defender,3,15486);
+  defender.setSpecialAmount(1000);check(defender.getCombatExecutor().getCombatAction()==null,"Defender has not launched an attack");
+  Damage slow=Damage.getDamage(source,defender,CombatType.MAGIC,0);CombatStatus.miasmicOnImpact(slow,defender,20);
+  defender.getDamageManager().damage(source,slow,DamageType.MAGE);
+  check(defender.getAttribute("miasmicTime",-1)>World.getTicks(),"Miasmic landed before defensive special");
+  int before=defender.getCombatExecutor().getTicks();
+  org.dementhium.net.message.MessageBuilder packet=new org.dementhium.net.message.MessageBuilder(6);
+  packet.writeShort(884).writeShort(4).writeLEShortA(-1).writeShort(-1);
+  new org.dementhium.net.packethandlers.ActionButtonHandler().handlePacket(defender,packet.toMessage());
+  check(defender.getAttribute("staffOfLightEffect",-1)==World.getTicks()+100,"Defensive staff effect activates");
+  check(defender.getSpecialAmount()==0&&!defender.getSettings().isUsingSpecial(),"Defensive activation completes and consumes energy under Miasmic");
+  check(defender.getCombatExecutor().getTicks()==before+3,"Defensive activation adds its normal delay without an attack action");
+ }
  public static void main(String[] args)throws Exception {
   Cache.init();ItemDefinition.init();NPCDefinition.init();org.dementhium.model.misc.GroundItemManager.load();Field area=World.class.getDeclaredField("areaManager");area.setAccessible(true);area.set(World.getWorld(),new org.dementhium.content.areas.AreaManager());
+  slowedStaffActivation();
   Player a=p(),v=p();gear(v,5,13742);v.getRandom().setSeed(8491);
   for(CombatType type:new CombatType[]{CombatType.MELEE,CombatType.RANGE,CombatType.MAGIC})for(boolean prayer:new boolean[]{false,true}) {
    CombatBalanceRegression.prayers(v)[0][type.getProtectionPrayer()]=prayer;int proc=0,total=0;

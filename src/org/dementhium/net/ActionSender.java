@@ -1098,7 +1098,11 @@ public class ActionSender { // 2370 -( 2380, 9360+, 9570+
 	}
 
 	public static void sendCloseInterface(Player player, int window, int tab) {
-		if (window != 752 && tab != 13
+		// An overlay/sidebar close must not revoke a still-mounted bank session.
+		// Only closing one of the modal slots used by the bank does that.
+		boolean bankSlot = (window == 548 && (tab == 18 || tab == 197))
+				|| (window == 746 && (tab == 9 || tab == 84));
+		if (bankSlot
 				&& player.getAttribute("inBank", Boolean.FALSE) == Boolean.TRUE) {
 			player.removeAttribute("inBank");
 		}

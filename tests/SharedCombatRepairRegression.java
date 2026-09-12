@@ -113,5 +113,50 @@ public class SharedCombatRepairRegression {
    check(launch>=0&&impact>launch,"Real executor "+(auto?"autocast":"manual")+" reaches delayed binding");check(!p.getInventory().contains(new Item(561,100)),"Runes spent at spell entry");
   }
  }
- public static void main(String[] args)throws Exception{CombatFixtures.init();reset();vengeance();reflection();bindings();spellEntry();clean();System.out.println("Shared combat repairs: "+checks+" checks passed");}
+ static void stunMovement()throws Exception{
+  for(boolean running:new boolean[]{false,true}){
+   clean();NPC n=npc();Player p=CombatFixtures.player(n),v=CombatFixtures.player(n);p.setLocation(n.getLocation().transform(0,-2,0));
+   set(v,Player.class,"handler",new org.dementhium.net.handler.DementhiumHandler());
+   p.getEquipment().set(Equipment.SLOT_WEAPON,new Item(9185));p.getEquipment().set(Equipment.SLOT_ARROWS,new Item(9237,100));p.getBonuses().calculate();
+   v.getSkills().setLevelAndXP(Skills.DEFENCE,1,0);v.getSkills().setLevelAndXP(Skills.AGILITY,1,0);
+   v.getWalkingQueue().setIsRunning(running);Location destination=n.getLocation().transform(11,0,0),initial=v.getLocation();
+   World.getWorld().doPath(new org.dementhium.model.map.path.DefaultPathFinder(),v,destination.getX(),destination.getY());
+   org.dementhium.task.impl.PlayerTickTask task=new org.dementhium.task.impl.PlayerTickTask(v);task.execute();
+   check(!v.getLocation().equals(initial)&&v.getWalkingQueue().isMoving(),"Real player task advances queued "+(running?"run":"walk"));
+   // The real Jade bolt roll/impact supplies the stun; movement is already in flight.
+   for(int attempt=0;attempt<100&&!v.getAttribute("stunned",false);attempt++){
+    Damage hit=CombatUtils.getRangeDamage(p,v,Ammunition.get(9237));v.getDamageManager().damage(p,hit,DamageType.RANGE);
+   }
+   check(v.getAttribute("stunned",false)&&v.getHitPoints()>0,"Damaging Jade proc stuns a live moving player");Location stopped=v.getLocation();
+   task.execute();check(v.getLocation().equals(stopped),"Jade stun cancels previously queued movement");
+   for(int tick=1;tick<=3;tick++){
+    worldTicks(1);World.getWorld().doPath(new org.dementhium.model.map.path.DefaultPathFinder(),v,destination.getX(),destination.getY());task.execute();
+    check(v.getAttribute("stunned",false)&&v.getLocation().equals(stopped),"Stun rejects movement before expiry tick "+tick);
+   }
+   worldTicks(1);task.execute();check(!v.getAttribute("stunned",false)&&!v.getAttribute("cantMove",false)&&v.getLocation().equals(stopped),"Due stun expiry unlocks without resuming discarded route");
+   World.getWorld().doPath(new org.dementhium.model.map.path.DefaultPathFinder(),v,destination.getX(),destination.getY());task.execute();
+   check(!v.getLocation().equals(stopped),"Fresh movement resumes after stun expiry");
+  }
+ }
+ static void npcMagicCadence()throws Exception{
+  // Waterfiends now have a mixed-family handler; use the ordinary Monk of Zamorak.
+  for(int id:new int[]{1643,190}){
+   clean();NPC n=NPCLoader.getNPC(id);place(n);n.getRandom().setSeed(903);Player p=CombatFixtures.player(n);p.getSkills().setMaximumLifePoints(10000);p.getSkills().setHitPoints(10000);
+   p.getSkills().setLevelAndXP(Skills.DEFENCE,1,0);p.getSkills().setLevelAndXP(Skills.MAGIC,1,0);
+   check(n.getClass()==NPC.class&&n.getCombatAction().getClass()==org.dementhium.model.combat.impl.MagicAction.class,"Loaded NPC uses default magic action: "+id);
+   int delay=n.getDefinition().getAttackDelay();check(delay==(id==1643?4:5),"Retained real NPC attack delay: "+id);
+   n.getCombatExecutor().setVictim(p);List<Integer> launches=new ArrayList<Integer>();
+   // Natural initial cooldown and real task/action prototype; no attack roll or timer is supplied.
+   for(int tick=1;tick<=25&&launches.size()<4;tick++){
+    set(null,World.class,"ticksPassed",tick);n.getMask().reset();new NPCTickTask(n).execute();
+    if(n.getMask().getLastAnimation()!=null)launches.add(tick);
+    if(tick<5)check(p.getDamageManager().getHits().isEmpty()&&p.getHitPoints()==10000,"NPC spell has no pre-impact damage: "+id+" tick="+tick);
+    if(tick==5)check(p.getDamageManager().getHits().size()==1,"NPC spell settles once on its first due tick: "+id);
+   }
+   check(launches.size()==4&&launches.get(0)==3,"Default NPC magic launches naturally: "+id+" "+launches);
+   for(int index=1;index<launches.size();index++)check(launches.get(index)-launches.get(index-1)==delay,"NPC magic cadence follows configured delay "+delay+": "+id+" "+launches);
+   check(p.getHitPoints()<10000&&p.getHitPoints()>0,"Default NPC spells really reach damage settlement: "+id);
+  }
+ }
+ public static void main(String[] args)throws Exception{CombatFixtures.init();reset();vengeance();reflection();bindings();spellEntry();stunMovement();npcMagicCadence();clean();System.out.println("Shared combat repairs: "+checks+" checks passed");}
 }

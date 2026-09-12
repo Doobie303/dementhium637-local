@@ -37,7 +37,7 @@ public class Powerstab extends SpecialAttack {
 	@Override
 	public boolean commenceSpecialAttack(Interaction interaction) {
 		if (interaction.getSource().isMulti() && interaction.getVictim().isMulti()) {
-			interaction.setTargets(CombatUtils.getTargetList(interaction.getSource(), interaction.getSource(), 1, 13));
+			interaction.setTargets(CombatUtils.getTargetList(interaction.getSource(), interaction.getVictim(), interaction.getSource(), 1, 13));
 		} else {
 			List<ExtraTarget> target = new ArrayList<ExtraTarget>();
 			target.add(new ExtraTarget(interaction.getVictim()));
@@ -48,8 +48,8 @@ public class Powerstab extends SpecialAttack {
 			if (e.getVictim().isPlayer()) {
 				e.setDeflected(e.getVictim().getPlayer().getPrayer().usingPrayer(1, 9));
 			}
-			e.setDamage(Damage.getDamage(interaction.getSource(), interaction.getVictim(), CombatType.MELEE, 
-					MeleeFormulae.getDamage(interaction.getSource(), interaction.getVictim())));
+			e.setDamage(Damage.getDamage(interaction.getSource(), e.getVictim(), CombatType.MELEE,
+					MeleeFormulae.getDamage(interaction.getSource(), e.getVictim())));
 			e.getDamage().setMaximum(maximum);
 
 			if (e.isDeflected()) {

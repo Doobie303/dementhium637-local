@@ -254,6 +254,8 @@ public class DamageManager {
             else if (nex != null && nex.isSiphonMode()) type = DamageType.HEAL;
         }
         amount = applyNexHitCap(source, amount, type);
+        if (mob instanceof org.dementhium.model.npc.impl.SlayerNPC)
+            amount = ((org.dementhium.model.npc.impl.SlayerNPC)mob).filterIncomingDamage(source, result, amount, type);
         DamageHit hit = new DamageHit();
         hit.victim = mob; hit.attacker = source; hit.delay = Math.max(0, delay);
         int beforeShield = amount;
@@ -265,8 +267,10 @@ public class DamageManager {
         if (result != null) {
             result.setHit(applied);
             result.setSoaked(hit.partner == null ? 0 : hit.partner.damage);
+            // A positive Nex hit may itself activate the next minion shield.
+            // That new shield blocks later hits, not this hit's earned contact.
             result.finishEffects(source, mob, applied, !immune && type != DamageType.HEAL
-                    && !(mob.isNPC() && nexIsShielded(mob.getNPC())));
+                    && (applied > 0 || !(mob.isNPC() && nexIsShielded(mob.getNPC()))));
             if (immune || type == DamageType.HEAL) result.setDeflected(0);
         }
         hit.isMax = maximum > 0 && amount >= maximum && applied > 0;

@@ -198,7 +198,8 @@ public class FamiliarInterfaceListener extends EventListener {
 			ActionSender.sendConfig(player, 1494, (buttonId - 7) / 2);
 			return true;
 		} else if (interfaceId == 665) {
-			if (player.getFamiliar() == null || !player.getFamiliar().isBeastOfBurden()) {
+			if (player.getFamiliar() == null || !player.getFamiliar().isBeastOfBurden()
+					|| !player.getFamiliar().isOpen() || buttonId != 0) {
 				return true;
 			}
 			switch (opcode) {
@@ -215,12 +216,12 @@ public class FamiliarInterfaceListener extends EventListener {
 				player.getFamiliar().store(itemId, slot, Integer.MAX_VALUE);
 				return true;
 			case 46:
-				InputHandler.requestIntegerInput(player, 9, "How many would you like to store?");
-				player.setAttribute("slotId", slot);
+				player.getFamiliar().requestAmount(slot, itemId, true);
 				return true;
 			}
 		} else if (interfaceId == 671) {
-			if (player.getFamiliar() == null || !player.getFamiliar().isBeastOfBurden()) {
+			if (player.getFamiliar() == null || !player.getFamiliar().isBeastOfBurden()
+					|| !player.getFamiliar().isOpen() || (buttonId != 27 && buttonId != 29)) {
 				return true;
 			}
 			switch (opcode) {
@@ -241,8 +242,7 @@ public class FamiliarInterfaceListener extends EventListener {
 				player.getFamiliar().withdraw(itemId, slot, Integer.MAX_VALUE, true);
 				return true;
 			case 46:
-				InputHandler.requestIntegerInput(player, 10, "How many would you like to withdraw?");
-				player.setAttribute("slotId", slot);
+				player.getFamiliar().requestAmount(slot, itemId, false);
 				return true;
 			}
 		}

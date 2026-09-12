@@ -128,6 +128,7 @@ public class Nex extends NPC {
 	private int autoAttacksSinceSpecial;
 	private int specialStep;
 	private boolean specialPending;
+	private int specialRecoveryUntil;
 	private boolean lastBloodSpecialWasSiphon = true;
 
 	public Nex(int id) {
@@ -182,10 +183,39 @@ public class Nex extends NPC {
         pursuitRoute=null;pursuitTarget=null;pursuitOrigin=null;
         changingPhase=false;noEscapeAttack=false;siphonMode=false;specialPending=false;
         castedShadow=false;castedVirus=false;autoAttacksSinceSpecial=0;
+        specialRecoveryUntil=0;
         for(String special:new String[]{"siphon","blood_sacrifice","shadow_darkness","ice_attack"})removeTick(special);
         setCanAnimate(true);
         NexAreaEvent event=NexAreaEvent.getNexAreaEvent();
         if(event.getNex()==this){event.clearForcedPlayers();event.clearShadows();event.clearIcePrison(false);event.clearContainment();event.clearBloodReavers(false);}
+    }
+
+    @Override public void hit(int damage) {
+        super.hit(damage);
+        // Player hits run after the arena event. Close a reached gate before
+        // another hit in that same cycle can pass through the unshielded phase.
+        NexAreaEvent event = NexAreaEvent.getNexAreaEvent();
+        if (event.getNex() == this && !isDead() && !isDying()) event.checkLife();
+    }
+
+    private void recoverFromSpecial(int ticks) {
+        // Arena callbacks run before the executor, which consumes a cooldown
+        // tick immediately. The absolute deadline preserves the full interval.
+        specialRecoveryUntil = World.getTicks() + ticks;
+        getCombatExecutor().setTicks(ticks);
+    }
+
+    private void sendPhaseProjectile(final Player target, final int projectileId) {
+        final long life = getCombatGeneration();
+        final NexPhase attackPhase = phase;
+        final NPCCombatContext context = new NPCCombatContext(this, target);
+        World.getWorld().submit(new Tick(1) {
+            @Override public void execute() {
+                stop();
+                if (isPhaseCurrent(life, attackPhase) && context.isCurrent())
+                    ProjectileManager.sendGlobalProjectile(projectileId, Nex.this, target, 46, 35, 49);
+            }
+        });
     }
     private CombatType movementType(Mob target) {
         if(target==null)return phase==NexPhase.SHADOW?CombatType.RANGE:CombatType.MAGIC;
@@ -484,10 +514,20 @@ public class Nex extends NPC {
 			bloodReavers.clear();
 		}
 
+        private void removeShadow(Player player, Location shadow) {
+            ActionSender.deleteObject(player,57261,shadow.getX(),shadow.getY(),shadow.getZ(),10,0);
+            // Shadow warnings only replace the client scene; the server retains the scenery.
+            // Types 9 through 21 share the warning's scene-object layer.
+            for (GameObject object : shadow.getObjectsSnapshot()) {
+                if (object.getType() >= 9 && object.getType() <= 21)
+                    ActionSender.sendObject(player, object);
+            }
+        }
+
         private void clearShadows() {
             shadowSequence++;
             for(Player player:getPlayersInRoom())for(Location shadow:shadowLocations)
-                ActionSender.deleteObject(player,57261,shadow.getX(),shadow.getY(),shadow.getZ(),10,0);
+                removeShadow(player, shadow);
             shadowLocations.clear();
             if(nex!=null)nex.castedShadow=false;
         }
@@ -502,7 +542,7 @@ public class Nex extends NPC {
 			}
 			for (Player player : getPlayersInRoom()) {
 				for (Location shadow : shadowLocations) {
-					ActionSender.deleteObject(player, 57261, shadow.getX(), shadow.getY(), 0, 10, 0);
+					removeShadow(player, shadow);
 				}
 				player.cancelForceMovement();
                 player.removeTick("nex_virus");
@@ -584,7 +624,7 @@ public class Nex extends NPC {
 
 		private void performPendingSpecial() {
 			if (nex == null || !nex.specialPending || nex.changingPhase || nex.noEscapeAttack
-					|| nex.siphonMode || nex.hasTick("ice_attack")) {
+					|| nex.siphonMode || nex.hasTick("ice_attack") || World.getTicks() < nex.specialRecoveryUntil) {
 				return;
 			}
 			// The arena event runs before CombatExecutor decrements its cooldown.
@@ -727,8 +767,8 @@ public class Nex extends NPC {
 			nex.forceText("Die now, in a prison of ice!");
 			nex.playSound(Sounds.NexDieNowInPrison);
             nex.animate(CAST_ANIMATION);
-			nex.getCombatExecutor().setTicks(6);
-			ProjectileManager.sendDelayedProjectile(nex, target, 362, false);
+			nex.recoverFromSpecial(6);
+			nex.sendPhaseProjectile(target, 362);
 			final Location centre = target.getLocation();
 			icePrisonTarget = target;
 			for (Player player : getPlayersInRoom()) {
@@ -780,7 +820,7 @@ public class Nex extends NPC {
 			nex.playSound(Sounds.NexContainThis);
 			nex.animate(SMASH_ANIMATION);
 			nex.graphics(SMASH_SMOKE);
-			nex.getCombatExecutor().setTicks(5);
+			nex.recoverFromSpecial(5);
 			final Location base = nex.getLocation();
 			final Nex containmentOwner = nex;
             final long containmentLife = nex.getCombatGeneration();
@@ -888,24 +928,34 @@ public class Nex extends NPC {
 				}
 				nex.forceText("I demand a blood sacrifice!");
 				nex.playSound(Sounds.NexBloodSacrifice);
-				nex.getCombatExecutor().setTicks(5);
+                final int sacrificeDelay = 7;
+				nex.recoverFromSpecial(sacrificeDelay);
 				player.graphics(376);
 				player.sendMessage("Nex has marked you as a sacrifice, RUN!");
 				final Nex sacrificeOwner=nex;final NPCCombatContext sacrificeContext=new NPCCombatContext(nex,player);
-				nex.submitTick("blood_sacrifice", new Tick(5) {
+                final int sacrificeAt = World.getTicks() + sacrificeDelay;
+                final long sacrificeLife = nex.getCombatGeneration();
+				nex.submitTick("blood_sacrifice", new Tick(1) {
+                    private boolean castStarted;
 					@Override
 					public void execute() {
-						stop();
-						if (nex != sacrificeOwner || !sacrificeContext.isCurrent() || !player.isOnline() || !isInNexRoom(player) || player.isDead()) {
+						if (!sacrificeOwner.isPhaseCurrent(sacrificeLife, NexPhase.BLOOD) || !sacrificeContext.isCurrent() || !player.isOnline() || !isInNexRoom(player) || player.isDead()) {
+                            stop();
 							return;
 						}
+                        // Use the ordinary spell's three-tick cast-to-hit interval inside the escape window.
+                        if (!castStarted && World.getTicks() >= sacrificeAt - 3) {
+                            castStarted = true;
+                            sacrificeOwner.animate(CAST_ANIMATION);
+                            sacrificeOwner.sendPhaseProjectile(player, 374);
+                        }
+                        if (World.getTicks() < sacrificeAt) return;
+                        stop();
 						for (Player roomPlayer : getPlayersInRoom()) {
 							if (roomPlayer.isOnline() && CombatStatus.statusAllowed(roomPlayer)) {
 								roomPlayer.getSkills().drainPray(roomPlayer.getSkills().getLevel(5) / 2.0);
 							}
 						}
-						nex.animate(CAST_ANIMATION);
-						ProjectileManager.sendDelayedProjectile(nex, player, 374, false);
 						boolean escaped = player.getLocation().distance(nex.getLocation()) >= 5;
 						int damage = escaped ? 50 + random.nextInt(51) : 600 + random.nextInt(161);
 						Damage sacrifice=Damage.getDamage(nex,player,CombatType.MAGIC,damage,true);sacrifice.setMaximum(760);
@@ -952,7 +1002,7 @@ public class Nex extends NPC {
                 final int started = World.getTicks();
 				nex.forceText("Embrace darkness!");
 				nex.playSound(Sounds.NexEmbraceDarkness);
-				nex.getCombatExecutor().setTicks(4);
+				nex.recoverFromSpecial(4);
 				for (Player player : getPlayersInRoom()) {
 					player.sendMessage("The shadows close in; move away from Nex!");
 				}
@@ -988,7 +1038,7 @@ public class Nex extends NPC {
 					return false;
 				}
 				nex.castedShadow = true;
-				nex.getCombatExecutor().setTicks(4);
+				nex.recoverFromSpecial(4);
 				final Nex owner = nex;
                 final long shadowLife=owner.getCombatGeneration();
                 final int sequence=++shadowSequence;
@@ -1004,7 +1054,7 @@ public class Nex extends NPC {
 					}
 				}
 				localPlayers.clear();
-				World.getWorld().submit(new Tick(2) {
+				World.getWorld().submit(new Tick(3) {
 					@Override
 					public void execute() {
 						stop();
@@ -1013,7 +1063,7 @@ public class Nex extends NPC {
                         nex.castedShadow = false;
 						for(Player player : getPlayersInRoom()) {
 							for(Location loc : locationArray) {
-								ActionSender.deleteObject(player, 57261, loc.getX(), loc.getY(), 0, 10, 0);
+								removeShadow(player, loc);
 								ActionSender.sendPositionedGraphic(player, loc, 383);
 								if(nex != null && player.getLocation().equals(loc) && player.hasReceivedStarter()
 										&& isInNexRoom(player)) {
@@ -1591,7 +1641,7 @@ public class Nex extends NPC {
 				return;
 			}
 			animate(CAST_ANIMATION);
-			getCombatExecutor().setTicks(4);
+			recoverFromSpecial(4);
 			forceText("Let the virus flow through you!");
 			playSound(Sounds.NexVirus);
 			if(victim.hasTick("nex_virus")) {
@@ -1615,7 +1665,7 @@ public class Nex extends NPC {
 
 		@Override
 		public boolean commenceSession() {
-			if(isDead() || isDying() || noEscapeAttack || changingPhase || siphonMode || specialPending || hasTick("ice_attack")) {
+			if(isDead() || isDying() || noEscapeAttack || changingPhase || siphonMode || specialPending || hasTick("ice_attack") || World.getTicks() < specialRecoveryUntil) {
 				return false;
 			}
 
@@ -1677,7 +1727,7 @@ public class Nex extends NPC {
                 for (Player target : NexAreaEvent.getNexAreaEvent().getPlayersInRoom()) {
                     if (!target.isOnline() || target.isDead() || target.isHidden() || target.isInvisible() || !target.hasReceivedStarter() || !NPCCombatContext.validPair(Nex.this,target)) continue;
                     attackTargets.add(target);attackContexts.put(target,new NPCCombatContext(Nex.this,target));
-                    if (projectileId != -1) ProjectileManager.sendDelayedProjectile(Nex.this, target, projectileId, false);
+                    if (projectileId != -1) sendPhaseProjectile(target, projectileId);
                     if (attackTargets.size() == 20) break;
                 }
                 final int fMaxDamage = maxDamage;
